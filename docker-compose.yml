@@ -1,0 +1,47 @@
+version: '3.8'
+
+services:
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    ports:
+      - "3000:3000"
+    environment:
+      - VITE_API_URL=http://localhost:5000
+    depends_on:
+      - backend
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    ports:
+      - "5000:5000"
+    environment:
+      - NODE_ENV=development
+      - JWT_SECRET=your-super-secret-jwt-key-change-in-production
+      - DB_PATH=/app/data/bowling.db
+    volumes:
+      - ./backend:/app
+      - /app/node_modules
+      - bowling_data:/app/data
+    depends_on:
+      - db-init
+
+  db-init:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    command: ["node", "src/db/init.js"]
+    environment:
+      - DB_PATH=/app/data/bowling.db
+    volumes:
+      - bowling_data:/app/data
+
+volumes:
+  bowling_data:
+    driver: local
