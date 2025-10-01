@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { Target, Calculator, Save, RotateCcw, Edit, AlertTriangle } from 'lucide-react';
+import { Target, Calculator, Save, RotateCcw, Edit, AlertTriangle, Plus } from 'lucide-react';
 import Card, { CardContent } from '../ui/Card';
 import Button from '../ui/Button';
 import Input from '../ui/Input';
 import BowlingScoreCalculator from '../../utils/bowlingScoring';
+import { ballAPI } from '../../lib/api';
 
 /**
  * Frame-by-Frame Entry Component
@@ -20,6 +21,36 @@ const FrameByFrameEntry = ({ onGameComplete, initialData = {} }) => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [gameDate, setGameDate] = useState(initialData.gameDate || new Date().toISOString().split('T')[0]);
   const [splits, setSplits] = useState({});
+  const [availableBalls, setAvailableBalls] = useState([]);
+  const [houseBallWeights] = useState([8, 9, 10, 11, 12, 13, 14, 15, 16]);
+  const [frameBalls, setFrameBalls] = useState({}); // Store ball selection per frame/throw
+
+  useEffect(() => {
+    loadAvailableBalls();
+  }, []);
+
+  const loadAvailableBalls = async () => {
+    try {
+      const response = await ballAPI.getBalls();
+      setAvailableBalls(response.data.balls || []);
+    } catch (err) {
+      console.log('Could not load balls');
+      setAvailableBalls([]);
+    }
+  };
+
+  const setBallForThrow = (frameNumber, throwIndex, ball) => {
+    const key = `${frameNumber}-${throwIndex}`;
+    setFrameBalls(prev => ({
+      ...prev,
+      [key]: ball
+    }));
+  };
+
+  const getBallForThrow = (frameNumber, throwIndex) => {
+    const key = `${frameNumber}-${throwIndex}`;
+    return frameBalls[key];
+  };
 
   // Update frames when data changes
   useEffect(() => {
@@ -123,6 +154,7 @@ const FrameByFrameEntry = ({ onGameComplete, initialData = {} }) => {
         frames: frames,
         totalScore: totalScore,
         splits: splits, // Include split data
+        frameBalls: frameBalls, // Include ball selections per throw
         created_at: new Date(gameDate + 'T' + new Date().toTimeString().split(' ')[0]).toISOString()
       };
 
@@ -183,21 +215,39 @@ const FrameByFrameEntry = ({ onGameComplete, initialData = {} }) => {
 
           <div className="space-y-4">
             {/* Throw Inputs */}
-            <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 gap-4">
               {getAvailableThrows(frames[selectedFrame - 1]).map((throwIndex) => (
-                <div key={throwIndex}>
-                  <label className="block text-sm font-medium text-charcoal-700 mb-2">
-                    {throwIndex === 0 ? 'First Throw' : throwIndex === 1 ? 'Second Throw' : 'Third Throw'}
-                  </label>
-                  <Input
-                    type="number"
-                    min="0"
-                    max="10"
-                    value={frames[selectedFrame - 1]?.throws?.[throwIndex] || ''}
-                    onChange={(e) => handleThrowInput(selectedFrame - 1, throwIndex, e.target.value)}
-                    placeholder="0"
-                    className="text-center text-lg font-semibold"
-                  />
+                <div key={throwIndex} className="border rounded-lg p-4 bg-gray-50">
+                  <div className="grid md:grid-cols-2 gap-4">
+                    {/* Pins Input */}
+                    <div>
+                      <label className="block text-sm font-medium text-charcoal-700 mb-2">
+                        {throwIndex === 0 ? 'First Throw' : throwIndex === 1 ? 'Second Throw' : 'Third Throw'} - Pins
+                      </label>
+                      <Input
+                        type="number"
+                        min="0"
+                        max="10"
+                        value={frames[selectedFrame - 1]?.throws?.[throwIndex] || ''}
+                        onChange={(e) => handleThrowInput(selectedFrame - 1, throwIndex, e.target.value)}
+                        placeholder="0"
+                        className="text-center text-lg font-semibold"
+                      />
+                    </div>
+                    
+                    {/* Ball Selection */}
+                    <div>
+                      <label className="block text-sm font-medium text-charcoal-700 mb-2">
+                        Ball Used (Optional)
+                      </label>
+                      <BallSelector
+                        selectedBall={getBallForThrow(selectedFrame, throwIndex)}
+                        onBallSelect={(ball) => setBallForThrow(selectedFrame, throwIndex, ball)}
+                        availableBalls={availableBalls}
+                        houseBallWeights={houseBallWeights}
+                      />
+                    </div>
+                  </div>
                 </div>
               ))}
             </div>
@@ -349,6 +399,101 @@ const FrameByFrameEntry = ({ onGameComplete, initialData = {} }) => {
           )}
         </Button>
       </div>
+    </div>
+  );
+};
+
+// Ball Selector Component for per-throw ball selection
+const BallSelector = ({ selectedBall, onBallSelect, availableBalls, houseBallWeights }) => {
+  const [showSelector, setShowSelector] = useState(false);
+
+  const handleBallSelect = (ball, isHouse = false, weight = null) => {
+    const ballToSelect = isHouse ? {
+      id: `house-${weight}`,
+      name: `House Ball (${weight}lbs)`,
+      weight: weight,
+      type: 'house',
+      color: '#6B7280'
+    } : {
+      ...ball,
+      type: 'personal'
+    };
+    
+    onBallSelect(ballToSelect);
+    setShowSelector(false);
+  };
+
+  return (
+    <div className="relative">
+      {/* Current Selection */}
+      <button
+        onClick={() => setShowSelector(!showSelector)}
+        className="w-full p-2 border border-gray-300 rounded-lg bg-white hover:bg-gray-50 text-left flex items-center justify-between"
+      >
+        <div className="flex items-center space-x-2">
+          {selectedBall ? (
+            <>
+              <div 
+                className="w-6 h-6 rounded-full border border-gray-300"
+                style={{ backgroundColor: selectedBall.color || '#6B7280' }}
+              ></div>
+              <span className="text-sm">{selectedBall.name}</span>
+            </>
+          ) : (
+            <span className="text-sm text-gray-500">Select ball...</span>
+          )}
+        </div>
+        <Plus className="w-4 h-4 text-gray-400" />
+      </button>
+
+      {/* Dropdown */}
+      {showSelector && (
+        <div className="absolute top-full left-0 right-0 z-10 mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-60 overflow-y-auto">
+          {/* Clear Selection */}
+          <button
+            onClick={() => {
+              onBallSelect(null);
+              setShowSelector(false);
+            }}
+            className="w-full p-2 text-left hover:bg-gray-50 text-sm text-gray-600"
+          >
+            No ball selected
+          </button>
+
+          {/* Personal Balls */}
+          {availableBalls.length > 0 && (
+            <>
+              <div className="px-2 py-1 text-xs font-medium text-gray-500 bg-gray-100">Personal Balls</div>
+              {availableBalls.map((ball) => (
+                <button
+                  key={ball.id}
+                  onClick={() => handleBallSelect(ball)}
+                  className="w-full p-2 text-left hover:bg-gray-50 flex items-center space-x-2"
+                >
+                  <div 
+                    className="w-4 h-4 rounded-full border border-gray-300"
+                    style={{ backgroundColor: ball.color || '#374151' }}
+                  ></div>
+                  <span className="text-sm">{ball.name} ({ball.weight}lbs)</span>
+                </button>
+              ))}
+            </>
+          )}
+
+          {/* House Balls */}
+          <div className="px-2 py-1 text-xs font-medium text-gray-500 bg-gray-100">House Balls</div>
+          {houseBallWeights.map((weight) => (
+            <button
+              key={weight}
+              onClick={() => handleBallSelect(null, true, weight)}
+              className="w-full p-2 text-left hover:bg-gray-50 flex items-center space-x-2"
+            >
+              <div className="w-4 h-4 rounded-full border border-gray-300 bg-gray-400"></div>
+              <span className="text-sm">House Ball ({weight}lbs)</span>
+            </button>
+          ))}
+        </div>
+      )}
     </div>
   );
 };

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Zap, TrendingUp, Award, Fire, Clock, BarChart3, Target, Star } from 'lucide-react';
+import { Zap, TrendingUp, Award, Flame, Clock, BarChart3, Target, Star } from 'lucide-react';
 import PageHeader from '../components/layout/PageHeader';
 import Card, { CardContent, CardHeader, CardTitle } from '../components/ui/Card';
 import Button from '../components/ui/Button';
@@ -58,11 +58,11 @@ const StreaksPage = () => {
       above200: Star,
       above175: Award,
       above150: BarChart3,
-      cleanGames: Fire,
+  cleanGames: Flame,
       dailyPlay: Clock,
-      turkeys: Fire,
-      fourBagger: Fire,
-      fiveBagger: Fire
+  turkeys: Flame,
+  fourBagger: Flame,
+  fiveBagger: Flame
     };
     
     return icons[type] || Zap;
@@ -173,7 +173,7 @@ const StreaksPage = () => {
             <div className="space-y-3">
               {notifications.slice(-5).map((notification) => (
                 <div key={notification.id} className="flex items-center space-x-3 p-3 bg-white rounded-lg">
-                  <Fire className="w-6 h-6 text-orange-500" />
+                  <Flame className="w-6 h-6 text-orange-500" />
                   <div className="flex-1">
                     <p className="font-medium text-charcoal-900">{notification.message}</p>
                     <p className="text-sm text-charcoal-600">
@@ -191,8 +191,8 @@ const StreaksPage = () => {
       {streakStats && (
         <div className="grid grid-cols-2 md:grid-cols-4 gap-6 mb-8">
           <Card>
-            <CardContent className="text-center py-6">
-              <Fire className="w-12 h-12 text-orange-500 mx-auto mb-3" />
+              <CardContent className="text-center py-6">
+              <Flame className="w-12 h-12 text-orange-500 mx-auto mb-3" />
               <div className="text-3xl font-bold text-charcoal-900">
                 {streakStats.activeStreaks}
               </div>
@@ -290,7 +290,7 @@ const StreaksPage = () => {
       {filteredStreaks.length === 0 ? (
         <Card>
           <CardContent className="text-center py-20">
-            <Fire className="w-16 h-16 text-charcoal-400 mx-auto mb-4" />
+            <Flame className="w-16 h-16 text-charcoal-400 mx-auto mb-4" />
             <h3 className="text-xl font-semibold text-charcoal-900 mb-2">
               {filter === 'active' ? 'No active streaks' : 'No streaks yet'}
             </h3>

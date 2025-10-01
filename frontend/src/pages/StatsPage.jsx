@@ -424,6 +424,42 @@ const StatsPage = () => {
         }
       />
 
+      {/* Analysis Navigation */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+        <Button
+          onClick={() => navigate('/trends')}
+          variant="outline"
+          className="flex items-center space-x-2"
+        >
+          <TrendingUp className="w-4 h-4" />
+          <span>Trend Analysis</span>
+        </Button>
+        <Button
+          onClick={() => navigate('/streaks')}
+          variant="outline"
+          className="flex items-center space-x-2"
+        >
+          <Zap className="w-4 h-4" />
+          <span>Streaks</span>
+        </Button>
+        <Button
+          onClick={() => navigate('/pin-carry')}
+          variant="outline"
+          className="flex items-center space-x-2"
+        >
+          <Activity className="w-4 h-4" />
+          <span>Pin Carry</span>
+        </Button>
+        <Button
+          onClick={() => navigate('/goals')}
+          variant="outline"
+          className="flex items-center space-x-2"
+        >
+          <Target className="w-4 h-4" />
+          <span>Goals</span>
+        </Button>
+      </div>
+
       {/* Core Performance Metrics */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
         <Card>

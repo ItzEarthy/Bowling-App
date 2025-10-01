@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { Card } from '../components/ui/Card';
-import { Button } from '../components/ui/Button';
-import { PageHeader } from '../components/layout/PageHeader';
+import Card, { CardContent, CardHeader, CardTitle } from '../components/ui/Card';
+import Button from '../components/ui/Button';
+import PageHeader from '../components/layout/PageHeader';
 import { pinCarryAnalyzer, PIN_PATTERNS, CARRY_PATTERNS } from '../utils/pinCarryAnalysis';
-import { useAuthStore } from '../stores/authStore';
+import useAuthStore from '../stores/authStore';
 
 const PinCarryPage = () => {
   const { user } = useAuthStore();

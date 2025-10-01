@@ -22,7 +22,6 @@ import TrendAnalysisPage from './pages/TrendAnalysisPage';
 import GoalsPage from './pages/GoalsPage';
 import StreaksPage from './pages/StreaksPage';
 import EnhancedFriendsPage from './pages/EnhancedFriendsPage';
-import OilPatternPage from './pages/OilPatternPage';
 import BallMaintenancePage from './pages/BallMaintenancePage';
 import PinCarryPage from './pages/PinCarryPage';
 import SettingsPage from './pages/SettingsPage';
@@ -92,7 +91,6 @@ function App() {
             <Route path="goals" element={<GoalsPage />} />
             <Route path="streaks" element={<StreaksPage />} />
             <Route path="friends" element={<EnhancedFriendsPage />} />
-            <Route path="oil-patterns" element={<OilPatternPage />} />
             <Route path="ball-maintenance" element={<BallMaintenancePage />} />
             <Route path="pin-carry" element={<PinCarryPage />} />
             <Route path="arsenal" element={<ArsenalPage />} />

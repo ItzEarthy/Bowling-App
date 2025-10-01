@@ -1,8 +1,9 @@
-import React, { useState } from 'react';
-import { Trophy, Target, Zap, Save } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Trophy, Target, Zap, Save, Plus, X } from 'lucide-react';
 import Card, { CardContent } from '../ui/Card';
 import Button from '../ui/Button';
 import Input from '../ui/Input';
+import { ballAPI } from '../../lib/api';
 
 /**
  * Final Score Entry Component
@@ -14,11 +15,62 @@ const FinalScoreEntry = ({ onGameComplete, initialData = {} }) => {
     strikes: initialData.strikes || '',
     spares: initialData.spares || '',
     notes: initialData.notes || '',
-    gameDate: initialData.gameDate || new Date().toISOString().split('T')[0] // Default to today
+    gameDate: initialData.gameDate || new Date().toISOString().split('T')[0],
+    ballsUsed: initialData.ballsUsed || [] // Array of ball objects used in the game
   });
   
   const [errors, setErrors] = useState({});
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [availableBalls, setAvailableBalls] = useState([]);
+  const [houseBallWeights] = useState([8, 9, 10, 11, 12, 13, 14, 15, 16]);
+  const [showBallSelector, setShowBallSelector] = useState(false);
+
+  useEffect(() => {
+    loadAvailableBalls();
+  }, []);
+
+  const loadAvailableBalls = async () => {
+    try {
+      const response = await ballAPI.getBalls();
+      setAvailableBalls(response.data.balls || []);
+    } catch (err) {
+      console.log('Could not load balls');
+      setAvailableBalls([]);
+    }
+  };
+
+  const addBallToGame = (ball, isHouse = false, weight = null) => {
+    const ballToAdd = isHouse ? {
+      id: `house-${weight}`,
+      name: `House Ball (${weight}lbs)`,
+      weight: weight,
+      type: 'house'
+    } : {
+      ...ball,
+      type: 'personal'
+    };
+
+    // Check if ball already added
+    const alreadyAdded = formData.ballsUsed.find(b => 
+      b.id === ballToAdd.id || 
+      (isHouse && b.type === 'house' && b.weight === weight)
+    );
+
+    if (!alreadyAdded) {
+      setFormData(prev => ({
+        ...prev,
+        ballsUsed: [...prev.ballsUsed, ballToAdd]
+      }));
+    }
+    setShowBallSelector(false);
+  };
+
+  const removeBallFromGame = (ballId) => {
+    setFormData(prev => ({
+      ...prev,
+      ballsUsed: prev.ballsUsed.filter(ball => ball.id !== ballId)
+    }));
+  };
 
   // Validation
   const validateForm = () => {
@@ -84,6 +136,7 @@ const FinalScoreEntry = ({ onGameComplete, initialData = {} }) => {
         strikes: formData.strikes ? parseInt(formData.strikes) : undefined,
         spares: formData.spares ? parseInt(formData.spares) : undefined,
         notes: formData.notes || undefined,
+        ballsUsed: formData.ballsUsed.length > 0 ? formData.ballsUsed : undefined,
         created_at: new Date(formData.gameDate + 'T' + new Date().toTimeString().split(' ')[0]).toISOString()
       };
 
@@ -182,6 +235,125 @@ const FinalScoreEntry = ({ onGameComplete, initialData = {} }) => {
               />
               <p className="text-xs text-charcoal-500 mt-1">0-10 spares</p>
             </div>
+          </div>
+
+          {/* Balls Used */}
+          <div>
+            <label className="block text-sm font-medium text-charcoal-700 mb-2">
+              Balls Used (Optional)
+            </label>
+            
+            {/* Current balls */}
+            {formData.ballsUsed.length > 0 && (
+              <div className="mb-3 space-y-2">
+                {formData.ballsUsed.map((ball) => (
+                  <div 
+                    key={ball.id}
+                    className="flex items-center justify-between p-3 bg-gray-50 rounded-lg border"
+                  >
+                    <div className="flex items-center space-x-3">
+                      <div 
+                        className="w-8 h-8 rounded-full border-2 border-gray-200"
+                        style={{ 
+                          backgroundColor: ball.color || (ball.type === 'house' ? '#6B7280' : '#374151')
+                        }}
+                      ></div>
+                      <div>
+                        <div className="font-medium text-sm">{ball.name}</div>
+                        <div className="text-xs text-gray-600">
+                          {ball.weight}lbs • {ball.type === 'house' ? 'House Ball' : 'Personal'}
+                        </div>
+                      </div>
+                    </div>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => removeBallFromGame(ball.id)}
+                      className="text-red-600 hover:text-red-700"
+                    >
+                      <X className="w-4 h-4" />
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* Add ball button */}
+            <Button
+              variant="outline"
+              onClick={() => setShowBallSelector(true)}
+              className="w-full"
+            >
+              <Plus className="w-4 h-4 mr-2" />
+              Add Ball
+            </Button>
+
+            {/* Ball Selector Modal */}
+            {showBallSelector && (
+              <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+                <div className="bg-white rounded-lg p-6 max-w-2xl w-full mx-4 max-h-[80vh] overflow-y-auto">
+                  <div className="flex justify-between items-center mb-4">
+                    <h3 className="text-lg font-semibold">Select Ball</h3>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setShowBallSelector(false)}
+                    >
+                      <X className="w-4 h-4" />
+                    </Button>
+                  </div>
+
+                  {/* Personal Balls */}
+                  {availableBalls.length > 0 && (
+                    <div className="mb-6">
+                      <h4 className="font-medium mb-3">Personal Balls</h4>
+                      <div className="grid grid-cols-2 gap-3">
+                        {availableBalls.map((ball) => (
+                          <button
+                            key={ball.id}
+                            onClick={() => addBallToGame(ball)}
+                            className="p-3 border rounded-lg hover:bg-gray-50 text-left"
+                          >
+                            <div className="flex items-center space-x-3">
+                              <div 
+                                className="w-8 h-8 rounded-full border-2 border-gray-200"
+                                style={{ 
+                                  backgroundColor: ball.color || '#374151'
+                                }}
+                              ></div>
+                              <div>
+                                <div className="font-medium text-sm">{ball.name}</div>
+                                <div className="text-xs text-gray-600">{ball.weight}lbs</div>
+                              </div>
+                            </div>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* House Balls */}
+                  <div>
+                    <h4 className="font-medium mb-3">House Balls</h4>
+                    <div className="grid grid-cols-3 gap-3">
+                      {houseBallWeights.map((weight) => (
+                        <button
+                          key={weight}
+                          onClick={() => addBallToGame(null, true, weight)}
+                          className="p-3 border rounded-lg hover:bg-gray-50 text-center"
+                        >
+                          <div className="text-lg mb-1">🎳</div>
+                          <div className="font-medium text-sm">{weight}lbs</div>
+                          <div className="text-xs text-gray-600">House</div>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            <p className="text-xs text-charcoal-500 mt-1">Track which balls you used in this game</p>
           </div>
 
           {/* Game Date */}

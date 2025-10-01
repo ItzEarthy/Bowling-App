@@ -24,11 +24,6 @@ const BottomNavigation = () => {
       icon: Home
     },
     {
-      path: '/arsenal',
-      label: 'Arsenal',
-      icon: Target
-    },
-    {
       path: '/game-log',
       label: 'Games',
       icon: BarChart3
@@ -39,39 +34,19 @@ const BottomNavigation = () => {
       icon: TrendingUp
     },
     {
-      path: '/trends',
-      label: 'Trends',
-      icon: LineChart
-    },
-    {
-      path: '/streaks',
-      label: 'Streaks',
-      icon: Zap
-    },
-    {
       path: '/achievements',
       label: 'Awards',
       icon: Trophy
     },
     {
       path: '/friends',
-      label: 'Friends',
+      label: 'Social',
       icon: Users
     },
     {
-      path: '/oil-patterns',
-      label: 'Oil',
-      icon: Droplets
-    },
-    {
-      path: '/ball-maintenance',
-      label: 'Maint',
-      icon: Wrench
-    },
-    {
-      path: '/pin-carry',
-      label: 'Carry',
-      icon: Activity
+      path: '/arsenal',
+      label: 'Arsenal',
+      icon: Target
     },
     ...(isAdmin ? [{
       path: '/admin',

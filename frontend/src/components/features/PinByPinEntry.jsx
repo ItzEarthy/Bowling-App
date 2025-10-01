@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { Zap, Save, RotateCcw, Target, Eye, EyeOff, AlertTriangle } from 'lucide-react';
+import { Zap, Save, RotateCcw, Target, Eye, EyeOff, AlertTriangle, Plus } from 'lucide-react';
 import Card, { CardContent } from '../ui/Card';
 import Button from '../ui/Button';
 import Input from '../ui/Input';
 import BowlingScorecard from './BowlingScorecard';
 import BowlingScoreCalculator from '../../utils/bowlingScoring';
 import { analyzeSplitFromPins, getSplitAdvice } from '../../utils/splitDetection';
+import { ballAPI } from '../../lib/api';
 
 /**
  * Individual Pin Component for Pin Selection
@@ -89,6 +90,36 @@ const PinByPinEntry = ({ onGameComplete, initialData = {} }) => {
   const [gameDate, setGameDate] = useState(initialData.gameDate || new Date().toISOString().split('T')[0]);
   const [currentSplit, setCurrentSplit] = useState(null);
   const [showSplitAdvice, setShowSplitAdvice] = useState(false);
+  const [availableBalls, setAvailableBalls] = useState([]);
+  const [houseBallWeights] = useState([8, 9, 10, 11, 12, 13, 14, 15, 16]);
+  const [frameBalls, setFrameBalls] = useState({}); // Store ball selection per frame/throw
+
+  useEffect(() => {
+    loadAvailableBalls();
+  }, []);
+
+  const loadAvailableBalls = async () => {
+    try {
+      const response = await ballAPI.getBalls();
+      setAvailableBalls(response.data.balls || []);
+    } catch (err) {
+      console.log('Could not load balls');
+      setAvailableBalls([]);
+    }
+  };
+
+  const setBallForThrow = (frameNumber, throwIndex, ball) => {
+    const key = `${frameNumber}-${throwIndex}`;
+    setFrameBalls(prev => ({
+      ...prev,
+      [key]: ball
+    }));
+  };
+
+  const getBallForThrow = (frameNumber, throwIndex) => {
+    const key = `${frameNumber}-${throwIndex}`;
+    return frameBalls[key];
+  };
 
   // Calculate available pins for current throw
   const getAvailablePins = () => {
@@ -321,6 +352,7 @@ const PinByPinEntry = ({ onGameComplete, initialData = {} }) => {
         entryMode: 'pin_by_pin',
         frames: frames,
         totalScore: totalScore,
+        frameBalls: frameBalls, // Include ball selections per throw
         created_at: new Date(gameDate + 'T' + new Date().toTimeString().split(' ')[0]).toISOString()
       };
 
@@ -395,6 +427,98 @@ const PinByPinEntry = ({ onGameComplete, initialData = {} }) => {
                     Current value: {currentFrameThrows[currentThrow - 1] || 0} pins
                   </p>
                 )}
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Ball Selection */}
+          <Card className="bg-cream-50 border-cream-200">
+            <CardContent className="p-4">
+              <div className="space-y-3">
+                <h4 className="font-semibold text-charcoal-800 text-center">
+                  Ball for This Throw
+                </h4>
+                
+                <div className="grid grid-cols-1 gap-3">
+                  {/* Selected Ball Display */}
+                  <div className="text-center p-3 bg-white rounded-lg border">
+                    {(() => {
+                      const selectedBall = getBallForThrow(currentFrame, currentThrow);
+                      if (selectedBall) {
+                        if (selectedBall.type === 'house') {
+                          return (
+                            <div>
+                              <p className="font-medium text-charcoal-800">House Ball</p>
+                              <p className="text-sm text-charcoal-600">{selectedBall.weight} lbs</p>
+                            </div>
+                          );
+                        } else {
+                          return (
+                            <div>
+                              <p className="font-medium text-charcoal-800">{selectedBall.brand} {selectedBall.model}</p>
+                              <p className="text-sm text-charcoal-600">{selectedBall.weight} lbs</p>
+                            </div>
+                          );
+                        }
+                      } else {
+                        return <p className="text-charcoal-500 italic">No ball selected</p>;
+                      }
+                    })()}
+                  </div>
+
+                  {/* Ball Selection Buttons */}
+                  <div className="space-y-2">
+                    {/* Personal Balls */}
+                    {availableBalls.length > 0 && (
+                      <div>
+                        <h5 className="text-sm font-medium text-charcoal-700 mb-2">Your Balls</h5>
+                        <div className="grid grid-cols-1 gap-1">
+                          {availableBalls.map((ball) => (
+                            <button
+                              key={ball.id}
+                              onClick={() => setBallForThrow(currentFrame, currentThrow, ball)}
+                              className={`p-2 text-left text-sm border rounded transition-colors ${
+                                getBallForThrow(currentFrame, currentThrow)?.id === ball.id
+                                  ? 'bg-vintage-red-100 border-vintage-red-300 text-vintage-red-800'
+                                  : 'bg-white border-gray-200 text-charcoal-700 hover:bg-gray-50'
+                              }`}
+                            >
+                              <div className="font-medium">{ball.brand} {ball.model}</div>
+                              <div className="text-xs text-charcoal-600">{ball.weight} lbs</div>
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* House Balls */}
+                    <div>
+                      <h5 className="text-sm font-medium text-charcoal-700 mb-2">House Balls</h5>
+                      <div className="grid grid-cols-4 gap-1">
+                        {houseBallWeights.map((weight) => (
+                          <button
+                            key={weight}
+                            onClick={() => setBallForThrow(currentFrame, currentThrow, {
+                              type: 'house',
+                              weight: weight,
+                              id: `house-${weight}`,
+                              brand: 'House',
+                              model: `${weight}lb`
+                            })}
+                            className={`p-2 text-sm border rounded transition-colors ${
+                              getBallForThrow(currentFrame, currentThrow)?.weight === weight &&
+                              getBallForThrow(currentFrame, currentThrow)?.type === 'house'
+                                ? 'bg-vintage-red-100 border-vintage-red-300 text-vintage-red-800'
+                                : 'bg-white border-gray-200 text-charcoal-700 hover:bg-gray-50'
+                            }`}
+                          >
+                            {weight}lb
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                </div>
               </div>
             </CardContent>
           </Card>
