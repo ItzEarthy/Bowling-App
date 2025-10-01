@@ -8,23 +8,26 @@ const router = express.Router();
 // Validation schemas
 const updateProfileSchema = z.object({
   body: z.object({
+    username: z.string()
+      .min(3, 'Username must be at least 3 characters')
+      .max(20, 'Username must be less than 20 characters')
+      .regex(/^[a-zA-Z0-9_]+$/, 'Username can only contain letters, numbers, and underscores')
+      .optional(),
     displayName: z.string()
       .min(1, 'Display name is required')
       .max(50, 'Display name must be less than 50 characters')
       .optional(),
-    currentPassword: z.string().min(1, 'Current password is required').optional(),
-    newPassword: z.string()
-      .min(8, 'Password must be at least 8 characters')
-      .regex(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/, 'Password must contain at least one lowercase letter, one uppercase letter, and one number')
+    email: z.string()
+      .email('Invalid email address')
       .optional()
-  }).refine(data => {
-    // If newPassword is provided, currentPassword must also be provided
-    if (data.newPassword && !data.currentPassword) {
-      return false;
-    }
-    return true;
-  }, {
-    message: 'Current password is required when changing password'
+  })
+});
+
+const changePasswordSchema = z.object({
+  body: z.object({
+    currentPassword: z.string().min(1, 'Current password is required'),
+    newPassword: z.string()
+      .min(6, 'Password must be at least 6 characters')
   })
 });
 
@@ -72,37 +75,50 @@ router.get('/me', authenticateToken, (req, res, next) => {
  */
 router.put('/me', authenticateToken, validateRequest(updateProfileSchema), async (req, res, next) => {
   try {
-    const { displayName, currentPassword, newPassword } = req.body;
+    const { username, displayName, email } = req.body;
     const userId = req.user.userId;
 
     // Get current user data
     const currentUser = global.db.prepare(`
-      SELECT hashed_password FROM users WHERE id = ?
+      SELECT id, username, display_name, email, hashed_password, role
+      FROM users WHERE id = ?
     `).get(userId);
 
     if (!currentUser) {
       return res.status(404).json({ error: 'User not found' });
     }
 
-    let updateData = {};
-    
-    // Update display name if provided
-    if (displayName) {
-      updateData.display_name = displayName;
-    }
+    const updateData = {};
 
-    // Update password if provided
-    if (newPassword && currentPassword) {
-      // Verify current password
-      const isValidPassword = await bcrypt.compare(currentPassword, currentUser.hashed_password);
-      
-      if (!isValidPassword) {
-        return res.status(400).json({ error: 'Current password is incorrect' });
+    // Check if username is being changed and if it's already taken
+    if (username && username !== currentUser.username) {
+      const existingUser = global.db.prepare(`
+        SELECT id FROM users WHERE username = ? AND id != ?
+      `).get(username, userId);
+
+      if (existingUser) {
+        return res.status(400).json({ error: 'Username is already taken' });
       }
 
-      // Hash new password
-      const saltRounds = 12;
-      updateData.hashed_password = await bcrypt.hash(newPassword, saltRounds);
+      updateData.username = username;
+    }
+
+    // Check if email is being changed and if it's already taken
+    if (email && email !== currentUser.email) {
+      const existingUser = global.db.prepare(`
+        SELECT id FROM users WHERE email = ? AND id != ?
+      `).get(email, userId);
+
+      if (existingUser) {
+        return res.status(400).json({ error: 'Email is already taken' });
+      }
+
+      updateData.email = email;
+    }
+
+    // Update display name
+    if (displayName && displayName !== currentUser.display_name) {
+      updateData.display_name = displayName;
     }
 
     // Perform update if there are changes
@@ -117,7 +133,7 @@ router.put('/me', authenticateToken, validateRequest(updateProfileSchema), async
 
     // Return updated user data
     const updatedUser = global.db.prepare(`
-      SELECT id, username, display_name, email, created_at
+      SELECT id, username, display_name, email, created_at, role
       FROM users WHERE id = ?
     `).get(userId);
 
@@ -128,8 +144,95 @@ router.put('/me', authenticateToken, validateRequest(updateProfileSchema), async
         username: updatedUser.username,
         displayName: updatedUser.display_name,
         email: updatedUser.email,
-        createdAt: updatedUser.created_at
+        createdAt: updatedUser.created_at,
+        role: updatedUser.role
       }
+    });
+
+  } catch (error) {
+    next(error);
+  }
+});
+
+/**
+ * PUT /api/users/me/password
+ * Change authenticated user's password
+ */
+router.put('/me/password', authenticateToken, validateRequest(changePasswordSchema), async (req, res, next) => {
+  try {
+    const { currentPassword, newPassword } = req.body;
+    const userId = req.user.userId;
+
+    // Get current user data
+    const currentUser = global.db.prepare(`
+      SELECT id, username, hashed_password
+      FROM users WHERE id = ?
+    `).get(userId);
+
+    if (!currentUser) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    // Verify current password
+    const isValidPassword = await bcrypt.compare(currentPassword, currentUser.hashed_password);
+    
+    if (!isValidPassword) {
+      return res.status(400).json({ error: 'Current password is incorrect' });
+    }
+
+    // Hash new password
+    const saltRounds = 12;
+    const hashedNewPassword = await bcrypt.hash(newPassword, saltRounds);
+
+    // Update password
+    global.db.prepare(`
+      UPDATE users SET hashed_password = ? WHERE id = ?
+    `).run(hashedNewPassword, userId);
+
+    res.json({
+      message: 'Password changed successfully'
+    });
+
+  } catch (error) {
+    next(error);
+  }
+});
+
+/**
+ * DELETE /api/users/me
+ * Delete authenticated user's account
+ */
+router.delete('/me', authenticateToken, async (req, res, next) => {
+  try {
+    const userId = req.user.userId;
+
+    // Start transaction
+    const deleteTransaction = global.db.transaction(() => {
+      // Delete user's balls (cascade will handle frames that reference these balls)
+      global.db.prepare(`
+        DELETE FROM balls WHERE user_id = ?
+      `).run(userId);
+
+      // Delete user's games (cascade will handle frames that reference these games)
+      global.db.prepare(`
+        DELETE FROM games WHERE user_id = ?
+      `).run(userId);
+
+      // Delete friend relationships
+      global.db.prepare(`
+        DELETE FROM friends WHERE requester_id = ? OR receiver_id = ?
+      `).run(userId, userId);
+
+      // Finally delete the user
+      global.db.prepare(`
+        DELETE FROM users WHERE id = ?
+      `).run(userId);
+    });
+
+    deleteTransaction();
+
+    res.json({
+      message: 'Account deleted successfully'
     });
 
   } catch (error) {

@@ -148,6 +148,9 @@ const GamePage = () => {
         onFrameClick={handleFrameClick}
         totalScore={currentGame?.total_score || 0}
         gameComplete={gameComplete}
+        entryMode={currentGame?.entry_mode || 'pin_by_pin'}
+        strikes={currentGame?.strikes}
+        spares={currentGame?.spares}
       />
 
       {/* Game Controls */}

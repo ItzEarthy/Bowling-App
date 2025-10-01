@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Target, Calendar, MapPin, Filter, TrendingUp, Award, BarChart3 } from 'lucide-react';
+import { Target, Calendar, MapPin, Filter, TrendingUp, Award, BarChart3, Edit, Trash2, MoreVertical } from 'lucide-react';
 import PageHeader from '../components/layout/PageHeader';
 import Card, { CardContent, CardHeader, CardTitle } from '../components/ui/Card';
 import Button from '../components/ui/Button';
@@ -32,6 +32,15 @@ const GameLogPage = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [showFilters, setShowFilters] = useState(false);
   const [showGameModal, setShowGameModal] = useState(false);
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [gameToEdit, setGameToEdit] = useState(null);
+  const [gameToDelete, setGameToDelete] = useState(null);
+  const [editFormData, setEditFormData] = useState({
+    location: '',
+    notes: '',
+    created_at: ''
+  });
   const [error, setError] = useState(null);
   const [page, setPage] = useState(1);
   const [hasMore, setHasMore] = useState(true);
@@ -99,7 +108,7 @@ const GameLogPage = () => {
       return;
     }
 
-    const scores = completedGames.map(game => game.score);
+    const scores = completedGames.map(game => game.total_score || game.score);
     const totalPins = scores.reduce((sum, score) => sum + score, 0);
     const averageScore = Math.round(totalPins / completedGames.length);
     const highScore = Math.max(...scores);
@@ -109,9 +118,9 @@ const GameLogPage = () => {
     const recentGames = completedGames.slice(0, 5);
     const previousGames = completedGames.slice(5, 10);
     const recentAverage = recentGames.length > 0 ? 
-      Math.round(recentGames.reduce((sum, game) => sum + game.score, 0) / recentGames.length) : 0;
+      Math.round(recentGames.reduce((sum, game) => sum + (game.total_score || game.score), 0) / recentGames.length) : 0;
     const previousAverage = previousGames.length > 0 ? 
-      Math.round(previousGames.reduce((sum, game) => sum + game.score, 0) / previousGames.length) : 0;
+      Math.round(previousGames.reduce((sum, game) => sum + (game.total_score || game.score), 0) / previousGames.length) : 0;
     const improvementTrend = recentAverage - previousAverage;
 
     // Calculate consistency (standard deviation)
@@ -151,6 +160,63 @@ const GameLogPage = () => {
       setShowGameModal(true);
     } catch (err) {
       setError('Failed to load game details');
+    }
+  };
+
+  const handleEditGame = (game, event) => {
+    event.stopPropagation(); // Prevent triggering game click
+    setGameToEdit(game);
+    setEditFormData({
+      location: game.location || '',
+      notes: game.notes || '',
+      created_at: game.created_at ? game.created_at.split('T')[0] : '' // Convert to YYYY-MM-DD format
+    });
+    setShowEditModal(true);
+  };
+
+  const handleDeleteGame = (game, event) => {
+    event.stopPropagation(); // Prevent triggering game click
+    setGameToDelete(game);
+    setShowDeleteModal(true);
+  };
+
+  const handleSaveEdit = async () => {
+    try {
+      const updatedData = {
+        location: editFormData.location,
+        notes: editFormData.notes,
+        created_at: editFormData.created_at ? new Date(editFormData.created_at).toISOString() : gameToEdit.created_at
+      };
+
+      await gameAPI.updateGame(gameToEdit.id, updatedData);
+      
+      // Update the games list
+      setGames(prev => prev.map(game => 
+        game.id === gameToEdit.id 
+          ? { ...game, ...updatedData }
+          : game
+      ));
+
+      setShowEditModal(false);
+      setGameToEdit(null);
+      setError(null);
+    } catch (err) {
+      setError('Failed to update game');
+    }
+  };
+
+  const handleConfirmDelete = async () => {
+    try {
+      await gameAPI.deleteGame(gameToDelete.id);
+      
+      // Remove the game from the list
+      setGames(prev => prev.filter(game => game.id !== gameToDelete.id));
+      
+      setShowDeleteModal(false);
+      setGameToDelete(null);
+      setError(null);
+    } catch (err) {
+      setError('Failed to delete game');
     }
   };
 
@@ -319,6 +385,126 @@ const GameLogPage = () => {
         </Card>
       )}
 
+      {/* Entry Mode Breakdown */}
+      {stats && stats.totalGames > 0 && (
+        <Card className="mb-8">
+          <CardHeader>
+            <CardTitle>Game Entry Methods</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              {/* Pin by Pin */}
+              <div className="text-center">
+                <div className="relative w-24 h-24 mx-auto mb-4">
+                  <svg className="w-24 h-24 transform -rotate-90" viewBox="0 0 36 36">
+                    <path
+                      d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
+                      fill="none"
+                      stroke="#e5e7eb"
+                      strokeWidth="3"
+                    />
+                    <path
+                      d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
+                      fill="none"
+                      stroke="#059669"
+                      strokeWidth="3"
+                      strokeDasharray={`${Math.round((games.filter(g => g.entry_mode === 'pin_by_pin').length / games.length) * 100)}, 100`}
+                    />
+                  </svg>
+                  <div className="absolute inset-0 flex items-center justify-center">
+                    <div className="text-center">
+                      <p className="text-lg font-bold text-charcoal-900">
+                        {games.filter(g => g.entry_mode === 'pin_by_pin').length}
+                      </p>
+                      <p className="text-xs text-charcoal-600">games</p>
+                    </div>
+                  </div>
+                </div>
+                <div className="space-y-1">
+                  <p className="font-semibold text-charcoal-800">Pin by Pin</p>
+                  <p className="text-sm text-green-600">Most detailed</p>
+                  <p className="text-xs text-charcoal-500">
+                    {Math.round((games.filter(g => g.entry_mode === 'pin_by_pin').length / games.length) * 100)}% of games
+                  </p>
+                </div>
+              </div>
+
+              {/* Frame by Frame */}
+              <div className="text-center">
+                <div className="relative w-24 h-24 mx-auto mb-4">
+                  <svg className="w-24 h-24 transform -rotate-90" viewBox="0 0 36 36">
+                    <path
+                      d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
+                      fill="none"
+                      stroke="#e5e7eb"
+                      strokeWidth="3"
+                    />
+                    <path
+                      d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
+                      fill="none"
+                      stroke="#dc2626"
+                      strokeWidth="3"
+                      strokeDasharray={`${Math.round((games.filter(g => g.entry_mode === 'frame_by_frame').length / games.length) * 100)}, 100`}
+                    />
+                  </svg>
+                  <div className="absolute inset-0 flex items-center justify-center">
+                    <div className="text-center">
+                      <p className="text-lg font-bold text-charcoal-900">
+                        {games.filter(g => g.entry_mode === 'frame_by_frame').length}
+                      </p>
+                      <p className="text-xs text-charcoal-600">games</p>
+                    </div>
+                  </div>
+                </div>
+                <div className="space-y-1">
+                  <p className="font-semibold text-charcoal-800">Frame by Frame</p>
+                  <p className="text-sm text-yellow-600">Moderate detail</p>
+                  <p className="text-xs text-charcoal-500">
+                    {Math.round((games.filter(g => g.entry_mode === 'frame_by_frame').length / games.length) * 100)}% of games
+                  </p>
+                </div>
+              </div>
+
+              {/* Final Score */}
+              <div className="text-center">
+                <div className="relative w-24 h-24 mx-auto mb-4">
+                  <svg className="w-24 h-24 transform -rotate-90" viewBox="0 0 36 36">
+                    <path
+                      d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
+                      fill="none"
+                      stroke="#e5e7eb"
+                      strokeWidth="3"
+                    />
+                    <path
+                      d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
+                      fill="none"
+                      stroke="#2563eb"
+                      strokeWidth="3"
+                      strokeDasharray={`${Math.round((games.filter(g => g.entry_mode === 'final_score').length / games.length) * 100)}, 100`}
+                    />
+                  </svg>
+                  <div className="absolute inset-0 flex items-center justify-center">
+                    <div className="text-center">
+                      <p className="text-lg font-bold text-charcoal-900">
+                        {games.filter(g => g.entry_mode === 'final_score').length}
+                      </p>
+                      <p className="text-xs text-charcoal-600">games</p>
+                    </div>
+                  </div>
+                </div>
+                <div className="space-y-1">
+                  <p className="font-semibold text-charcoal-800">Final Score</p>
+                  <p className="text-sm text-blue-600">Quick entry</p>
+                  <p className="text-xs text-charcoal-500">
+                    {Math.round((games.filter(g => g.entry_mode === 'final_score').length / games.length) * 100)}% of games
+                  </p>
+                </div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       {/* Filters Panel */}
       {showFilters && (
         <Card className="mb-6">
@@ -423,15 +609,15 @@ const GameLogPage = () => {
               {games.map((game) => (
                 <div 
                   key={game.id}
-                  className="flex items-center justify-between p-4 bg-cream-50 rounded-xl hover:bg-cream-100 transition-colors cursor-pointer"
+                  className="flex items-center justify-between p-4 bg-cream-50 rounded-xl hover:bg-cream-100 transition-colors cursor-pointer group"
                   onClick={() => handleGameClick(game)}
                 >
-                  <div className="flex items-center space-x-4">
+                  <div className="flex items-center space-x-4 flex-1">
                     <div className="bg-teal-100 p-3 rounded-xl">
                       <Target className="w-6 h-6 text-teal-600" />
                     </div>
                     
-                    <div>
+                    <div className="flex-1">
                       <div className="flex items-center space-x-2 mb-1">
                         <h3 className="font-semibold text-charcoal-900">
                           {game.location || 'Bowling Game'}
@@ -441,6 +627,21 @@ const GameLogPage = () => {
                             In Progress
                           </span>
                         )}
+                        {/* Entry Mode Indicator */}
+                        <span className={`px-2 py-1 rounded-lg text-xs font-medium ${
+                          game.entry_mode === 'final_score' 
+                            ? 'bg-blue-100 text-blue-600' 
+                            : game.entry_mode === 'frame_by_frame'
+                            ? 'bg-yellow-100 text-yellow-600'
+                            : 'bg-green-100 text-green-600'
+                        }`}>
+                          {game.entry_mode === 'final_score' 
+                            ? 'Final Score' 
+                            : game.entry_mode === 'frame_by_frame'
+                            ? 'Frame by Frame'
+                            : 'Pin by Pin'
+                          }
+                        </span>
                       </div>
                       
                       <div className="flex items-center space-x-4 text-sm text-charcoal-600">
@@ -456,16 +657,52 @@ const GameLogPage = () => {
                             <span>{game.ball.name} ({game.ball.weight}lbs)</span>
                           </div>
                         )}
+                        
+                        {/* Show strikes/spares for final_score entry mode */}
+                        {game.entry_mode === 'final_score' && (game.strikes > 0 || game.spares > 0) && (
+                          <div className="flex items-center space-x-2">
+                            {game.strikes > 0 && (
+                              <span className="text-green-600 text-xs">
+                                {game.strikes} strikes
+                              </span>
+                            )}
+                            {game.spares > 0 && (
+                              <span className="text-blue-600 text-xs">
+                                {game.spares} spares
+                              </span>
+                            )}
+                          </div>
+                        )}
                       </div>
                     </div>
                   </div>
                   
-                  <div className="text-right">
-                    <div className="text-2xl font-bold text-charcoal-900 font-heading">
-                      {game.score}
+                  <div className="flex items-center space-x-4">
+                    <div className="text-right">
+                      <div className="text-2xl font-bold text-charcoal-900 font-heading">
+                        {game.total_score || game.score}
+                      </div>
+                      <div className="text-sm text-charcoal-600">
+                        {game.is_complete ? 'Final Score' : 'Current'}
+                      </div>
                     </div>
-                    <div className="text-sm text-charcoal-600">
-                      {game.is_complete ? 'Final Score' : 'Current'}
+                    
+                    {/* Game Actions */}
+                    <div className="flex items-center space-x-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <button
+                        onClick={(e) => handleEditGame(game, e)}
+                        className="p-2 text-charcoal-500 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                        title="Edit game"
+                      >
+                        <Edit className="w-4 h-4" />
+                      </button>
+                      <button
+                        onClick={(e) => handleDeleteGame(game, e)}
+                        className="p-2 text-charcoal-500 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                        title="Delete game"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
                     </div>
                   </div>
                 </div>
@@ -498,18 +735,140 @@ const GameLogPage = () => {
       >
         {selectedGame && <GameDetails game={selectedGame} />}
       </Modal>
+
+      {/* Edit Game Modal */}
+      <Modal
+        isOpen={showEditModal}
+        onClose={() => setShowEditModal(false)}
+        title="Edit Game"
+        size="md"
+      >
+        <div className="space-y-6">
+          <div>
+            <label className="block text-sm font-medium text-charcoal-700 mb-2">
+              Location
+            </label>
+            <Input
+              type="text"
+              value={editFormData.location}
+              onChange={(e) => setEditFormData(prev => ({ ...prev, location: e.target.value }))}
+              placeholder="Enter bowling alley or location"
+            />
+          </div>
+          
+          <div>
+            <label className="block text-sm font-medium text-charcoal-700 mb-2">
+              Date
+            </label>
+            <Input
+              type="date"
+              value={editFormData.created_at}
+              onChange={(e) => setEditFormData(prev => ({ ...prev, created_at: e.target.value }))}
+            />
+          </div>
+          
+          <div>
+            <label className="block text-sm font-medium text-charcoal-700 mb-2">
+              Notes
+            </label>
+            <textarea
+              value={editFormData.notes}
+              onChange={(e) => setEditFormData(prev => ({ ...prev, notes: e.target.value }))}
+              placeholder="Add any notes about this game..."
+              className="w-full px-4 py-3 border border-charcoal-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent resize-none"
+              rows="4"
+            />
+          </div>
+          
+          <div className="flex justify-end space-x-3">
+            <Button
+              variant="outline"
+              onClick={() => setShowEditModal(false)}
+            >
+              Cancel
+            </Button>
+            <Button onClick={handleSaveEdit}>
+              Save Changes
+            </Button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* Delete Confirmation Modal */}
+      <Modal
+        isOpen={showDeleteModal}
+        onClose={() => setShowDeleteModal(false)}
+        title="Delete Game"
+        size="sm"
+      >
+        <div className="space-y-6">
+          <div className="text-center">
+            <div className="bg-red-100 p-3 rounded-full w-fit mx-auto mb-4">
+              <Trash2 className="w-8 h-8 text-red-600" />
+            </div>
+            <h3 className="text-lg font-semibold text-charcoal-900 mb-2">
+              Delete this game?
+            </h3>
+            <p className="text-charcoal-600">
+              This action cannot be undone. All game data and statistics will be permanently removed.
+            </p>
+          </div>
+          
+          {gameToDelete && (
+            <div className="bg-charcoal-50 p-4 rounded-xl">
+              <div className="text-sm">
+                <div className="font-medium text-charcoal-900">
+                  {gameToDelete.location || 'Bowling Game'}
+                </div>
+                <div className="text-charcoal-600">
+                  Score: {gameToDelete.total_score || gameToDelete.score} • {new Date(gameToDelete.created_at).toLocaleDateString()}
+                </div>
+              </div>
+            </div>
+          )}
+          
+          <div className="flex justify-end space-x-3">
+            <Button
+              variant="outline"
+              onClick={() => setShowDeleteModal(false)}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={handleConfirmDelete}
+              className="bg-red-600 hover:bg-red-700 text-white"
+            >
+              Delete Game
+            </Button>
+          </div>
+        </div>
+      </Modal>
     </div>
   );
 };
 
 // Game Details Component
 const GameDetails = ({ game }) => {
+  const getEntryModeDisplay = () => {
+    switch (game.entry_mode) {
+      case 'final_score':
+        return 'Final Score Entry';
+      case 'frame_by_frame':
+        return 'Frame by Frame Entry';
+      case 'pin_by_pin':
+        return 'Pin by Pin Entry';
+      default:
+        return 'Unknown Entry Mode';
+    }
+  };
+
   return (
     <div className="space-y-6">
       {/* Game Header */}
       <div className="text-center">
         <h2 className="text-3xl font-bold text-charcoal-900 font-heading">
-          {game.score}
+          {game.total_score || game.score}
         </h2>
         <p className="text-charcoal-600">
           {game.location || 'Bowling Game'} • {new Date(game.created_at).toLocaleDateString()}
@@ -519,10 +878,58 @@ const GameDetails = ({ game }) => {
             {game.ball.name} ({game.ball.weight}lbs)
           </p>
         )}
+        <div className="mt-2">
+          <span className={`px-3 py-1 rounded-full text-sm font-medium ${
+            game.entry_mode === 'final_score' 
+              ? 'bg-blue-100 text-blue-600' 
+              : game.entry_mode === 'frame_by_frame'
+              ? 'bg-yellow-100 text-yellow-600'
+              : 'bg-green-100 text-green-600'
+          }`}>
+            {getEntryModeDisplay()}
+          </span>
+        </div>
+        {game.notes && (
+          <p className="text-charcoal-500 text-sm mt-2 italic">
+            "{game.notes}"
+          </p>
+        )}
       </div>
 
+      {/* Entry Mode Specific Content */}
+      {game.entry_mode === 'final_score' && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Game Summary</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-3 gap-4 text-center">
+              <div className="bg-green-50 rounded-xl p-4">
+                <p className="text-2xl font-bold text-green-600">
+                  {game.strikes || 0}
+                </p>
+                <p className="text-sm text-charcoal-600">Strikes</p>
+              </div>
+              <div className="bg-blue-50 rounded-xl p-4">
+                <p className="text-2xl font-bold text-blue-600">
+                  {game.spares || 0}
+                </p>
+                <p className="text-sm text-charcoal-600">Spares</p>
+              </div>
+              <div className="bg-yellow-50 rounded-xl p-4">
+                <p className="text-2xl font-bold text-yellow-600">
+                  {10 - (game.strikes || 0) - (game.spares || 0)}
+                </p>
+                <p className="text-sm text-charcoal-600">Open Frames</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       {/* Frame-by-Frame Breakdown */}
-      {game.frames && game.frames.length > 0 && (
+      {(game.entry_mode === 'frame_by_frame' || game.entry_mode === 'pin_by_pin') && 
+       game.frames && game.frames.length > 0 && (
         <Card>
           <CardHeader>
             <CardTitle>Frame Breakdown</CardTitle>
@@ -551,7 +958,8 @@ const GameDetails = ({ game }) => {
       )}
 
       {/* Game Statistics */}
-      {game.frames && game.frames.length > 0 && (
+      {(game.entry_mode === 'frame_by_frame' || game.entry_mode === 'pin_by_pin') && 
+       game.frames && game.frames.length > 0 && (
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           <div className="bg-green-50 rounded-xl p-4 text-center">
             <p className="text-2xl font-bold text-green-600">

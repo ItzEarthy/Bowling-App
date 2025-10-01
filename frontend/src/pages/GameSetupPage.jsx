@@ -44,28 +44,34 @@ const GameSetupPage = () => {
     try {
       setIsCreatingGame(true);
       
-      // Initialize a new game in the store
-      const gameData = {
+      // Create game setup data
+      const gameSetup = {
         ball_id: selectedBall?.id,
+        ball_name: selectedBall?.name,
         location: location.trim() || undefined,
         created_at: new Date().toISOString()
       };
       
-      initializeGame(gameData);
-      
-      // Navigate to the game page
-      navigate('/game');
+      // Navigate to the game entry page with setup data
+      navigate('/game-entry', { 
+        state: { gameSetup } 
+      });
     } catch (err) {
-      setError('Failed to start game');
+      setError('Failed to start game setup');
     } finally {
       setIsCreatingGame(false);
     }
   };
 
   const handleQuickStart = () => {
-    // Start game immediately without setup
-    initializeGame();
-    navigate('/game');
+    // Quick start with minimal setup
+    const gameSetup = {
+      created_at: new Date().toISOString()
+    };
+    
+    navigate('/game-entry', { 
+      state: { gameSetup } 
+    });
   };
 
   const handleBack = () => {
@@ -240,8 +246,8 @@ const GameSetupPage = () => {
           </CardContent>
         </Card>
 
-        {/* Start Game Button */}
-        <div className="text-center">
+        {/* Start Game Buttons */}
+        <div className="text-center space-y-4">
           <Button 
             onClick={handleStartGame}
             variant="primary"
@@ -251,8 +257,19 @@ const GameSetupPage = () => {
             className="w-full md:w-auto"
           >
             <Play className="w-5 h-5 mr-2" />
-            {isCreatingGame ? 'Starting Game...' : 'Start Custom Game'}
+            {isCreatingGame ? 'Starting Game...' : 'Continue to Game Entry'}
           </Button>
+          
+          <div className="text-center">
+            <Button 
+              variant="outline" 
+              onClick={handleQuickStart}
+              disabled={isCreatingGame}
+              className="text-sm"
+            >
+              Quick Start (Skip Setup)
+            </Button>
+          </div>
         </div>
       </div>
     </div>

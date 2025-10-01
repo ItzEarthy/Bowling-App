@@ -78,6 +78,11 @@ const errorHandler = (err, req, res, next) => {
 
   // Database errors
   if (err.code && err.code.startsWith('SQLITE_')) {
+    // Map foreign key violations to 400 Bad Request with a helpful message
+    if (err.code === 'SQLITE_CONSTRAINT_FOREIGNKEY' || err.code === 'SQLITE_CONSTRAINT_FOREIGNKEY') {
+      return res.status(400).json({ error: 'Invalid foreign key value provided' });
+    }
+
     return res.status(500).json({ 
       error: 'Database operation failed' 
     });

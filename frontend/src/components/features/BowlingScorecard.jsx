@@ -99,19 +99,41 @@ const BowlingScorecard = ({
   currentFrame = 1, 
   onFrameClick,
   totalScore = 0,
-  gameComplete = false 
+  gameComplete = false,
+  entryMode = 'pin_by_pin',
+  strikes = 0,
+  spares = 0
 }) => {
   // Initialize empty frames if not provided
-  const displayFrames = Array.from({ length: 10 }, (_, index) => {
-    const frameNumber = index + 1;
-    const existingFrame = frames.find(f => f.frame_number === frameNumber);
-    
+  const normalizeFrame = (f, frameNumber) => {
+    // Frame can come from store (throws: []) or from backend (throws_data: '[]')
+    const throwsFromStore = Array.isArray(f?.throws) ? f.throws : undefined;
+    let throwsArr = [];
+
+    if (throwsFromStore !== undefined) {
+      throwsArr = throwsFromStore;
+    } else if (typeof f?.throws_data === 'string') {
+      try {
+        throwsArr = JSON.parse(f.throws_data || '[]');
+      } catch (e) {
+        throwsArr = [];
+      }
+    } else {
+      throwsArr = [];
+    }
+
     return {
       frame_number: frameNumber,
-      throws: existingFrame ? JSON.parse(existingFrame.throws_data || '[]') : [],
-      cumulative_score: existingFrame?.cumulative_score || null,
-      is_complete: existingFrame?.is_complete || false
+      throws: throwsArr,
+      cumulative_score: f?.cumulative_score ?? null,
+      is_complete: Boolean(f?.is_complete)
     };
+  };
+
+  const displayFrames = Array.from({ length: 10 }, (_, index) => {
+    const frameNumber = index + 1;
+    const existingFrame = frames.find(f => f.frame_number === frameNumber) || frames[index];
+    return normalizeFrame(existingFrame || {}, frameNumber);
   });
 
   return (
@@ -156,23 +178,34 @@ const BowlingScorecard = ({
         <div className="text-center p-3 bg-charcoal-50 rounded-lg">
           <div className="text-sm text-charcoal-600">Strikes</div>
           <div className="text-2xl font-bold text-vintage-red-600">
-            {displayFrames.filter(f => f.throws[0] === 10 && f.frame_number < 10).length}
+            {entryMode === 'final_score' && strikes !== undefined 
+              ? strikes 
+              : displayFrames.filter(f => f.throws[0] === 10 && f.frame_number < 10).length
+            }
           </div>
         </div>
         <div className="text-center p-3 bg-charcoal-50 rounded-lg">
           <div className="text-sm text-charcoal-600">Spares</div>
           <div className="text-2xl font-bold text-mustard-yellow-600">
-            {displayFrames.filter(f => 
-              f.frame_number < 10 && 
-              f.throws[0] !== 10 && 
-              (f.throws[0] || 0) + (f.throws[1] || 0) === 10
-            ).length}
+            {entryMode === 'final_score' && spares !== undefined
+              ? spares
+              : displayFrames.filter(f => 
+                  f.frame_number < 10 && 
+                  f.throws[0] !== 10 && 
+                  (f.throws[0] || 0) + (f.throws[1] || 0) === 10
+                ).length
+            }
           </div>
         </div>
         <div className="text-center p-3 bg-charcoal-50 rounded-lg">
-          <div className="text-sm text-charcoal-600">Frame</div>
+          <div className="text-sm text-charcoal-600">
+            {entryMode === 'final_score' ? 'Entry Mode' : 'Frame'}
+          </div>
           <div className="text-2xl font-bold text-charcoal-900">
-            {currentFrame}/10
+            {entryMode === 'final_score' 
+              ? 'Final' 
+              : `${currentFrame}/10`
+            }
           </div>
         </div>
       </div>

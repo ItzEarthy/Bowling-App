@@ -54,6 +54,8 @@ export const authAPI = {
 export const userAPI = {
   getProfile: () => api.get('/users/me'),
   updateProfile: (data) => api.put('/users/me', data),
+  changePassword: (data) => api.put('/users/me/password', data),
+  deleteAccount: () => api.delete('/users/me'),
   searchUsers: (username) => api.get(`/users/search?username=${encodeURIComponent(username)}`),
 };
 
@@ -62,6 +64,8 @@ export const gameAPI = {
   createGame: (gameData) => api.post('/games', gameData),
   getGames: (page = 1, limit = 20) => api.get(`/games?page=${page}&limit=${limit}`),
   getGame: (gameId) => api.get(`/games/${gameId}`),
+  updateGame: (gameId, gameData) => api.put(`/games/${gameId}`, gameData),
+  deleteGame: (gameId) => api.delete(`/games/${gameId}`),
   submitFrame: (gameId, frameData) => api.post(`/games/${gameId}/frames`, frameData),
 };
 

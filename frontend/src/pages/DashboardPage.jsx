@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Plus, TrendingUp, Award, Target, Zap, Circle, Minus, Users, BarChart3, Calendar } from 'lucide-react';
+import { Plus, TrendingUp, Award, Target, BarChart3 } from 'lucide-react';
 import useAuthStore from '../stores/authStore';
 import PageHeader from '../components/layout/PageHeader';
 import Card, { CardContent, CardHeader, CardTitle } from '../components/ui/Card';
@@ -18,7 +18,6 @@ const DashboardPage = () => {
   const [stats, setStats] = useState(null);
   const [recentGames, setRecentGames] = useState([]);
   const [friendStats, setFriendStats] = useState(null);
-  const [trendData, setTrendData] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
 
@@ -37,7 +36,7 @@ const DashboardPage = () => {
       const totalGames = completedGames.length;
       
       if (totalGames > 0) {
-        const scores = completedGames.map(game => game.score);
+        const scores = completedGames.map(game => game.total_score || game.score);
         const totalPins = scores.reduce((sum, score) => sum + score, 0);
         const averageScore = Math.round(totalPins / totalGames);
         const highScore = Math.max(...scores);
@@ -46,24 +45,15 @@ const DashboardPage = () => {
         const recentGames = completedGames.slice(0, 5);
         const olderGames = completedGames.slice(5, 10);
         const recentAvg = recentGames.length > 0 ? 
-          Math.round(recentGames.reduce((sum, game) => sum + game.score, 0) / recentGames.length) : 0;
+          Math.round(recentGames.reduce((sum, game) => sum + (game.total_score || game.score), 0) / recentGames.length) : 0;
         const olderAvg = olderGames.length > 0 ? 
-          Math.round(olderGames.reduce((sum, game) => sum + game.score, 0) / olderGames.length) : 0;
+          Math.round(olderGames.reduce((sum, game) => sum + (game.total_score || game.score), 0) / olderGames.length) : 0;
         const improvement = recentAvg - olderAvg;
-        
-        // For demo purposes, we'll calculate some approximate stats
-        // In a real app, these would come from the backend
-        const strikePercentage = Math.round(averageScore / 3); // Rough approximation
-        const sparePercentage = Math.round((averageScore - strikePercentage * 3) / 2);
-        const openFramePercentage = 100 - strikePercentage - sparePercentage;
         
         setStats({
           gameAverage: averageScore,
           highScore: highScore,
           totalPins: totalPins,
-          strikePercentage: Math.max(0, Math.min(100, strikePercentage)),
-          sparePercentage: Math.max(0, Math.min(100, sparePercentage)),
-          openFramePercentage: Math.max(0, Math.min(100, openFramePercentage)),
           totalGames: totalGames,
           improvement: improvement,
           gamesThisWeek: completedGames.filter(game => 
@@ -90,14 +80,10 @@ const DashboardPage = () => {
           gameAverage: 0,
           highScore: 0,
           totalPins: 0,
-          strikePercentage: 0,
-          sparePercentage: 0,
-          openFramePercentage: 0,
           totalGames: 0,
           improvement: 0,
           gamesThisWeek: 0
         });
-        setTrendData({ weeklyScores: [0, 0, 0, 0] });
       }
       
       setRecentGames(games.slice(0, 5));
@@ -113,11 +99,12 @@ const DashboardPage = () => {
           ).length
         });
       } catch (friendErr) {
-        // Friends endpoint might not be implemented yet
+        console.warn('Friends API not available:', friendErr.message);
         setFriendStats({ totalFriends: 0, activeFriends: 0 });
       }
     } catch (err) {
-      setError('Failed to load dashboard data');
+      console.error('Dashboard data error:', err);
+      setError(`Failed to load dashboard data: ${err.response?.data?.error || err.message}`);
     } finally {
       setIsLoading(false);
     }
@@ -160,9 +147,9 @@ const DashboardPage = () => {
       )}
 
       {/* Stats Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
         {/* Game Average */}
-        <Card variant="interactive" onClick={() => navigate('/game-log')}>
+        <Card variant="interactive" onClick={() => navigate('/stats')}>
           <CardContent>
             <div className="flex items-center justify-between">
               <div>
@@ -179,13 +166,18 @@ const DashboardPage = () => {
         </Card>
 
         {/* High Score */}
-        <Card variant="interactive" onClick={() => navigate('/game-log')}>
+        <Card variant="interactive" onClick={() => navigate('/stats')}>
           <CardContent>
             <div className="flex items-center justify-between">
-              <div>
+              <div className="flex-1">
                 <p className="text-charcoal-600 text-sm font-medium">High Score</p>
                 <p className="text-3xl font-bold text-charcoal-900 font-heading">
                   {stats?.highScore || 0}
+                </p>
+                <p className="text-xs text-charcoal-500 mt-1">
+                  {stats?.highScore >= 200 ? 'Excellent!' : 
+                   stats?.highScore >= 150 ? 'Great!' : 
+                   stats?.highScore >= 100 ? 'Good' : 'Keep practicing'}
                 </p>
               </div>
               <div className="bg-coral-100 p-3 rounded-xl">
@@ -195,14 +187,17 @@ const DashboardPage = () => {
           </CardContent>
         </Card>
 
-        {/* Total Pins */}
-        <Card variant="interactive" onClick={() => navigate('/game-log')}>
+        {/* Total Games */}
+        <Card variant="interactive" onClick={() => navigate('/stats')}>
           <CardContent>
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-charcoal-600 text-sm font-medium">Total Pins</p>
+                <p className="text-charcoal-600 text-sm font-medium">Games Played</p>
                 <p className="text-3xl font-bold text-charcoal-900 font-heading">
-                  {stats?.totalPins?.toLocaleString() || 0}
+                  {stats?.totalGames || 0}
+                </p>
+                <p className="text-xs text-charcoal-500 mt-1">
+                  {stats?.gamesThisWeek || 0} this week
                 </p>
               </div>
               <div className="bg-cream-200 p-3 rounded-xl">
@@ -212,182 +207,26 @@ const DashboardPage = () => {
           </CardContent>
         </Card>
 
-        {/* Strike Percentage */}
-        <Card>
+        {/* Quick Stats Link */}
+        <Card variant="interactive" onClick={() => navigate('/stats')}>
           <CardContent>
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-charcoal-600 text-sm font-medium">Strike %</p>
-                <p className="text-3xl font-bold text-charcoal-900 font-heading">
-                  {stats?.strikePercentage || 0}%
+                <p className="text-charcoal-600 text-sm font-medium">Detailed Stats</p>
+                <p className="text-lg font-bold text-charcoal-900 font-heading">
+                  View All
                 </p>
-              </div>
-              <div className="bg-green-100 p-3 rounded-xl">
-                <Zap className="w-8 h-8 text-green-600" />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Spare Percentage */}
-        <Card>
-          <CardContent>
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-charcoal-600 text-sm font-medium">Spare %</p>
-                <p className="text-3xl font-bold text-charcoal-900 font-heading">
-                  {stats?.sparePercentage || 0}%
-                </p>
-              </div>
-              <div className="bg-blue-100 p-3 rounded-xl">
-                <Circle className="w-8 h-8 text-blue-600" />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Open Frame Percentage */}
-        <Card>
-          <CardContent>
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-charcoal-600 text-sm font-medium">Open Frame %</p>
-                <p className="text-3xl font-bold text-charcoal-900 font-heading">
-                  {stats?.openFramePercentage || 0}%
-                </p>
-              </div>
-              <div className="bg-yellow-100 p-3 rounded-xl">
-                <Minus className="w-8 h-8 text-yellow-600" />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Enhanced Stats Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-        {/* Improvement Trend */}
-        <Card>
-          <CardContent>
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-charcoal-600 text-sm font-medium">Recent Trend</p>
-                <p className={`text-3xl font-bold font-heading ${
-                  (stats?.improvement || 0) >= 0 ? 'text-green-600' : 'text-red-600'
-                }`}>
-                  {(stats?.improvement || 0) >= 0 ? '+' : ''}{stats?.improvement || 0}
-                </p>
-                <p className="text-xs text-charcoal-500">vs previous games</p>
-              </div>
-              <div className={`p-3 rounded-xl ${
-                (stats?.improvement || 0) >= 0 ? 'bg-green-100' : 'bg-red-100'
-              }`}>
-                <TrendingUp className={`w-8 h-8 ${
-                  (stats?.improvement || 0) >= 0 ? 'text-green-600' : 'text-red-600'
-                }`} />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Games This Week */}
-        <Card>
-          <CardContent>
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-charcoal-600 text-sm font-medium">This Week</p>
-                <p className="text-3xl font-bold text-charcoal-900 font-heading">
-                  {stats?.gamesThisWeek || 0}
-                </p>
-                <p className="text-xs text-charcoal-500">games played</p>
-              </div>
-              <div className="bg-purple-100 p-3 rounded-xl">
-                <Calendar className="w-8 h-8 text-purple-600" />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Friends */}
-        <Card variant="interactive" onClick={() => navigate('/friends')}>
-          <CardContent>
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-charcoal-600 text-sm font-medium">Friends</p>
-                <p className="text-3xl font-bold text-charcoal-900 font-heading">
-                  {friendStats?.totalFriends || 0}
-                </p>
-                <p className="text-xs text-charcoal-500">
-                  {friendStats?.activeFriends || 0} active this week
+                <p className="text-xs text-charcoal-500 mt-1">
+                  Analysis & trends
                 </p>
               </div>
               <div className="bg-indigo-100 p-3 rounded-xl">
-                <Users className="w-8 h-8 text-indigo-600" />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Performance Rating */}
-        <Card>
-          <CardContent>
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-charcoal-600 text-sm font-medium">Performance</p>
-                <p className="text-3xl font-bold text-charcoal-900 font-heading">
-                  {stats?.gameAverage >= 200 ? 'A+' : 
-                   stats?.gameAverage >= 175 ? 'A' :
-                   stats?.gameAverage >= 150 ? 'B+' :
-                   stats?.gameAverage >= 125 ? 'B' :
-                   stats?.gameAverage >= 100 ? 'C' : 'D'}
-                </p>
-                <p className="text-xs text-charcoal-500">overall rating</p>
-              </div>
-              <div className="bg-orange-100 p-3 rounded-xl">
-                <BarChart3 className="w-8 h-8 text-orange-600" />
+                <BarChart3 className="w-8 h-8 text-indigo-600" />
               </div>
             </div>
           </CardContent>
         </Card>
       </div>
-
-      {/* Weekly Trend Visualization */}
-      {trendData && (
-        <Card className="mb-8">
-          <CardHeader>
-            <CardTitle>4-Week Performance Trend</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="flex items-end justify-between space-x-2 h-32">
-              {trendData.weeklyScores.map((score, index) => (
-                <div key={index} className="flex-1 flex flex-col items-center">
-                  <div 
-                    className="bg-teal-500 rounded-t-lg w-full transition-all duration-500"
-                    style={{ 
-                      height: `${Math.max(10, (score / 300) * 100)}%`,
-                      minHeight: '8px'
-                    }}
-                  />
-                  <div className="text-center mt-2">
-                    <p className="text-sm font-medium text-charcoal-900">{score}</p>
-                    <p className="text-xs text-charcoal-600">Week {4 - index}</p>
-                  </div>
-                </div>
-              ))}
-            </div>
-            <div className="mt-4 text-center">
-              <p className="text-sm text-charcoal-600">
-                {trendData.weeklyScores[3] > trendData.weeklyScores[0] ? 
-                  '📈 Improving trend - keep it up!' :
-                  trendData.weeklyScores[3] < trendData.weeklyScores[0] ?
-                  '📉 Focus on consistency' :
-                  '➡️ Steady performance'
-                }
-              </p>
-            </div>
-          </CardContent>
-        </Card>
-      )}
 
       {/* Recent Games */}
       <Card>
@@ -426,17 +265,49 @@ const DashboardPage = () => {
                       <Target className="w-5 h-5 text-teal-600" />
                     </div>
                     <div>
-                      <p className="font-medium text-charcoal-900">
-                        {game.location || 'Bowling Alley'}
-                      </p>
+                      <div className="flex items-center space-x-2 mb-1">
+                        <p className="font-medium text-charcoal-900">
+                          {game.location || 'Bowling Alley'}
+                        </p>
+                        {/* Entry Mode Indicator */}
+                        <span className={`px-2 py-1 rounded-lg text-xs font-medium ${
+                          game.entry_mode === 'final_score' 
+                            ? 'bg-blue-100 text-blue-600' 
+                            : game.entry_mode === 'frame_by_frame'
+                            ? 'bg-yellow-100 text-yellow-600'
+                            : 'bg-green-100 text-green-600'
+                        }`}>
+                          {game.entry_mode === 'final_score' 
+                            ? 'Final' 
+                            : game.entry_mode === 'frame_by_frame'
+                            ? 'Frame'
+                            : 'Pin-by-Pin'
+                          }
+                        </span>
+                      </div>
                       <p className="text-sm text-charcoal-600">
                         {new Date(game.created_at).toLocaleDateString()}
                       </p>
+                      {/* Show strikes/spares for final_score entry mode */}
+                      {game.entry_mode === 'final_score' && (game.strikes > 0 || game.spares > 0) && (
+                        <div className="flex items-center space-x-2 mt-1">
+                          {game.strikes > 0 && (
+                            <span className="text-green-600 text-xs">
+                              {game.strikes} ⚡
+                            </span>
+                          )}
+                          {game.spares > 0 && (
+                            <span className="text-blue-600 text-xs">
+                              {game.spares} /
+                            </span>
+                          )}
+                        </div>
+                      )}
                     </div>
                   </div>
                   <div className="text-right">
                     <p className="text-lg font-bold text-charcoal-900">
-                      {game.score}
+                      {game.total_score || game.score}
                     </p>
                     <p className="text-sm text-charcoal-600">
                       {game.is_complete ? 'Complete' : 'In Progress'}

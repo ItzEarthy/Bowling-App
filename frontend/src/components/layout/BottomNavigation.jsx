@@ -1,6 +1,6 @@
 import React from 'react';
 import { NavLink } from 'react-router-dom';
-import { BarChart3, Users, Target, Settings } from 'lucide-react';
+import { Home, BarChart3, Users, Target, Settings, User } from 'lucide-react';
 
 /**
  * Bottom Navigation Component
@@ -10,8 +10,8 @@ const BottomNavigation = () => {
   const navItems = [
     {
       path: '/dashboard',
-      label: 'Dashboard',
-      icon: BarChart3
+      label: 'Home',
+      icon: Home
     },
     {
       path: '/game-log',
@@ -19,14 +19,19 @@ const BottomNavigation = () => {
       icon: Target
     },
     {
+      path: '/stats',
+      label: 'Stats',
+      icon: BarChart3
+    },
+    {
       path: '/friends',
       label: 'Friends',
       icon: Users
     },
     {
-      path: '/arsenal',
-      label: 'Arsenal',
-      icon: Settings // Using Settings icon as placeholder for bowling ball
+      path: '/profile',
+      label: 'Profile',
+      icon: User
     }
   ];
 

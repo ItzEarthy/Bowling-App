@@ -1,4 +1,5 @@
 const Database = require('better-sqlite3');
+const bcrypt = require('bcryptjs');
 const path = require('path');
 
 /**
@@ -14,6 +15,7 @@ class DatabaseManager {
     this.db.pragma('foreign_keys = ON');
     
     this.initSchema();
+    this.createDefaultUsers();
   }
 
   /**
@@ -28,6 +30,7 @@ class DatabaseManager {
         display_name TEXT NOT NULL,
         email TEXT UNIQUE NOT NULL,
         hashed_password TEXT NOT NULL,
+        role TEXT DEFAULT 'user',
         created_at TEXT DEFAULT CURRENT_TIMESTAMP
       )
     `);
@@ -53,6 +56,11 @@ class DatabaseManager {
         ball_id INTEGER,
         location TEXT,
         score INTEGER DEFAULT 0,
+        total_score INTEGER DEFAULT 0,
+        strikes INTEGER,
+        spares INTEGER,
+        notes TEXT,
+        entry_mode TEXT DEFAULT 'pin_by_pin',
         is_complete BOOLEAN DEFAULT FALSE,
         created_at TEXT DEFAULT CURRENT_TIMESTAMP,
         FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE,
@@ -113,6 +121,29 @@ class DatabaseManager {
         console.warn(`Warning: Could not create index: ${error.message}`);
       }
     });
+  }
+
+  /**
+   * Create default users (admin account)
+   */
+  async createDefaultUsers() {
+    // Check if admin user already exists
+    const existingAdmin = this.db.prepare(`
+      SELECT id FROM users WHERE username = 'admin'
+    `).get();
+
+    if (!existingAdmin) {
+      // Create default admin user
+      const saltRounds = 12;
+      const hashedPassword = await bcrypt.hash('admin', saltRounds);
+      
+      this.db.prepare(`
+        INSERT INTO users (username, display_name, email, hashed_password, role)
+        VALUES (?, ?, ?, ?, ?)
+      `).run('admin', 'Administrator', 'admin@bowling-app.local', hashedPassword, 'admin');
+      
+      console.log('Default admin user created: username=admin, password=admin');
+    }
   }
 
   /**

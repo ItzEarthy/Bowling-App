@@ -1,103 +1,5 @@
 import { create } from 'zustand';
-
-/**
- * Bowling Score Calculation Helper
- */
-class BowlingScoreCalculator {
-  static calculateFrameScore(frames, frameIndex) {
-    const frame = frames[frameIndex];
-    const throws = frame.throws || [];
-    
-    if (frame.frame_number < 10) {
-      return this.calculateRegularFrameScore(throws, frames, frameIndex);
-    } else {
-      return this.calculateTenthFrameScore(throws);
-    }
-  }
-
-  static calculateRegularFrameScore(throws, allFrames, frameIndex) {
-    const frameSum = throws.reduce((sum, pins) => sum + pins, 0);
-
-    // Strike (10 pins on first throw)
-    if (throws[0] === 10) {
-      return 10 + this.getStrikeBonus(allFrames, frameIndex);
-    }
-
-    // Spare (10 pins total in two throws)
-    if (frameSum === 10 && throws.length === 2) {
-      return 10 + this.getSpareBonus(allFrames, frameIndex);
-    }
-
-    // Open frame (less than 10 pins)
-    return frameSum;
-  }
-
-  static calculateTenthFrameScore(throws) {
-    return throws.reduce((sum, pins) => sum + pins, 0);
-  }
-
-  static getStrikeBonus(allFrames, strikeFrameIndex) {
-    const nextFrame = allFrames[strikeFrameIndex + 1];
-    if (!nextFrame || !nextFrame.throws) return 0;
-
-    const nextThrows = nextFrame.throws;
-
-    // If next frame is also a strike, need to look at frame after that
-    if (nextThrows[0] === 10 && nextFrame.frame_number < 10) {
-      const frameAfterNext = allFrames[strikeFrameIndex + 2];
-      if (!frameAfterNext || !frameAfterNext.throws) return 10;
-      
-      const frameAfterThrows = frameAfterNext.throws;
-      return 10 + (frameAfterThrows[0] || 0);
-    }
-
-    // Return next two throws
-    return (nextThrows[0] || 0) + (nextThrows[1] || 0);
-  }
-
-  static getSpareBonus(allFrames, spareFrameIndex) {
-    const nextFrame = allFrames[spareFrameIndex + 1];
-    if (!nextFrame || !nextFrame.throws) return 0;
-
-    return nextFrame.throws[0] || 0;
-  }
-
-  static isFrameComplete(throws, frameNumber) {
-    if (frameNumber < 10) {
-      // Strike or two throws
-      return throws[0] === 10 || throws.length === 2;
-    } else {
-      // 10th frame rules
-      if (throws.length < 2) return false;
-      
-      const [first, second] = throws;
-      
-      // Strike or spare requires 3 throws
-      if (first === 10 || first + second === 10) {
-        return throws.length === 3;
-      }
-      
-      // Otherwise, 2 throws is complete
-      return throws.length === 2;
-    }
-  }
-
-  static calculateGameScore(frames) {
-    let cumulativeScore = 0;
-    const updatedFrames = frames.map((frame, index) => {
-      const frameScore = this.calculateFrameScore(frames, index);
-      cumulativeScore += frameScore;
-      
-      return {
-        ...frame,
-        cumulative_score: cumulativeScore,
-        is_complete: this.isFrameComplete(frame.throws || [], frame.frame_number)
-      };
-    });
-
-    return updatedFrames;
-  }
-}
+import BowlingScoreCalculator from '../utils/bowlingScoring';
 
 /**
  * Game store for managing current game state
@@ -113,12 +15,7 @@ const useGameStore = create((set, get) => ({
 
   // Initialize new game
   initializeGame: (gameData = {}) => {
-    const frames = Array.from({ length: 10 }, (_, index) => ({
-      frame_number: index + 1,
-      throws: [],
-      cumulative_score: null,
-      is_complete: false
-    }));
+    const frames = BowlingScoreCalculator.createEmptyGame();
 
     const newGame = {
       id: gameData.id || null,
@@ -301,6 +198,140 @@ const useGameStore = create((set, get) => ({
   // Clear error
   clearError: () => {
     set({ error: null });
+  },
+
+  // Create game from final score entry
+  createGameFromFinalScore: (totalScore, strikes = 0, spares = 0, notes = '') => {
+    // Generate reasonable frame distribution based on strikes/spares
+    const frames = Array.from({ length: 10 }, (_, index) => {
+      const frameNumber = index + 1;
+      let frameScore = Math.round(totalScore / 10); // Base distribution
+      
+      // Adjust frame scores based on strikes/spares if provided
+      if (index < strikes) {
+        frameScore = Math.min(30, frameScore + 10); // Strike bonus
+      } else if (index < strikes + spares) {
+        frameScore = Math.min(20, frameScore + 5); // Spare bonus
+      }
+      
+      return {
+        frame_number: frameNumber,
+        throws: frameNumber < 10 ? [frameScore] : [frameScore],
+        cumulative_score: 0, // Will be calculated
+        is_complete: true,
+        entry_mode: 'final_score'
+      };
+    });
+
+    // Recalculate to match exact total
+    const calculatedFrames = BowlingScoreCalculator.calculateGameScore(frames);
+    const calculatedTotal = calculatedFrames[calculatedFrames.length - 1]?.cumulative_score || 0;
+    
+    // Adjust last frame if needed to match exact total
+    if (calculatedTotal !== totalScore) {
+      const difference = totalScore - calculatedTotal;
+      frames[9].throws[0] = Math.max(0, frames[9].throws[0] + difference);
+    }
+
+    const finalFrames = BowlingScoreCalculator.calculateGameScore(frames);
+
+    const newGame = {
+      frames: finalFrames,
+      total_score: totalScore,
+      is_complete: true,
+      strikes,
+      spares,
+      notes,
+      entry_mode: 'final_score',
+      created_at: new Date().toISOString()
+    };
+
+    set({ 
+      currentGame: newGame,
+      gameComplete: true,
+      error: null 
+    });
+
+    return newGame;
+  },
+
+  // Create game from frame scores
+  createGameFromFrameScores: (frameScores) => {
+    const frames = frameScores.map((score, index) => ({
+      frame_number: index + 1,
+      throws: [score], // Simplified - just store the frame score
+      cumulative_score: 0, // Will be calculated
+      is_complete: score > 0,
+      entry_mode: 'frame_by_frame'
+    }));
+
+    const calculatedFrames = BowlingScoreCalculator.calculateGameScore(frames);
+    const totalScore = calculatedFrames[calculatedFrames.length - 1]?.cumulative_score || 0;
+
+    const newGame = {
+      frames: calculatedFrames,
+      total_score: totalScore,
+      is_complete: true,
+      entry_mode: 'frame_by_frame',
+      created_at: new Date().toISOString()
+    };
+
+    set({ 
+      currentGame: newGame,
+      gameComplete: true,
+      error: null 
+    });
+
+    return newGame;
+  },
+
+  // Create game from pin-by-pin data
+  createGameFromPinData: (frames) => {
+    const calculatedFrames = BowlingScoreCalculator.calculateGameScore(frames);
+    const totalScore = calculatedFrames[calculatedFrames.length - 1]?.cumulative_score || 0;
+
+    const newGame = {
+      frames: calculatedFrames.map(frame => ({
+        ...frame,
+        entry_mode: 'pin_by_pin'
+      })),
+      total_score: totalScore,
+      is_complete: true,
+      entry_mode: 'pin_by_pin',
+      created_at: new Date().toISOString()
+    };
+
+    set({ 
+      currentGame: newGame,
+      gameComplete: true,
+      error: null 
+    });
+
+    return newGame;
+  },
+
+  // Convert game data for API submission
+  prepareGameForAPI: (gameData) => {
+    const { currentGame } = get();
+    const game = gameData || currentGame;
+    
+    if (!game) return null;
+
+    return {
+      frames: game.frames.map(frame => ({
+        frame_number: frame.frame_number,
+        throws_data: JSON.stringify(frame.throws || []),
+        cumulative_score: frame.cumulative_score,
+        is_complete: frame.is_complete
+      })),
+      total_score: game.total_score,
+      is_complete: game.is_complete,
+      entry_mode: game.entry_mode,
+      strikes: game.strikes,
+      spares: game.spares,
+      notes: game.notes,
+      created_at: game.created_at
+    };
   }
 }));
 

@@ -1,6 +1,7 @@
 import React, { useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import useAuthStore from './stores/authStore';
+import ErrorBoundary from './components/ui/ErrorBoundary';
 
 // Layout Components
 import Layout from './components/layout/Layout';
@@ -10,11 +11,14 @@ import LoginPage from './pages/LoginPage';
 import RegisterPage from './pages/RegisterPage';
 import DashboardPage from './pages/DashboardPage';
 import GameSetupPage from './pages/GameSetupPage';
+import GameEntryPage from './pages/GameEntryPage';
 import GamePage from './pages/GamePage';
 import GameLogPage from './pages/GameLogPage';
 import FriendsPage from './pages/FriendsPage';
 import ArsenalPage from './pages/ArsenalPage';
+import StatsPage from './pages/StatsPage';
 import SettingsPage from './pages/SettingsPage';
+import ProfilePage from './pages/ProfilePage';
 
 // Protected Route Component
 const ProtectedRoute = ({ children }) => {
@@ -38,8 +42,9 @@ function App() {
 
   return (
     <Router>
-      <div className="min-h-screen bg-cream-50">
-        <Routes>
+      <ErrorBoundary>
+        <div className="min-h-screen bg-cream-50">
+          <Routes>
           {/* Public Routes */}
           <Route 
             path="/login" 
@@ -70,10 +75,13 @@ function App() {
             <Route index element={<Navigate to="/dashboard" replace />} />
             <Route path="dashboard" element={<DashboardPage />} />
             <Route path="game-setup" element={<GameSetupPage />} />
+            <Route path="game-entry" element={<GameEntryPage />} />
             <Route path="game-log" element={<GameLogPage />} />
+            <Route path="stats" element={<StatsPage />} />
             <Route path="friends" element={<FriendsPage />} />
             <Route path="arsenal" element={<ArsenalPage />} />
             <Route path="settings" element={<SettingsPage />} />
+            <Route path="profile" element={<ProfilePage />} />
           </Route>
 
           {/* Temporary public game routes for testing */}
@@ -82,8 +90,9 @@ function App() {
 
           {/* Catch all route */}
           <Route path="*" element={<Navigate to="/dashboard" replace />} />
-        </Routes>
-      </div>
+          </Routes>
+        </div>
+      </ErrorBoundary>
     </Router>
   );
 }
