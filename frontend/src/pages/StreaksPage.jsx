@@ -28,6 +28,17 @@ const StreaksPage = () => {
     try {
       setIsLoading(true);
       
+      // Load actual games from API
+      const gamesResponse = await gameAPI.getGames(1, 1000);
+      const games = gamesResponse.data.games || [];
+      
+      // Process games through streak tracker
+      games.forEach(game => {
+        if (game.is_complete && game.frames) {
+          streakTracker.processGame(game);
+        }
+      });
+      
       // Load streaks from tracker
       const currentStreaks = streakTracker.loadStreaks();
       const active = streakTracker.getActiveStreaks();
@@ -106,31 +117,6 @@ const StreaksPage = () => {
     localStorage.removeItem('streak-notifications');
   };
 
-  const simulateStreakUpdate = async () => {
-    // For demo purposes - simulate processing a good game
-    const mockGame = {
-      frames: Array(10).fill().map((_, i) => ({
-        isStrike: Math.random() > 0.7,
-        isSpare: Math.random() > 0.5,
-        isOpen: false
-      })),
-      total_score: 180 + Math.floor(Math.random() * 40),
-      created_at: new Date().toISOString()
-    };
-
-    const result = streakTracker.processGame(mockGame);
-    
-    // Save notifications
-    if (result.notifications.length > 0) {
-      const existingNotifications = JSON.parse(localStorage.getItem('streak-notifications') || '[]');
-      const updatedNotifications = [...existingNotifications, ...result.notifications];
-      localStorage.setItem('streak-notifications', JSON.stringify(updatedNotifications));
-    }
-    
-    // Reload data
-    loadStreakData();
-  };
-
   if (isLoading) {
     return (
       <div>
@@ -149,13 +135,6 @@ const StreaksPage = () => {
       <PageHeader 
         title="Streaks & Momentum"
         subtitle="Track your consistency and hot streaks"
-        action={
-          <div className="flex items-center space-x-2">
-            <Button variant="outline" onClick={simulateStreakUpdate}>
-              Simulate Game
-            </Button>
-          </div>
-        }
       />
 
       {/* Notifications */}

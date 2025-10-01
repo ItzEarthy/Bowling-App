@@ -6,6 +6,7 @@ import PageHeader from '../components/layout/PageHeader';
 import Card, { CardContent, CardHeader, CardTitle } from '../components/ui/Card';
 import Button from '../components/ui/Button';
 import Spinner, { LoadingCard } from '../components/ui/Spinner';
+import Modal from '../components/ui/Modal';
 import { gameAPI, friendAPI } from '../lib/api';
 
 /**
@@ -20,6 +21,8 @@ const DashboardPage = () => {
   const [friendStats, setFriendStats] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [selectedGame, setSelectedGame] = useState(null);
+  const [showGameModal, setShowGameModal] = useState(false);
 
   useEffect(() => {
     loadDashboardData();
@@ -100,6 +103,18 @@ const DashboardPage = () => {
 
   const handleStartNewGame = () => {
     navigate('/game-setup');
+  };
+
+  const handleGameClick = async (game) => {
+    try {
+      // Fetch full game details including frames
+      const response = await gameAPI.getGame(game.id);
+      setSelectedGame(response.data.game);
+      setShowGameModal(true);
+    } catch (err) {
+      console.error('Failed to load game details:', err);
+      setError('Failed to load game details');
+    }
   };
 
   if (isLoading) {
@@ -246,7 +261,7 @@ const DashboardPage = () => {
                 <div 
                   key={game.id} 
                   className="flex items-center justify-between p-4 bg-cream-50 rounded-xl hover:bg-cream-100 transition-colors cursor-pointer"
-                  onClick={() => navigate(`/game/${game.id}`)}
+                  onClick={() => handleGameClick(game)}
                 >
                   <div className="flex items-center space-x-4">
                     <div className="bg-white p-2 rounded-lg">
@@ -325,6 +340,179 @@ const DashboardPage = () => {
             </Button>
           </CardContent>
         </Card>
+      )}
+
+      {/* Game Details Modal */}
+      {selectedGame && (
+        <Modal
+          isOpen={showGameModal}
+          onClose={() => {
+            setShowGameModal(false);
+            setSelectedGame(null);
+          }}
+          title="Game Details"
+          size="lg"
+        >
+          <GameDetailsContent game={selectedGame} />
+        </Modal>
+      )}
+    </div>
+  );
+};
+
+// Game Details Component (same as in GameLogPage)
+const GameDetailsContent = ({ game }) => {
+  const getEntryModeDisplay = () => {
+    switch (game.entry_mode) {
+      case 'final_score':
+        return 'Final Score Entry';
+      case 'frame_by_frame':
+        return 'Frame by Frame Entry';
+      case 'pin_by_pin':
+        return 'Pin by Pin Entry';
+      default:
+        return 'Unknown Entry Mode';
+    }
+  };
+
+  return (
+    <div className="space-y-6">
+      {/* Game Header */}
+      <div className="text-center">
+        <h2 className="text-3xl font-bold text-charcoal-900 font-heading">
+          {game.total_score || game.score}
+        </h2>
+        <p className="text-charcoal-600">
+          {game.location || 'Bowling Game'} • {new Date(game.created_at).toLocaleDateString()}
+        </p>
+        {game.ball && (
+          <p className="text-charcoal-500 text-sm">
+            {game.ball.name} ({game.ball.weight}lbs)
+          </p>
+        )}
+        <div className="mt-2">
+          <span className={`px-3 py-1 rounded-full text-sm font-medium ${
+            game.entry_mode === 'final_score' 
+              ? 'bg-blue-100 text-blue-600' 
+              : game.entry_mode === 'frame_by_frame'
+              ? 'bg-yellow-100 text-yellow-600'
+              : 'bg-green-100 text-green-600'
+          }`}>
+            {getEntryModeDisplay()}
+          </span>
+        </div>
+        {game.notes && (
+          <p className="text-charcoal-500 text-sm mt-2 italic">
+            "{game.notes}"
+          </p>
+        )}
+      </div>
+
+      {/* Entry Mode Specific Content */}
+      {game.entry_mode === 'final_score' && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Game Summary</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-3 gap-4 text-center">
+              <div className="bg-green-50 rounded-xl p-4">
+                <p className="text-2xl font-bold text-green-600">
+                  {game.strikes || 0}
+                </p>
+                <p className="text-sm text-charcoal-600">Strikes</p>
+              </div>
+              <div className="bg-blue-50 rounded-xl p-4">
+                <p className="text-2xl font-bold text-blue-600">
+                  {game.spares || 0}
+                </p>
+                <p className="text-sm text-charcoal-600">Spares</p>
+              </div>
+              <div className="bg-yellow-50 rounded-xl p-4">
+                <p className="text-2xl font-bold text-yellow-600">
+                  {10 - (game.strikes || 0) - (game.spares || 0)}
+                </p>
+                <p className="text-sm text-charcoal-600">Open Frames</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Frame-by-Frame Breakdown */}
+      {(game.entry_mode === 'frame_by_frame' || game.entry_mode === 'pin_by_pin') && 
+       game.frames && game.frames.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Frame Breakdown</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-5 md:grid-cols-10 gap-2">
+              {game.frames.map((frame) => (
+                <div 
+                  key={frame.frame_number}
+                  className="bg-cream-50 rounded-lg p-3 text-center"
+                >
+                  <div className="text-xs text-charcoal-600 mb-1">
+                    Frame {frame.frame_number}
+                  </div>
+                  <div className="text-sm font-medium text-charcoal-900">
+                    {frame.throws ? frame.throws.join(', ') : '—'}
+                  </div>
+                  <div className="text-lg font-bold text-teal-600">
+                    {frame.cumulative_score || 0}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Game Statistics */}
+      {(game.entry_mode === 'frame_by_frame' || game.entry_mode === 'pin_by_pin') && 
+       game.frames && game.frames.length > 0 && (
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <div className="bg-green-50 rounded-xl p-4 text-center">
+            <p className="text-2xl font-bold text-green-600">
+              {game.frames.filter(f => f.throws && f.throws[0] === 10 && f.frame_number < 10).length}
+            </p>
+            <p className="text-sm text-charcoal-600">Strikes</p>
+          </div>
+          
+          <div className="bg-blue-50 rounded-xl p-4 text-center">
+            <p className="text-2xl font-bold text-blue-600">
+              {game.frames.filter(f => 
+                f.frame_number < 10 && 
+                f.throws && 
+                f.throws[0] !== 10 && 
+                (f.throws[0] + (f.throws[1] || 0)) === 10
+              ).length}
+            </p>
+            <p className="text-sm text-charcoal-600">Spares</p>
+          </div>
+          
+          <div className="bg-yellow-50 rounded-xl p-4 text-center">
+            <p className="text-2xl font-bold text-yellow-600">
+              {game.frames.filter(f => 
+                f.frame_number < 10 && 
+                f.throws &&
+                f.throws[0] !== 10 && 
+                (f.throws[0] + (f.throws[1] || 0)) < 10
+              ).length}
+            </p>
+            <p className="text-sm text-charcoal-600">Open Frames</p>
+          </div>
+          
+          <div className="bg-purple-50 rounded-xl p-4 text-center">
+            <p className="text-2xl font-bold text-purple-600">
+              {game.frames.reduce((sum, f) => 
+                sum + (f.throws ? f.throws.reduce((s, t) => s + t, 0) : 0), 0
+              )}
+            </p>
+            <p className="text-sm text-charcoal-600">Total Pins</p>
+          </div>
+        </div>
       )}
     </div>
   );

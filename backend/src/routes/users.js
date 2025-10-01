@@ -294,4 +294,20 @@ router.get('/search', authenticateToken, validateRequest(searchUsersSchema), (re
   }
 });
 
+/**
+ * GET /api/users/me/achievements
+ * Get current user's achievements
+ * For now, returns empty array until achievement system is implemented
+ */
+router.get('/me/achievements', authenticateToken, (req, res, next) => {
+  try {
+    // Placeholder - return empty achievements until backend system is implemented
+    res.json({
+      achievements: []
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
 module.exports = router;

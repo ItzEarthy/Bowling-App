@@ -20,13 +20,15 @@ const Pin = ({
   return (
     <button
       className={`
-        w-6 h-10 md:w-8 md:h-12 rounded-t-full rounded-b-sm transition-all duration-200 border-2
+        w-5 h-8 md:w-6 md:h-10 rounded-t-full rounded-b-sm transition-all duration-200 border-2
         ${isKnockedDown 
           ? 'bg-vintage-red-500 border-vintage-red-600 text-white' 
+          : isDisabled
+          ? 'bg-gray-300 border-gray-400 text-gray-500 cursor-not-allowed'
           : 'bg-white border-charcoal-300 text-charcoal-900 hover:bg-charcoal-50'
         }
-        ${isDisabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer hover:scale-105'}
-        font-bold text-xs md:text-sm shadow-md
+        ${!isDisabled && !isKnockedDown ? 'cursor-pointer hover:scale-105' : ''}
+        font-bold text-xs shadow-md
       `}
       onClick={() => !isDisabled && onClick && onClick(pinNumber)}
       disabled={isDisabled}
@@ -53,9 +55,9 @@ const PinDeck = ({
   ];
 
   return (
-    <div className="flex flex-col items-center space-y-2 md:space-y-3 py-4 md:py-6">
+    <div className="flex flex-col items-center space-y-1 md:space-y-2 py-2 md:py-4">
       {pinRows.map((row, rowIndex) => (
-        <div key={rowIndex} className="flex space-x-1 md:space-x-2">
+        <div key={rowIndex} className="flex space-x-1">
           {row.map(pinNumber => (
             <Pin
               key={pinNumber}
@@ -84,6 +86,7 @@ const PinByPinEntry = ({ onGameComplete, initialData = {} }) => {
   const [currentFrame, setCurrentFrame] = useState(1);
   const [currentThrow, setCurrentThrow] = useState(1);
   const [selectedPins, setSelectedPins] = useState([]);
+  const [frameThrowPins, setFrameThrowPins] = useState({}); // Store which specific pins were hit for each throw
   const [gameComplete, setGameComplete] = useState(false);
   const [showScorecard, setShowScorecard] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -123,25 +126,122 @@ const PinByPinEntry = ({ onGameComplete, initialData = {} }) => {
 
   // Calculate available pins for current throw
   const getAvailablePins = () => {
+    const frameKey = `${currentFrame}`;
     const frame = frames[currentFrame - 1];
     const throws = frame.throws || [];
 
     if (currentFrame < 10) {
       // Regular frames 1-9
       if (currentThrow === 1) {
+        // First throw - all pins available
         return [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
       } else if (currentThrow === 2) {
-        const firstThrowPins = throws[0] || 0;
-        if (firstThrowPins === 10) return [];
+        // Second throw - only pins not hit on first throw are available
+        const firstThrowKey = `${frameKey}-1`;
+        const firstThrowPins = frameThrowPins[firstThrowKey] || [];
         
-        const remaining = 10 - firstThrowPins;
-        return Array.from({ length: 10 }, (_, i) => i + 1).slice(0, remaining);
+        if (throws[0] === 10) {
+          // Strike - no second throw
+          return [];
+        }
+        
+        // Return all pins except those hit on first throw
+        const allPins = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
+        return allPins.filter(pin => !firstThrowPins.includes(pin));
       }
     } else {
-      // 10th frame - all pins available for each throw
-      return [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
+      // 10th frame - more complex logic
+      if (currentThrow === 1) {
+        return [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
+      } else if (currentThrow === 2) {
+        const firstThrowKey = `${frameKey}-1`;
+        const firstThrowPins = frameThrowPins[firstThrowKey] || [];
+        
+        if (throws[0] === 10) {
+          // Strike on first throw - all pins reset
+          return [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
+        } else {
+          // Return pins not hit on first throw
+          const allPins = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
+          return allPins.filter(pin => !firstThrowPins.includes(pin));
+        }
+      } else if (currentThrow === 3) {
+        const firstThrowKey = `${frameKey}-1`;
+        const secondThrowKey = `${frameKey}-2`;
+        const firstThrowPins = frameThrowPins[firstThrowKey] || [];
+        const secondThrowPins = frameThrowPins[secondThrowKey] || [];
+        
+        // If strike or spare on first two throws, pins reset
+        if (throws[0] === 10 || throws[0] + (throws[1] || 0) === 10) {
+          return [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
+        } else {
+          // Return pins not hit on first or second throw
+          const allPins = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
+          const hitPins = [...new Set([...firstThrowPins, ...secondThrowPins])];
+          return allPins.filter(pin => !hitPins.includes(pin));
+        }
+      }
     }
     return [];
+  };
+
+  // Get the pins that were knocked down on previous throws in this frame
+  const getKnockedDownPins = () => {
+    const frameKey = `${currentFrame}`;
+    const frame = frames[currentFrame - 1];
+    const throws = frame.throws || [];
+    
+    // For the first throw, only show currently selected pins
+    if (currentThrow === 1) {
+      return selectedPins;
+    }
+    
+    // For second throw in regular frames, show pins from first throw as knocked down
+    if (currentFrame < 10 && currentThrow === 2) {
+      const firstThrowKey = `${frameKey}-1`;
+      const firstThrowPins = frameThrowPins[firstThrowKey] || [];
+      
+      // If first throw was a strike, all pins are down
+      if (throws[0] === 10) {
+        return [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
+      }
+      
+      // Show first throw pins PLUS currently selected pins
+      return [...new Set([...firstThrowPins, ...selectedPins])];
+    }
+    
+    // 10th frame logic
+    if (currentFrame === 10) {
+      if (currentThrow === 1) {
+        return selectedPins;
+      } else if (currentThrow === 2) {
+        const firstThrowKey = `${frameKey}-1`;
+        const firstThrowPins = frameThrowPins[firstThrowKey] || [];
+        
+        if (throws[0] === 10) {
+          // Strike on first throw - pins reset for second throw
+          return selectedPins;
+        } else {
+          // Show first throw pins plus current selection
+          return [...new Set([...firstThrowPins, ...selectedPins])];
+        }
+      } else if (currentThrow === 3) {
+        const firstThrowKey = `${frameKey}-1`;
+        const secondThrowKey = `${frameKey}-2`;
+        const firstThrowPins = frameThrowPins[firstThrowKey] || [];
+        const secondThrowPins = frameThrowPins[secondThrowKey] || [];
+        
+        // If strike or spare was made on first two throws, pins are reset
+        if (throws[0] === 10 || throws[0] + (throws[1] || 0) === 10) {
+          return selectedPins;
+        } else {
+          // Show all previous throws
+          return [...new Set([...firstThrowPins, ...secondThrowPins, ...selectedPins])];
+        }
+      }
+    }
+    
+    return selectedPins;
   };
 
   // Check if game is complete
@@ -188,6 +288,14 @@ const PinByPinEntry = ({ onGameComplete, initialData = {} }) => {
     const pinsKnockedDown = selectedPins.length;
     const newFrames = [...frames];
     const frameIndex = currentFrame - 1;
+    const frameKey = `${currentFrame}`;
+    const throwKey = `${frameKey}-${currentThrow}`;
+    
+    // Store which specific pins were hit for this throw
+    setFrameThrowPins(prev => ({
+      ...prev,
+      [throwKey]: [...selectedPins]
+    }));
     
     // Initialize throws array if needed
     if (!newFrames[frameIndex].throws) {
@@ -203,11 +311,23 @@ const PinByPinEntry = ({ onGameComplete, initialData = {} }) => {
       // If we're editing an earlier throw, clear subsequent throws in the frame
       if (currentFrame < 10) {
         if (throwIndex === 0 && pinsKnockedDown === 10) {
-          // Strike - clear second throw
+          // Strike - clear second throw and its pin data
           newFrames[frameIndex].throws = [10];
+          const secondThrowKey = `${frameKey}-2`;
+          setFrameThrowPins(prev => {
+            const newPins = { ...prev };
+            delete newPins[secondThrowKey];
+            return newPins;
+          });
         } else if (throwIndex === 0) {
-          // First throw but not strike - keep only first throw for now
+          // First throw but not strike - clear second throw
           newFrames[frameIndex].throws = [pinsKnockedDown];
+          const secondThrowKey = `${frameKey}-2`;
+          setFrameThrowPins(prev => {
+            const newPins = { ...prev };
+            delete newPins[secondThrowKey];
+            return newPins;
+          });
         }
       }
     } else {
@@ -303,32 +423,28 @@ const PinByPinEntry = ({ onGameComplete, initialData = {} }) => {
       }
     }
     
+    // Clear selected pins when switching frames
     setSelectedPins([]);
   };
 
   const handleQuickSelect = (type) => {
     const frame = frames[currentFrame - 1];
     const throws = frame.throws || [];
+    const frameKey = `${currentFrame}`;
+    const availablePins = getAvailablePins();
     
     switch (type) {
       case 'gutter':
         setSelectedPins([]);
         break;
       case 'strike':
-        if (currentFrame < 10 && currentThrow === 2) {
-          const firstThrowPins = throws[0] || 0;
-          const remaining = 10 - firstThrowPins;
-          setSelectedPins(Array.from({ length: remaining }, (_, i) => i + 1));
-        } else {
-          setSelectedPins([1, 2, 3, 4, 5, 6, 7, 8, 9, 10]);
-        }
+        // Select all available (standing) pins
+        setSelectedPins([...availablePins]);
         break;
       case 'half':
-        const maxAvailable = currentFrame < 10 && currentThrow === 2 
-          ? 10 - (throws[0] || 0)
-          : 10;
-        const halfPins = Math.floor(maxAvailable / 2);
-        setSelectedPins(Array.from({ length: halfPins }, (_, i) => i + 1));
+        // Select half of the available pins
+        const halfPins = Math.floor(availablePins.length / 2);
+        setSelectedPins(availablePins.slice(0, halfPins));
         break;
     }
   };
@@ -338,6 +454,7 @@ const PinByPinEntry = ({ onGameComplete, initialData = {} }) => {
     setCurrentFrame(1);
     setCurrentThrow(1);
     setSelectedPins([]);
+    setFrameThrowPins({});
     setGameComplete(false);
   };
 
@@ -352,6 +469,7 @@ const PinByPinEntry = ({ onGameComplete, initialData = {} }) => {
         entryMode: 'pin_by_pin',
         frames: frames,
         totalScore: totalScore,
+        frameThrowPins: frameThrowPins, // Include specific pins hit per throw
         frameBalls: frameBalls, // Include ball selections per throw
         created_at: new Date(gameDate + 'T' + new Date().toTimeString().split(' ')[0]).toISOString()
       };
@@ -405,142 +523,133 @@ const PinByPinEntry = ({ onGameComplete, initialData = {} }) => {
         <>
           {/* Current Throw Info */}
           <Card className="bg-vintage-red-50 border-vintage-red-200">
-            <CardContent className="p-4">
-              <div className="text-center space-y-2">
-                <h3 className="text-lg font-bold text-vintage-red-800">
+            <CardContent className="p-3">
+              <div className="text-center">
+                <h3 className="text-base font-bold text-vintage-red-800">
                   Frame {currentFrame} - Throw {currentThrow}
                   {currentFrameThrows.length >= currentThrow && (
-                    <span className="text-sm font-normal"> (Editing)</span>
+                    <span className="text-xs font-normal"> (Editing)</span>
                   )}
                 </h3>
-                <p className="text-vintage-red-600">
+                <p className="text-sm text-vintage-red-600">
                   {currentFrame < 10 && currentThrow === 2 
-                    ? `Remaining pins: ${10 - (currentFrameThrows[0] || 0)}`
+                    ? `Remaining: ${10 - (currentFrameThrows[0] || 0)} pins`
                     : 'Select pins knocked down'
                   }
                 </p>
-                <p className="text-lg font-bold text-charcoal-800">
+                <p className="text-base font-bold text-charcoal-800">
                   Selected: {selectedPins.length} pins
                 </p>
-                {currentFrameThrows.length >= currentThrow && (
-                  <p className="text-sm text-charcoal-600">
-                    Current value: {currentFrameThrows[currentThrow - 1] || 0} pins
-                  </p>
-                )}
               </div>
             </CardContent>
           </Card>
 
-          {/* Ball Selection */}
+          {/* Ball Selection - Compact */}
           <Card className="bg-cream-50 border-cream-200">
-            <CardContent className="p-4">
-              <div className="space-y-3">
-                <h4 className="font-semibold text-charcoal-800 text-center">
-                  Ball for This Throw
-                </h4>
+            <CardContent className="p-3">
+              <h4 className="font-semibold text-charcoal-800 text-sm text-center mb-2">
+                Ball for This Throw (Optional)
+              </h4>
                 
-                <div className="grid grid-cols-1 gap-3">
-                  {/* Selected Ball Display */}
-                  <div className="text-center p-3 bg-white rounded-lg border">
-                    {(() => {
-                      const selectedBall = getBallForThrow(currentFrame, currentThrow);
-                      if (selectedBall) {
-                        if (selectedBall.type === 'house') {
-                          return (
-                            <div>
-                              <p className="font-medium text-charcoal-800">House Ball</p>
-                              <p className="text-sm text-charcoal-600">{selectedBall.weight} lbs</p>
-                            </div>
-                          );
-                        } else {
-                          return (
-                            <div>
-                              <p className="font-medium text-charcoal-800">{selectedBall.brand} {selectedBall.model}</p>
-                              <p className="text-sm text-charcoal-600">{selectedBall.weight} lbs</p>
-                            </div>
-                          );
-                        }
-                      } else {
-                        return <p className="text-charcoal-500 italic">No ball selected</p>;
-                      }
-                    })()}
-                  </div>
-
-                  {/* Ball Selection Buttons */}
-                  <div className="space-y-2">
-                    {/* Personal Balls */}
-                    {availableBalls.length > 0 && (
-                      <div>
-                        <h5 className="text-sm font-medium text-charcoal-700 mb-2">Your Balls</h5>
-                        <div className="grid grid-cols-1 gap-1">
-                          {availableBalls.map((ball) => (
-                            <button
-                              key={ball.id}
-                              onClick={() => setBallForThrow(currentFrame, currentThrow, ball)}
-                              className={`p-2 text-left text-sm border rounded transition-colors ${
-                                getBallForThrow(currentFrame, currentThrow)?.id === ball.id
-                                  ? 'bg-vintage-red-100 border-vintage-red-300 text-vintage-red-800'
-                                  : 'bg-white border-gray-200 text-charcoal-700 hover:bg-gray-50'
-                              }`}
-                            >
-                              <div className="font-medium">{ball.brand} {ball.model}</div>
-                              <div className="text-xs text-charcoal-600">{ball.weight} lbs</div>
-                            </button>
-                          ))}
+              {/* Selected Ball Display */}
+              <div className="text-center p-2 bg-white rounded-lg border mb-2">
+                {(() => {
+                  const selectedBall = getBallForThrow(currentFrame, currentThrow);
+                  if (selectedBall) {
+                    if (selectedBall.type === 'house') {
+                      return (
+                        <div>
+                          <p className="font-medium text-charcoal-800 text-sm">House Ball</p>
+                          <p className="text-xs text-charcoal-600">{selectedBall.weight} lbs</p>
                         </div>
-                      </div>
-                    )}
+                      );
+                    } else {
+                      return (
+                        <div>
+                          <p className="font-medium text-charcoal-800 text-sm">{selectedBall.brand} {selectedBall.model}</p>
+                          <p className="text-xs text-charcoal-600">{selectedBall.weight} lbs</p>
+                        </div>
+                      );
+                    }
+                  } else {
+                    return <p className="text-charcoal-500 italic text-sm">No ball selected</p>;
+                  }
+                })()}
+              </div>
 
-                    {/* House Balls */}
-                    <div>
-                      <h5 className="text-sm font-medium text-charcoal-700 mb-2">House Balls</h5>
-                      <div className="grid grid-cols-4 gap-1">
-                        {houseBallWeights.map((weight) => (
-                          <button
-                            key={weight}
-                            onClick={() => setBallForThrow(currentFrame, currentThrow, {
-                              type: 'house',
-                              weight: weight,
-                              id: `house-${weight}`,
-                              brand: 'House',
-                              model: `${weight}lb`
-                            })}
-                            className={`p-2 text-sm border rounded transition-colors ${
-                              getBallForThrow(currentFrame, currentThrow)?.weight === weight &&
-                              getBallForThrow(currentFrame, currentThrow)?.type === 'house'
-                                ? 'bg-vintage-red-100 border-vintage-red-300 text-vintage-red-800'
-                                : 'bg-white border-gray-200 text-charcoal-700 hover:bg-gray-50'
-                            }`}
-                          >
-                            {weight}lb
-                          </button>
-                        ))}
-                      </div>
+              {/* Ball Selection Buttons - Compact Grid */}
+              <div className="space-y-2">
+                {/* Personal Balls */}
+                {availableBalls.length > 0 && (
+                  <div>
+                    <h5 className="text-xs font-medium text-charcoal-700 mb-1">Your Balls</h5>
+                    <div className="grid grid-cols-2 gap-1">
+                      {availableBalls.map((ball) => (
+                        <button
+                          key={ball.id}
+                          onClick={() => setBallForThrow(currentFrame, currentThrow, ball)}
+                          className={`p-1.5 text-left text-xs border rounded transition-colors ${
+                            getBallForThrow(currentFrame, currentThrow)?.id === ball.id
+                              ? 'bg-vintage-red-100 border-vintage-red-300 text-vintage-red-800'
+                              : 'bg-white border-gray-200 text-charcoal-700 hover:bg-gray-50'
+                          }`}
+                        >
+                          <div className="font-medium truncate">{ball.brand}</div>
+                          <div className="text-xs text-charcoal-600">{ball.weight}lb</div>
+                        </button>
+                      ))}
                     </div>
+                  </div>
+                )}
+
+                {/* House Balls */}
+                <div>
+                  <h5 className="text-xs font-medium text-charcoal-700 mb-1">House Balls</h5>
+                  <div className="grid grid-cols-5 gap-1">
+                    {houseBallWeights.map((weight) => (
+                      <button
+                        key={weight}
+                        onClick={() => setBallForThrow(currentFrame, currentThrow, {
+                          type: 'house',
+                          weight: weight,
+                          id: `house-${weight}`,
+                          brand: 'House',
+                          model: `${weight}lb`
+                        })}
+                        className={`p-1.5 text-xs border rounded transition-colors ${
+                          getBallForThrow(currentFrame, currentThrow)?.weight === weight &&
+                          getBallForThrow(currentFrame, currentThrow)?.type === 'house'
+                            ? 'bg-vintage-red-100 border-vintage-red-300 text-vintage-red-800'
+                            : 'bg-white border-gray-200 text-charcoal-700 hover:bg-gray-50'
+                        }`}
+                      >
+                        {weight}lb
+                      </button>
+                    ))}
                   </div>
                 </div>
               </div>
             </CardContent>
           </Card>
 
-          {/* Pin Selection */}
+          {/* Pin Selection - Compact */}
           <Card>
-            <CardContent className="p-6">
+            <CardContent className="p-3">
               <PinDeck 
-                knockedDownPins={selectedPins}
+                knockedDownPins={getKnockedDownPins()}
                 availablePins={getAvailablePins()}
                 onPinClick={handlePinClick}
               />
 
-              {/* Selected Pins Display */}
+              {/* Selected Pins Display - Compact */}
               {selectedPins.length > 0 && (
-                <div className="text-center mb-6">
-                  <p className="text-sm text-charcoal-600 mb-2">Selected Pins:</p>
-                  <div className="flex justify-center space-x-1">
+                <div className="text-center mb-3">
+                  <p className="text-xs text-charcoal-600 mb-1">Selected:</p>
+                  <div className="flex justify-center flex-wrap gap-1">
                     {selectedPins.map(pin => (
                       <span 
                         key={pin}
-                        className="bg-vintage-red-100 text-vintage-red-800 px-2 py-1 rounded text-sm font-bold"
+                        className="bg-vintage-red-100 text-vintage-red-800 px-1.5 py-0.5 rounded text-xs font-bold"
                       >
                         {pin}
                       </span>
@@ -549,39 +658,35 @@ const PinByPinEntry = ({ onGameComplete, initialData = {} }) => {
                 </div>
               )}
 
-              {/* Split Alert */}
+              {/* Split Alert - Compact */}
               {currentSplit && showSplitAdvice && (
-                <div className="bg-orange-50 border border-orange-200 rounded-xl p-4 mb-6">
-                  <div className="flex items-center space-x-3 mb-3">
-                    <AlertTriangle className="w-6 h-6 text-orange-600" />
-                    <div>
-                      <h4 className="font-semibold text-orange-900">{currentSplit.name}</h4>
-                      <p className="text-sm text-orange-700">
-                        Difficulty: <span className="capitalize">{currentSplit.difficulty.replace('_', ' ')}</span>
-                        {currentSplit.conversionRate > 0 && (
-                          <> • {currentSplit.conversionRate}% pro conversion rate</>
-                        )}
+                <div className="bg-orange-50 border border-orange-200 rounded-lg p-2 mb-3">
+                  <div className="flex items-start space-x-2 mb-2">
+                    <AlertTriangle className="w-4 h-4 text-orange-600 flex-shrink-0 mt-0.5" />
+                    <div className="flex-1">
+                      <h4 className="font-semibold text-orange-900 text-sm">{currentSplit.name}</h4>
+                      <p className="text-xs text-orange-700">
+                        {currentSplit.difficulty.replace('_', ' ')} 
+                        {currentSplit.conversionRate > 0 && ` • ${currentSplit.conversionRate}% conversion`}
                       </p>
                     </div>
                   </div>
-                  <div className="bg-orange-100 rounded-lg p-3">
-                    <p className="text-sm text-orange-800">
+                  <div className="bg-orange-100 rounded p-2">
+                    <p className="text-xs text-orange-800">
                       <strong>Tip:</strong> {getSplitAdvice(currentSplit)}
                     </p>
                   </div>
-                  <Button
-                    variant="ghost"
-                    size="sm"
+                  <button
                     onClick={() => setShowSplitAdvice(false)}
-                    className="mt-2 text-orange-600 hover:text-orange-700"
+                    className="mt-1 text-xs text-orange-600 hover:text-orange-700"
                   >
                     Dismiss
-                  </Button>
+                  </button>
                 </div>
               )}
 
-              {/* Quick Select Buttons */}
-              <div className="grid grid-cols-3 gap-3 mb-6">
+              {/* Quick Select Buttons - Compact */}
+              <div className="grid grid-cols-3 gap-2 mb-3">
                 <Button 
                   variant="outline" 
                   onClick={() => handleQuickSelect('gutter')}

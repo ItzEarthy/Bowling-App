@@ -77,20 +77,70 @@ const EnhancedFriendsPage = () => {
         const friendsLeaderboard = await Promise.all(
           friends.map(async (friend, index) => {
             try {
-              // In a real app, you'd fetch friend's games here
-              // For now, generate realistic mock data based on friendship
-              const baseScore = 160 + Math.random() * 60;
+              // Fetch actual games for this friend
+              const gamesResponse = await gameAPI.getUserGames(friend.id);
+              const games = gamesResponse.data.games || [];
+              
+              if (games.length === 0) {
+                // Return friend with zeros if no games
+                return {
+                  ...friend,
+                  rank: index + 1,
+                  average: 0,
+                  highScore: 0,
+                  gamesPlayed: 0,
+                  recentForm: 0,
+                  totalStrikes: 0,
+                  totalSpares: 0,
+                  achievements: 0,
+                  lastPlayed: friend.created_at,
+                  status: 'offline'
+                };
+              }
+
+              // Calculate real stats from games
+              const completedGames = games.filter(g => g.is_complete);
+              const scores = completedGames.map(g => g.total_score || g.score || 0);
+              const totalPins = scores.reduce((sum, score) => sum + score, 0);
+              const average = completedGames.length > 0 ? Math.round(totalPins / completedGames.length) : 0;
+              const highScore = completedGames.length > 0 ? Math.max(...scores) : 0;
+
+              // Calculate recent form (last 5 games)
+              const recentGames = completedGames.slice(0, 5);
+              const recentForm = recentGames.length > 0 
+                ? Math.round(recentGames.reduce((sum, g) => sum + (g.total_score || g.score || 0), 0) / recentGames.length)
+                : 0;
+
+              // Calculate strikes and spares
+              let totalStrikes = 0;
+              let totalSpares = 0;
+              
+              completedGames.forEach(game => {
+                if (game.entry_mode === 'final_score') {
+                  totalStrikes += game.strikes || 0;
+                  totalSpares += game.spares || 0;
+                } else if (game.frames && Array.isArray(game.frames)) {
+                  // Calculate from frames
+                  game.frames.forEach(frame => {
+                    if (frame.frame_number < 10 && frame.throws) {
+                      if (frame.throws[0] === 10) totalStrikes++;
+                      else if (frame.throws[0] + (frame.throws[1] || 0) === 10) totalSpares++;
+                    }
+                  });
+                }
+              });
+
               return {
                 ...friend,
                 rank: index + 1,
-                average: Math.round(baseScore),
-                highScore: Math.round(baseScore + 40 + Math.random() * 40),
-                gamesPlayed: 20 + Math.floor(Math.random() * 80),
-                recentForm: Math.round(baseScore + (Math.random() - 0.5) * 20),
-                totalStrikes: Math.floor((20 + Math.random() * 80) * (baseScore / 200) * 10),
-                totalSpares: Math.floor((20 + Math.random() * 80) * (baseScore / 200) * 8),
-                achievements: Math.floor(Math.random() * 15) + 3,
-                lastPlayed: new Date(Date.now() - Math.random() * 7 * 24 * 60 * 60 * 1000).toISOString(),
+                average: average,
+                highScore: highScore,
+                gamesPlayed: completedGames.length,
+                recentForm: recentForm,
+                totalStrikes: totalStrikes,
+                totalSpares: totalSpares,
+                achievements: Math.floor(completedGames.length / 10) + (highScore >= 200 ? 1 : 0),
+                lastPlayed: completedGames.length > 0 ? completedGames[0].created_at : friend.created_at,
                 status: Math.random() > 0.7 ? 'online' : 'offline'
               };
             } catch (err) {
@@ -119,26 +169,80 @@ const EnhancedFriendsPage = () => {
           const usersResponse = await userAPI.getAllUsers();
           const allUsers = usersResponse.data.users || [];
           
-          // Generate leaderboard from all users
-          const globalLeaderboard = allUsers.map((user, index) => {
-            const baseScore = 180 - (index * 8) + Math.random() * 30;
-            return {
-              ...user,
-              rank: index + 1,
-              average: Math.round(baseScore),
-              highScore: Math.round(baseScore + 30 + Math.random() * 50),
-              gamesPlayed: 30 + Math.floor(Math.random() * 120),
-              recentForm: Math.round(baseScore + (Math.random() - 0.5) * 25),
-              totalStrikes: Math.floor((30 + Math.random() * 120) * (baseScore / 200) * 10),
-              totalSpares: Math.floor((30 + Math.random() * 120) * (baseScore / 200) * 8),
-              achievements: Math.floor(Math.random() * 20) + 5,
-              lastPlayed: new Date(Date.now() - Math.random() * 30 * 24 * 60 * 60 * 1000).toISOString(),
-              status: Math.random() > 0.6 ? 'online' : 'offline'
-            };
-          });
+          // Fetch games for each user and calculate real stats
+          const globalLeaderboard = await Promise.all(
+            allUsers.map(async (user, index) => {
+              try {
+                const gamesResponse = await gameAPI.getUserGames(user.id);
+                const games = gamesResponse.data.games || [];
+                
+                if (games.length === 0) {
+                  return {
+                    ...user,
+                    rank: index + 1,
+                    average: 0,
+                    highScore: 0,
+                    gamesPlayed: 0,
+                    recentForm: 0,
+                    totalStrikes: 0,
+                    totalSpares: 0,
+                    achievements: 0,
+                    lastPlayed: user.created_at,
+                    status: 'offline'
+                  };
+                }
+
+                const completedGames = games.filter(g => g.is_complete);
+                const scores = completedGames.map(g => g.total_score || g.score || 0);
+                const totalPins = scores.reduce((sum, score) => sum + score, 0);
+                const average = completedGames.length > 0 ? Math.round(totalPins / completedGames.length) : 0;
+                const highScore = completedGames.length > 0 ? Math.max(...scores) : 0;
+
+                const recentGames = completedGames.slice(0, 5);
+                const recentForm = recentGames.length > 0 
+                  ? Math.round(recentGames.reduce((sum, g) => sum + (g.total_score || g.score || 0), 0) / recentGames.length)
+                  : 0;
+
+                let totalStrikes = 0;
+                let totalSpares = 0;
+                
+                completedGames.forEach(game => {
+                  if (game.entry_mode === 'final_score') {
+                    totalStrikes += game.strikes || 0;
+                    totalSpares += game.spares || 0;
+                  } else if (game.frames && Array.isArray(game.frames)) {
+                    game.frames.forEach(frame => {
+                      if (frame.frame_number < 10 && frame.throws) {
+                        if (frame.throws[0] === 10) totalStrikes++;
+                        else if (frame.throws[0] + (frame.throws[1] || 0) === 10) totalSpares++;
+                      }
+                    });
+                  }
+                });
+
+                return {
+                  ...user,
+                  rank: index + 1,
+                  average: average,
+                  highScore: highScore,
+                  gamesPlayed: completedGames.length,
+                  recentForm: recentForm,
+                  totalStrikes: totalStrikes,
+                  totalSpares: totalSpares,
+                  achievements: Math.floor(completedGames.length / 10) + (highScore >= 200 ? 1 : 0),
+                  lastPlayed: completedGames.length > 0 ? completedGames[0].created_at : user.created_at,
+                  status: Math.random() > 0.6 ? 'online' : 'offline'
+                };
+              } catch (err) {
+                console.error('Error loading user games:', err);
+                return null;
+              }
+            })
+          );
           
-          // Sort by the selected metric
-          globalLeaderboard.sort((a, b) => {
+          // Filter out nulls and sort by the selected metric
+          const validUsers = globalLeaderboard.filter(Boolean);
+          validUsers.sort((a, b) => {
             switch (leaderboardType) {
               case 'average': return b.average - a.average;
               case 'high_score': return b.highScore - a.highScore;
@@ -148,7 +252,7 @@ const EnhancedFriendsPage = () => {
             }
           });
           
-          setLeaderboard(globalLeaderboard.map((user, index) => ({
+          setLeaderboard(validUsers.map((user, index) => ({
             ...user,
             rank: index + 1
           })));
@@ -254,38 +358,111 @@ const EnhancedFriendsPage = () => {
   };
 
   const handleViewProfile = async (user) => {
-    // Load detailed profile data
-    const detailedProfile = {
-      ...user,
-      stats: {
-        totalGames: user.gamesPlayed,
-        average: user.average,
-        highScore: user.highScore,
-        totalStrikes: user.totalStrikes,
-        totalSpares: user.totalSpares,
-        achievements: user.achievements,
-        currentStreak: user.currentStreak,
-        consistency: Math.round(85 + Math.random() * 15),
-        improvement: Math.round((Math.random() - 0.5) * 20),
-        favoriteAlley: 'Sunset Lanes',
-        bowlingStyle: ['Power', 'Accuracy', 'Consistency'][Math.floor(Math.random() * 3)],
-        experienceLevel: ['Beginner', 'Intermediate', 'Advanced', 'Expert'][Math.floor(Math.random() * 4)]
-      },
-      recentGames: Array.from({ length: 5 }, (_, i) => ({
-        id: i + 1,
-        score: Math.round(user.average + (Math.random() - 0.5) * 40),
-        date: new Date(Date.now() - i * 24 * 60 * 60 * 1000).toLocaleDateString(),
-        location: ['Sunset Lanes', 'Strike Zone', 'Perfect Pin', 'Lucky Seven'][Math.floor(Math.random() * 4)]
-      })),
-      compareStats: {
-        averageComparison: Math.round((Math.random() - 0.5) * 30),
-        gamesComparison: Math.round((Math.random() - 0.5) * 50),
-        improvementComparison: Math.round((Math.random() - 0.5) * 10)
-      }
-    };
-    
-    setSelectedFriend(detailedProfile);
-    setShowProfileModal(true);
+    try {
+      // Load actual game data for the user
+      const gamesResponse = await gameAPI.getUserGames(user.id);
+      const games = gamesResponse.data.games || [];
+      
+      const completedGames = games.filter(g => g.is_complete);
+      const scores = completedGames.map(g => g.total_score || g.score || 0);
+      const totalPins = scores.reduce((sum, score) => sum + score, 0);
+      const average = completedGames.length > 0 ? Math.round(totalPins / completedGames.length) : 0;
+      const highScore = completedGames.length > 0 ? Math.max(...scores) : 0;
+
+      // Get recent games (last 5)
+      const recentGames = completedGames.slice(0, 5).map(game => ({
+        id: game.id,
+        score: game.total_score || game.score || 0,
+        date: new Date(game.created_at).toLocaleDateString(),
+        location: game.location || 'Unknown'
+      }));
+
+      // Calculate strikes and spares
+      let totalStrikes = 0;
+      let totalSpares = 0;
+      
+      completedGames.forEach(game => {
+        if (game.entry_mode === 'final_score') {
+          totalStrikes += game.strikes || 0;
+          totalSpares += game.spares || 0;
+        } else if (game.frames && Array.isArray(game.frames)) {
+          game.frames.forEach(frame => {
+            if (frame.frame_number < 10 && frame.throws) {
+              if (frame.throws[0] === 10) totalStrikes++;
+              else if (frame.throws[0] + (frame.throws[1] || 0) === 10) totalSpares++;
+            }
+          });
+        }
+      });
+
+      // Load detailed profile data
+      const detailedProfile = {
+        ...user,
+        stats: {
+          totalGames: completedGames.length,
+          average: average,
+          highScore: highScore,
+          totalStrikes: totalStrikes,
+          totalSpares: totalSpares,
+          achievements: Math.floor(completedGames.length / 10) + (highScore >= 200 ? 1 : 0),
+          currentStreak: user.currentStreak || 0,
+          consistency: completedGames.length > 5 
+            ? Math.round(100 - (Math.max(...scores) - Math.min(...scores)) / 3)
+            : 0,
+          improvement: 0, // Could calculate from trend
+          favoriteAlley: completedGames.length > 0 
+            ? completedGames[0].location || 'Unknown'
+            : 'Unknown',
+          bowlingStyle: average >= 180 ? 'Power' : average >= 150 ? 'Accuracy' : 'Developing',
+          experienceLevel: completedGames.length >= 100 ? 'Expert' : 
+                          completedGames.length >= 50 ? 'Advanced' : 
+                          completedGames.length >= 20 ? 'Intermediate' : 'Beginner'
+        },
+        recentGames: recentGames,
+        compareStats: {
+          averageComparison: 0, // Would need current user's average
+          gamesComparison: 0,
+          improvementComparison: 0
+        }
+      };
+      
+      setSelectedFriend(detailedProfile);
+      setShowProfileModal(true);
+    } catch (error) {
+      console.error('Error loading user profile:', error);
+      // Fallback to existing mock data approach
+      const detailedProfile = {
+        ...user,
+        stats: {
+          totalGames: user.gamesPlayed || 0,
+          average: user.average || 0,
+          highScore: user.highScore || 0,
+          totalStrikes: user.totalStrikes || 0,
+          totalSpares: user.totalSpares || 0,
+          achievements: user.achievements || 0,
+          currentStreak: user.currentStreak || 0,
+          consistency: Math.round(85 + Math.random() * 15),
+          improvement: Math.round((Math.random() - 0.5) * 20),
+          favoriteAlley: 'Sunset Lanes',
+          bowlingStyle: ['Power', 'Accuracy', 'Consistency'][Math.floor(Math.random() * 3)],
+          experienceLevel: ['Beginner', 'Intermediate', 'Advanced', 'Expert'][Math.floor(Math.random() * 4)]
+        },
+        recentGames: Array.from({ length: 5 }, (_, i) => ({
+          id: i + 1,
+          score: Math.round(user.average + (Math.random() - 0.5) * 40),
+          date: new Date(Date.now() - i * 24 * 60 * 60 * 1000).toLocaleDateString(),
+          location: ['Sunset Lanes', 'Strike Zone', 'Perfect Pin', 'Lucky Seven'][Math.floor(Math.random() * 4)]
+        })),
+        compareStats: {
+          averageComparison: Math.round((Math.random() - 0.5) * 30),
+          gamesComparison: Math.round((Math.random() - 0.5) * 50),
+          improvementComparison: Math.round((Math.random() - 0.5) * 10)
+        }
+      };
+      
+      setSelectedFriend(detailedProfile);
+      setShowProfileModal(true);
+    }
   };
 
   const getRankIcon = (rank) => {
@@ -447,7 +624,7 @@ const EnhancedFriendsPage = () => {
                         <div className={`w-12 h-12 rounded-full flex items-center justify-center font-bold text-white ${
                           user.isOnline ? 'bg-green-500' : 'bg-charcoal-400'
                         }`}>
-                          {user.displayName.charAt(0)}
+                          {user.displayName?.charAt(0)?.toUpperCase() || 'U'}
                         </div>
                         <div>
                           <div className="flex items-center space-x-2">
@@ -538,7 +715,7 @@ const EnhancedFriendsPage = () => {
                       <div className={`w-16 h-16 rounded-full flex items-center justify-center font-bold text-white ${
                         friend.isOnline ? 'bg-green-500' : 'bg-charcoal-400'
                       }`}>
-                        {friend.displayName?.charAt(0) || 'F'}
+                        {friend.displayName?.charAt(0)?.toUpperCase() || 'F'}
                       </div>
                       <div className="flex-1">
                         <h3 className="font-semibold text-charcoal-900">
@@ -663,7 +840,7 @@ const EnhancedFriendsPage = () => {
                       <div className={`w-12 h-12 rounded-full flex items-center justify-center font-bold text-white ${
                         user.isOnline ? 'bg-green-500' : 'bg-charcoal-400'
                       }`}>
-                        {user.displayName.charAt(0)}
+                        {user.displayName?.charAt(0)?.toUpperCase() || 'U'}
                       </div>
                       <div>
                         <h3 className="font-semibold text-charcoal-900">
@@ -747,7 +924,7 @@ const EnhancedFriendsPage = () => {
               <div className={`w-20 h-20 rounded-full flex items-center justify-center font-bold text-white text-2xl ${
                 selectedFriend.isOnline ? 'bg-green-500' : 'bg-charcoal-400'
               }`}>
-                {selectedFriend.displayName.charAt(0)}
+                {selectedFriend.displayName?.charAt(0)?.toUpperCase() || 'U'}
               </div>
               <div className="flex-1">
                 <h2 className="text-2xl font-bold text-charcoal-900">

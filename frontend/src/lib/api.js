@@ -57,10 +57,13 @@ export const userAPI = {
   changePassword: (data) => api.put('/users/me/password', data),
   deleteAccount: () => api.delete('/users/me'),
   searchUsers: (username) => api.get(`/users/search?username=${encodeURIComponent(username)}`),
+  getAchievements: () => api.get('/users/me/achievements'),
   // Admin endpoints
   getAllUsers: () => api.get('/admin/users'),
   deleteUserAsAdmin: (userId) => api.delete(`/admin/users/${userId}`),
-  updateUserStatus: (userId, status) => api.put(`/admin/users/${userId}/status`, { status }),
+  updateUserStatus: (userId, status, role) => api.put(`/admin/users/${userId}/status`, { status, role }),
+  updateUser: (userId, userData) => api.put(`/admin/users/${userId}`, userData),
+  forceLogout: (userId) => api.post(`/admin/users/${userId}/force-logout`),
   createUser: (userData) => api.post('/admin/users', userData),
   getAdminStats: () => api.get('/admin/stats'),
   getAdminSettings: () => api.get('/admin/settings'),
@@ -82,6 +85,7 @@ export const gameAPI = {
   updateGame: (gameId, gameData) => api.put(`/games/${gameId}`, gameData),
   deleteGame: (gameId) => api.delete(`/games/${gameId}`),
   submitFrame: (gameId, frameData) => api.post(`/games/${gameId}/frames`, frameData),
+  getUserGames: (userId) => api.get(`/games/user/${userId}`),
 };
 
 // Balls API calls

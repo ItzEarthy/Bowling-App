@@ -52,7 +52,7 @@ import { userAPI, gameAPI, friendAPI } from '../lib/api';
  */
 const AdminPage = () => {
   const navigate = useNavigate();
-  const { user, updateUser, logout } = useAuthStore();
+  const { user: currentUser, updateUser, logout } = useAuthStore();
   const [activeTab, setActiveTab] = useState('overview');
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -69,14 +69,29 @@ const AdminPage = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [userFilter, setUserFilter] = useState('all');
   
+  // Game management states
+  const [gameSearchTerm, setGameSearchTerm] = useState('');
+  const [gameUserFilter, setGameUserFilter] = useState('all');
+  const [gameDateFilter, setGameDateFilter] = useState('all');
+  const [gameScoreFilter, setGameScoreFilter] = useState('all');
+  const [selectedGames, setSelectedGames] = useState([]);
+  const [showGameDeleteModal, setShowGameDeleteModal] = useState(false);
+  const [gameToDelete, setGameToDelete] = useState(null);
+  
   // Modal states
   const [showUserModal, setShowUserModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [showSettingsModal, setShowSettingsModal] = useState(false);
   const [showBulkModal, setShowBulkModal] = useState(false);
   const [showCreateUserModal, setShowCreateUserModal] = useState(false);
+  const [showEditUserModal, setShowEditUserModal] = useState(false);
   const [userToDelete, setUserToDelete] = useState(null);
   const [editingSetting, setEditingSetting] = useState(null);
+  const [editUserData, setEditUserData] = useState({
+    username: '',
+    displayName: '',
+    email: ''
+  });
   
   // Form states
   const [newUserData, setNewUserData] = useState({
@@ -113,7 +128,7 @@ const AdminPage = () => {
 
   // Check admin access and load data when tab changes
   useEffect(() => {
-    if (!user || user.role !== 'admin') {
+    if (!currentUser || currentUser.role !== 'admin') {
       navigate('/dashboard');
       return;
     }
@@ -122,18 +137,18 @@ const AdminPage = () => {
     } else {
       loadAdminData();
     }
-  }, [user, navigate, activeTab]);
+  }, [currentUser, navigate, activeTab]);
 
   // Initialize profile data when user changes
   useEffect(() => {
-    if (user) {
+    if (currentUser) {
       setProfileData({
-        username: user.username || '',
-        displayName: user.displayName || user.display_name || '',
-        email: user.email || ''
+        username: currentUser.username || '',
+        displayName: currentUser.displayName || currentUser.display_name || '',
+        email: currentUser.email || ''
       });
     }
-  }, [user]);
+  }, [currentUser]);
 
   const loadProfileData = async () => {
     try {
@@ -167,6 +182,8 @@ const AdminPage = () => {
         promises.push(userAPI.getAdminStats());
       } else if (activeTab === 'users') {
         promises.push(userAPI.getAllUsers());
+      } else if (activeTab === 'games') {
+        promises.push(gameAPI.getGames());
       } else if (activeTab === 'settings') {
         promises.push(userAPI.getAdminSettings());
       } else if (activeTab === 'logs') {
@@ -179,6 +196,8 @@ const AdminPage = () => {
         setSystemStats(responses[0].data.stats);
       } else if (activeTab === 'users') {
         setUsers(responses[0].data.users || []);
+      } else if (activeTab === 'games') {
+        setGames(responses[0].data.games || []);
       } else if (activeTab === 'settings') {
         setAdminSettings(responses[0].data.settings || []);
       } else if (activeTab === 'logs') {
@@ -215,6 +234,61 @@ const AdminPage = () => {
     }
   };
 
+  const handleToggleAdminRole = async (targetUser) => {
+    if (targetUser.id === currentUser.id) {
+      setError('Cannot change your own admin status');
+      return;
+    }
+    
+    try {
+      const newRole = targetUser.role === 'admin' ? 'user' : 'admin';
+      await userAPI.updateUserStatus(targetUser.id, targetUser.status || 'active', newRole);
+      setUsers(prev => prev.map(u => 
+        u.id === targetUser.id ? { ...u, role: newRole } : u
+      ));
+      setSuccess(`${targetUser.username} is now ${newRole === 'admin' ? 'an admin' : 'a regular user'}`);
+      setTimeout(() => setSuccess(null), 3000);
+    } catch (err) {
+      setError('Failed to update user role');
+    }
+  };
+
+  const handleForceLogout = async (targetUser) => {
+    try {
+      // This would typically invalidate the user's session on the backend
+      await userAPI.forceLogout(targetUser.id);
+      setSuccess(`${targetUser.username} has been logged out`);
+      setTimeout(() => setSuccess(null), 3000);
+    } catch (err) {
+      setError('Failed to force logout: ' + (err.response?.data?.error || 'Unknown error'));
+    }
+  };
+
+  const handleEditUser = (targetUser) => {
+    setSelectedUser(targetUser);
+    setEditUserData({
+      username: targetUser.username,
+      displayName: targetUser.display_name,
+      email: targetUser.email || ''
+    });
+    setShowEditUserModal(true);
+  };
+
+  const handleUpdateUser = async () => {
+    try {
+      await userAPI.updateUser(selectedUser.id, editUserData);
+      setUsers(prev => prev.map(u => 
+        u.id === selectedUser.id ? { ...u, ...editUserData, display_name: editUserData.displayName } : u
+      ));
+      setShowEditUserModal(false);
+      setSelectedUser(null);
+      setSuccess('User updated successfully');
+      setTimeout(() => setSuccess(null), 3000);
+    } catch (err) {
+      setError('Failed to update user: ' + (err.response?.data?.error || 'Unknown error'));
+    }
+  };
+
   const handleCreateUser = async () => {
     try {
       await userAPI.createUser(newUserData);
@@ -237,13 +311,16 @@ const AdminPage = () => {
       await userAPI.updateAdminSetting(editingSetting.setting_key, settingValue);
       setAdminSettings(prev => prev.map(s => 
         s.setting_key === editingSetting.setting_key 
-          ? { ...s, setting_value: settingValue }
+          ? { ...s, setting_value: settingValue, updated_at: new Date().toISOString() }
           : s
       ));
       setShowSettingsModal(false);
       setEditingSetting(null);
+      setSettingValue('');
+      setSuccess('Setting updated successfully');
+      setTimeout(() => setSuccess(null), 3000);
     } catch (err) {
-      setError('Failed to update setting');
+      setError(err.response?.data?.error || 'Failed to update setting');
     }
   };
 
@@ -409,6 +486,29 @@ const AdminPage = () => {
     navigate('/login');
   };
 
+  const handleDeleteGame = async (gameId) => {
+    try {
+      await gameAPI.deleteGame(gameId);
+      setGames(prev => prev.filter(g => g.id !== gameId));
+      setShowGameDeleteModal(false);
+      setGameToDelete(null);
+      setSuccess('Game deleted successfully');
+    } catch (err) {
+      setError('Failed to delete game');
+    }
+  };
+
+  const handleBulkDeleteGames = async () => {
+    try {
+      await Promise.all(selectedGames.map(gameId => gameAPI.deleteGame(gameId)));
+      setGames(prev => prev.filter(g => !selectedGames.includes(g.id)));
+      setSelectedGames([]);
+      setSuccess(`${selectedGames.length} games deleted successfully`);
+    } catch (err) {
+      setError('Failed to delete games');
+    }
+  };
+
   const filteredUsers = users.filter(user => {
     const matchesSearch = user.display_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          user.username.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -423,7 +523,45 @@ const AdminPage = () => {
     return matchesSearch && matchesFilter;
   });
 
-  if (!user || user.role !== 'admin') {
+  const filteredGames = games.filter(game => {
+    // Search filter
+    const matchesSearch = !gameSearchTerm || 
+                         game.user_display_name?.toLowerCase().includes(gameSearchTerm.toLowerCase()) ||
+                         game.user_username?.toLowerCase().includes(gameSearchTerm.toLowerCase()) ||
+                         game.location?.toLowerCase().includes(gameSearchTerm.toLowerCase());
+    
+    // User filter (if we want to filter by a specific user)
+    const matchesUser = gameUserFilter === 'all' || game.user_id === parseInt(gameUserFilter);
+    
+    // Date filter
+    const now = new Date();
+    const gameDate = new Date(game.played_at || game.created_at);
+    let matchesDate = true;
+    
+    if (gameDateFilter === 'today') {
+      matchesDate = gameDate.toDateString() === now.toDateString();
+    } else if (gameDateFilter === 'week') {
+      const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+      matchesDate = gameDate >= weekAgo;
+    } else if (gameDateFilter === 'month') {
+      const monthAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+      matchesDate = gameDate >= monthAgo;
+    }
+    
+    // Score filter
+    let matchesScore = true;
+    if (gameScoreFilter === 'high') {
+      matchesScore = game.total_score >= 200;
+    } else if (gameScoreFilter === 'medium') {
+      matchesScore = game.total_score >= 150 && game.total_score < 200;
+    } else if (gameScoreFilter === 'low') {
+      matchesScore = game.total_score < 150;
+    }
+    
+    return matchesSearch && matchesUser && matchesDate && matchesScore;
+  });
+
+  if (!currentUser || currentUser.role !== 'admin') {
     return (
       <div className="flex items-center justify-center h-64">
         <div className="text-center">
@@ -799,6 +937,28 @@ const AdminPage = () => {
                         <td className="py-3 px-4">
                           <div className="flex items-center space-x-2">
                             <button
+                              onClick={() => handleToggleAdminRole(user)}
+                              className="p-1 text-charcoal-500 hover:text-purple-600 transition-colors"
+                              title={user.role === 'admin' ? 'Remove admin' : 'Make admin'}
+                              disabled={user.id === currentUser?.id}
+                            >
+                              <Shield className={`w-4 h-4 ${user.role === 'admin' ? 'fill-purple-600' : ''}`} />
+                            </button>
+                            <button
+                              onClick={() => handleForceLogout(user)}
+                              className="p-1 text-charcoal-500 hover:text-orange-600 transition-colors"
+                              title="Force logout"
+                            >
+                              <LogOut className="w-4 h-4" />
+                            </button>
+                            <button
+                              onClick={() => handleEditUser(user)}
+                              className="p-1 text-charcoal-500 hover:text-blue-600 transition-colors"
+                              title="Edit user data"
+                            >
+                              <Edit className="w-4 h-4" />
+                            </button>
+                            <button
                               onClick={() => handleUserStatusToggle(user.id, user.status || 'active')}
                               className="p-1 text-charcoal-500 hover:text-blue-600 transition-colors"
                               title={`${(user.status || 'active') === 'active' ? 'Suspend' : 'Activate'} user`}
@@ -1132,33 +1292,287 @@ const AdminPage = () => {
       {/* Games Tab */}
       {activeTab === 'games' && (
         <div className="space-y-6">
+          {/* Game Management Controls */}
           <Card>
-            <CardHeader>
-              <CardTitle>All Games Overview</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-center py-8">
-                <Target className="w-12 h-12 text-charcoal-400 mx-auto mb-4" />
-                <p className="text-charcoal-600 font-medium">Games Management</p>
-                <p className="text-charcoal-500 text-sm mb-4">
-                  View and manage all games in the system
-                </p>
-                <p className="text-charcoal-500 text-sm">
-                  This feature will be implemented to show system-wide game statistics and management tools.
-                </p>
+            <CardContent className="p-4">
+              <div className="flex flex-col gap-4">
+                <div className="flex flex-col sm:flex-row gap-3 items-center">
+                  <div className="relative flex-1">
+                    <Search className="w-4 h-4 absolute left-3 top-1/2 transform -translate-y-1/2 text-charcoal-500" />
+                    <Input
+                      placeholder="Search games by user, location..."
+                      value={gameSearchTerm}
+                      onChange={(e) => setGameSearchTerm(e.target.value)}
+                      className="pl-10 w-full"
+                    />
+                  </div>
+                  {selectedGames.length > 0 && (
+                    <Button
+                      variant="outline"
+                      onClick={handleBulkDeleteGames}
+                      className="text-red-600 border-red-200 hover:bg-red-50"
+                    >
+                      <Trash className="w-4 h-4 mr-2" />
+                      Delete Selected ({selectedGames.length})
+                    </Button>
+                  )}
+                </div>
+                
+                {/* Filter Row */}
+                <div className="flex flex-col sm:flex-row gap-3">
+                  <select
+                    value={gameDateFilter}
+                    onChange={(e) => setGameDateFilter(e.target.value)}
+                    className="px-3 py-2 border border-charcoal-200 rounded-lg text-sm"
+                  >
+                    <option value="all">All Time</option>
+                    <option value="today">Today</option>
+                    <option value="week">This Week</option>
+                    <option value="month">This Month</option>
+                  </select>
+                  
+                  <select
+                    value={gameScoreFilter}
+                    onChange={(e) => setGameScoreFilter(e.target.value)}
+                    className="px-3 py-2 border border-charcoal-200 rounded-lg text-sm"
+                  >
+                    <option value="all">All Scores</option>
+                    <option value="high">High (200+)</option>
+                    <option value="medium">Medium (150-199)</option>
+                    <option value="low">Low (&lt;150)</option>
+                  </select>
+                  
+                  <Button
+                    variant="outline"
+                    onClick={() => {
+                      setGameSearchTerm('');
+                      setGameUserFilter('all');
+                      setGameDateFilter('all');
+                      setGameScoreFilter('all');
+                      setSelectedGames([]);
+                    }}
+                    className="whitespace-nowrap"
+                  >
+                    <RefreshCw className="w-4 h-4 mr-2" />
+                    Reset Filters
+                  </Button>
+                </div>
               </div>
             </CardContent>
           </Card>
+
+          {/* Games List */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center justify-between">
+                <span>All Games ({filteredGames.length})</span>
+                <div className="text-sm font-normal text-charcoal-600">
+                  Showing {filteredGames.length} of {games.length} total games
+                </div>
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {filteredGames.length === 0 ? (
+                <div className="text-center py-8">
+                  <Target className="w-12 h-12 text-charcoal-400 mx-auto mb-4" />
+                  <p className="text-charcoal-600 font-medium">No Games Found</p>
+                  <p className="text-charcoal-500 text-sm">
+                    {games.length === 0 ? 'No games have been played yet' : 'Try adjusting your filters'}
+                  </p>
+                </div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full">
+                    <thead>
+                      <tr className="border-b border-charcoal-200">
+                        <th className="text-left py-3 px-4">
+                          <input
+                            type="checkbox"
+                            checked={selectedGames.length === filteredGames.length && filteredGames.length > 0}
+                            onChange={(e) => {
+                              if (e.target.checked) {
+                                setSelectedGames(filteredGames.map(g => g.id));
+                              } else {
+                                setSelectedGames([]);
+                              }
+                            }}
+                            className="rounded"
+                          />
+                        </th>
+                        <th className="text-left py-3 px-4 font-medium text-charcoal-700">Player</th>
+                        <th className="text-left py-3 px-4 font-medium text-charcoal-700">Score</th>
+                        <th className="text-left py-3 px-4 font-medium text-charcoal-700">Location</th>
+                        <th className="text-left py-3 px-4 font-medium text-charcoal-700">Date</th>
+                        <th className="text-left py-3 px-4 font-medium text-charcoal-700">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {filteredGames.map((game) => (
+                        <tr key={game.id} className="border-b border-charcoal-100 hover:bg-charcoal-50">
+                          <td className="py-3 px-4">
+                            <input
+                              type="checkbox"
+                              checked={selectedGames.includes(game.id)}
+                              onChange={(e) => {
+                                if (e.target.checked) {
+                                  setSelectedGames(prev => [...prev, game.id]);
+                                } else {
+                                  setSelectedGames(prev => prev.filter(id => id !== game.id));
+                                }
+                              }}
+                              className="rounded"
+                            />
+                          </td>
+                          <td className="py-3 px-4">
+                            <div className="flex items-center space-x-3">
+                              <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center text-white text-sm font-bold">
+                                {game.user_display_name?.charAt(0)?.toUpperCase() || 'U'}
+                              </div>
+                              <div>
+                                <div className="font-medium text-charcoal-900">{game.user_display_name || 'Unknown User'}</div>
+                                <div className="text-sm text-charcoal-600">@{game.user_username || 'unknown'}</div>
+                              </div>
+                            </div>
+                          </td>
+                          <td className="py-3 px-4">
+                            <div className="flex items-center space-x-2">
+                              <span className={`text-lg font-bold ${
+                                game.total_score >= 200 ? 'text-green-600' :
+                                game.total_score >= 150 ? 'text-blue-600' :
+                                'text-charcoal-900'
+                              }`}>
+                                {game.total_score}
+                              </span>
+                              {game.total_score >= 200 && (
+                                <span className="px-2 py-1 bg-green-100 text-green-600 text-xs font-medium rounded">
+                                  High
+                                </span>
+                              )}
+                            </div>
+                          </td>
+                          <td className="py-3 px-4 text-charcoal-700">
+                            {game.location || 'Not specified'}
+                          </td>
+                          <td className="py-3 px-4 text-charcoal-600 text-sm">
+                            <div>{new Date(game.played_at || game.created_at).toLocaleDateString()}</div>
+                            <div className="text-xs text-charcoal-500">
+                              {new Date(game.played_at || game.created_at).toLocaleTimeString()}
+                            </div>
+                          </td>
+                          <td className="py-3 px-4">
+                            <div className="flex items-center space-x-2">
+                              <button
+                                onClick={() => navigate(`/game/${game.id}`)}
+                                className="p-1 text-charcoal-500 hover:text-blue-600 transition-colors"
+                                title="View game details"
+                              >
+                                <Eye className="w-4 h-4" />
+                              </button>
+                              <button
+                                onClick={() => {
+                                  setGameToDelete(game);
+                                  setShowGameDeleteModal(true);
+                                }}
+                                className="p-1 text-charcoal-500 hover:text-red-600 transition-colors"
+                                title="Delete game"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Game Statistics Summary */}
+          {games.length > 0 && (
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+              <Card>
+                <CardContent className="text-center p-6">
+                  <div className="bg-purple-100 p-3 rounded-full w-fit mx-auto mb-4">
+                    <Target className="w-8 h-8 text-purple-600" />
+                  </div>
+                  <div className="text-3xl font-bold text-charcoal-900 mb-1">
+                    {games.length}
+                  </div>
+                  <div className="text-sm text-charcoal-600">Total Games</div>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardContent className="text-center p-6">
+                  <div className="bg-blue-100 p-3 rounded-full w-fit mx-auto mb-4">
+                    <BarChart3 className="w-8 h-8 text-blue-600" />
+                  </div>
+                  <div className="text-3xl font-bold text-charcoal-900 mb-1">
+                    {Math.round(games.reduce((sum, g) => sum + g.total_score, 0) / games.length) || 0}
+                  </div>
+                  <div className="text-sm text-charcoal-600">Avg Score</div>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardContent className="text-center p-6">
+                  <div className="bg-green-100 p-3 rounded-full w-fit mx-auto mb-4">
+                    <CheckCircle className="w-8 h-8 text-green-600" />
+                  </div>
+                  <div className="text-3xl font-bold text-charcoal-900 mb-1">
+                    {Math.max(...games.map(g => g.total_score), 0)}
+                  </div>
+                  <div className="text-sm text-charcoal-600">High Score</div>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardContent className="text-center p-6">
+                  <div className="bg-orange-100 p-3 rounded-full w-fit mx-auto mb-4">
+                    <Activity className="w-8 h-8 text-orange-600" />
+                  </div>
+                  <div className="text-3xl font-bold text-charcoal-900 mb-1">
+                    {games.filter(g => g.total_score >= 200).length}
+                  </div>
+                  <div className="text-sm text-charcoal-600">200+ Games</div>
+                </CardContent>
+              </Card>
+            </div>
+          )}
         </div>
       )}
 
       {/* Settings Tab */}
       {activeTab === 'settings' && (
         <div className="space-y-6">
+          {/* Settings Info Card */}
+          <Card>
+            <CardContent className="p-4">
+              <div className="flex items-center space-x-3">
+                <div className="bg-blue-100 p-2 rounded-lg">
+                  <Settings className="w-5 h-5 text-blue-600" />
+                </div>
+                <div>
+                  <h3 className="font-medium text-charcoal-900">System Configuration</h3>
+                  <p className="text-sm text-charcoal-600">
+                    Configure system-wide settings and behavior. Changes take effect immediately.
+                  </p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center justify-between">
-                <span>System Settings</span>
+                <div className="flex items-center space-x-2">
+                  <span>System Settings</span>
+                  <span className="px-2 py-1 bg-blue-100 text-blue-600 text-xs font-medium rounded">
+                    {adminSettings.length} Settings
+                  </span>
+                </div>
                 <Button onClick={handleCreateBackup} variant="outline">
                   <Download className="w-4 h-4 mr-2" />
                   Create Backup
@@ -1166,39 +1580,72 @@ const AdminPage = () => {
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {adminSettings.map((setting) => (
-                  <div key={setting.setting_key} className="p-4 border border-charcoal-200 rounded-xl">
-                    <div className="flex items-center justify-between mb-2">
-                      <h4 className="font-medium text-charcoal-900">
-                        {setting.setting_key.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
-                      </h4>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => {
-                          setEditingSetting(setting);
-                          setSettingValue(setting.setting_value);
-                          setShowSettingsModal(true);
-                        }}
-                      >
-                        <Edit className="w-3 h-3" />
-                      </Button>
-                    </div>
-                    <div className="text-sm text-charcoal-600 mb-2">
-                      {setting.description}
-                    </div>
-                    <div className="font-mono text-sm bg-charcoal-50 p-2 rounded">
-                      {setting.setting_value}
-                    </div>
-                    {setting.updated_at && (
-                      <div className="text-xs text-charcoal-500 mt-2">
-                        Updated: {new Date(setting.updated_at).toLocaleString()}
+              {adminSettings.length === 0 ? (
+                <div className="text-center py-8">
+                  <Settings className="w-12 h-12 text-charcoal-400 mx-auto mb-4" />
+                  <p className="text-charcoal-600 font-medium">No Settings Found</p>
+                  <p className="text-charcoal-500 text-sm">
+                    System settings will appear here once configured
+                  </p>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {adminSettings.map((setting) => (
+                    <div key={setting.setting_key} className="p-5 border border-charcoal-200 rounded-xl hover:border-charcoal-300 transition-colors">
+                      <div className="flex items-start justify-between mb-3">
+                        <div className="flex-1">
+                          <h4 className="font-semibold text-charcoal-900 mb-1">
+                            {setting.setting_key.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
+                          </h4>
+                          <p className="text-sm text-charcoal-600">
+                            {setting.description}
+                          </p>
+                        </div>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => {
+                            setEditingSetting(setting);
+                            setSettingValue(setting.setting_value);
+                            setShowSettingsModal(true);
+                          }}
+                          className="ml-3"
+                        >
+                          <Edit className="w-3 h-3 mr-1" />
+                          Edit
+                        </Button>
                       </div>
-                    )}
-                  </div>
-                ))}
-              </div>
+                      
+                      <div className="bg-charcoal-50 p-3 rounded-lg border border-charcoal-200">
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs text-charcoal-500 font-medium uppercase tracking-wide">
+                            Current Value
+                          </span>
+                          {(setting.setting_value === 'true' || setting.setting_value === 'false') && (
+                            <span className={`px-2 py-1 rounded text-xs font-medium ${
+                              setting.setting_value === 'true' 
+                                ? 'bg-green-100 text-green-700' 
+                                : 'bg-gray-100 text-gray-700'
+                            }`}>
+                              {setting.setting_value === 'true' ? 'Enabled' : 'Disabled'}
+                            </span>
+                          )}
+                        </div>
+                        <div className="font-mono text-sm text-charcoal-900 mt-2 break-all">
+                          {setting.setting_value}
+                        </div>
+                      </div>
+                      
+                      {setting.updated_at && (
+                        <div className="flex items-center space-x-1 text-xs text-charcoal-500 mt-3">
+                          <Clock className="w-3 h-3" />
+                          <span>Last updated: {new Date(setting.updated_at).toLocaleString()}</span>
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
             </CardContent>
           </Card>
         </div>
@@ -1207,54 +1654,94 @@ const AdminPage = () => {
       {/* Logs Tab */}
       {activeTab === 'logs' && (
         <div className="space-y-6">
+          {/* Logs Info Card */}
           <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center justify-between">
-                <span>System Logs</span>
+            <CardContent className="p-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center space-x-3">
+                  <div className="bg-purple-100 p-2 rounded-lg">
+                    <FileText className="w-5 h-5 text-purple-600" />
+                  </div>
+                  <div>
+                    <h3 className="font-medium text-charcoal-900">System Activity Logs</h3>
+                    <p className="text-sm text-charcoal-600">
+                      Track administrative actions and system events in real-time
+                    </p>
+                  </div>
+                </div>
                 <Button onClick={() => loadAdminData()} variant="outline">
                   <RefreshCw className="w-4 h-4 mr-2" />
                   Refresh
                 </Button>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center space-x-2">
+                <span>Recent Activity</span>
+                <span className="px-2 py-1 bg-purple-100 text-purple-600 text-xs font-medium rounded">
+                  {systemLogs.length} Logs
+                </span>
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="space-y-3">
-                {systemLogs.map((log) => (
-                  <div key={log.id} className="flex items-center space-x-4 p-3 bg-charcoal-50 rounded-lg">
-                    <div className="flex-shrink-0">
-                      <div className={`p-2 rounded-lg ${
-                        log.action.includes('delete') ? 'bg-red-100 text-red-600' :
-                        log.action.includes('create') ? 'bg-green-100 text-green-600' :
-                        log.action.includes('update') ? 'bg-blue-100 text-blue-600' :
-                        'bg-gray-100 text-gray-600'
-                      }`}>
-                        <Activity className="w-4 h-4" />
-                      </div>
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center space-x-2">
-                        <span className="font-medium text-charcoal-900">
-                          {log.action.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
-                        </span>
-                        {log.username && (
-                          <span className="text-sm text-charcoal-600">
-                            by @{log.username}
-                          </span>
-                        )}
-                      </div>
-                      {log.details && (
-                        <div className="text-sm text-charcoal-600 truncate">
-                          {log.details}
+              {systemLogs.length === 0 ? (
+                <div className="text-center py-8">
+                  <FileText className="w-12 h-12 text-charcoal-400 mx-auto mb-4" />
+                  <p className="text-charcoal-600 font-medium">No Logs Found</p>
+                  <p className="text-charcoal-500 text-sm">
+                    System activity logs will appear here as admin actions are performed
+                  </p>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {systemLogs.map((log) => (
+                    <div key={log.id} className="flex items-start space-x-4 p-4 bg-charcoal-50 rounded-xl hover:bg-charcoal-100 transition-colors border border-charcoal-100">
+                      <div className="flex-shrink-0">
+                        <div className={`p-2 rounded-lg ${
+                          log.action.includes('delete') ? 'bg-red-100 text-red-600' :
+                          log.action.includes('create') ? 'bg-green-100 text-green-600' :
+                          log.action.includes('update') ? 'bg-blue-100 text-blue-600' :
+                          'bg-gray-100 text-gray-600'
+                        }`}>
+                          <Activity className="w-5 h-5" />
                         </div>
-                      )}
-                      <div className="text-xs text-charcoal-500 mt-1">
-                        {new Date(log.created_at).toLocaleString()}
-                        {log.ip_address && ` • ${log.ip_address}`}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center space-x-2 mb-1">
+                          <span className="font-semibold text-charcoal-900">
+                            {log.action.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
+                          </span>
+                          {log.username && (
+                            <span className="text-sm text-charcoal-600">
+                              by <span className="font-medium">@{log.username}</span>
+                            </span>
+                          )}
+                        </div>
+                        {log.details && (
+                          <div className="text-sm text-charcoal-700 mb-2">
+                            {log.details}
+                          </div>
+                        )}
+                        <div className="flex items-center space-x-3 text-xs text-charcoal-500">
+                          <div className="flex items-center space-x-1">
+                            <Clock className="w-3 h-3" />
+                            <span>{new Date(log.created_at).toLocaleString()}</span>
+                          </div>
+                          {log.ip_address && (
+                            <div className="flex items-center space-x-1">
+                              <Globe className="w-3 h-3" />
+                              <span>{log.ip_address}</span>
+                            </div>
+                          )}
+                        </div>
                       </div>
                     </div>
-                  </div>
-                ))}
-              </div>
+                  ))}
+                </div>
+              )}
             </CardContent>
           </Card>
         </div>
@@ -1488,6 +1975,131 @@ const AdminPage = () => {
               className="bg-red-600 hover:bg-red-700 text-white"
             >
               Delete User
+            </Button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* Edit User Modal */}
+      {showEditUserModal && selectedUser && (
+        <Modal
+          isOpen={showEditUserModal}
+          onClose={() => {
+            setShowEditUserModal(false);
+            setSelectedUser(null);
+            setEditUserData({
+              username: '',
+              displayName: '',
+              email: ''
+            });
+          }}
+          title="Edit User"
+        >
+          <div className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-charcoal-700 mb-2">
+                Username
+              </label>
+              <Input
+                value={editUserData.username}
+                onChange={(e) => setEditUserData(prev => ({ ...prev, username: e.target.value }))}
+                placeholder="Enter username"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-charcoal-700 mb-2">
+                Display Name
+              </label>
+              <Input
+                value={editUserData.displayName}
+                onChange={(e) => setEditUserData(prev => ({ ...prev, displayName: e.target.value }))}
+                placeholder="Enter display name"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-charcoal-700 mb-2">
+                Email
+              </label>
+              <Input
+                type="email"
+                value={editUserData.email}
+                onChange={(e) => setEditUserData(prev => ({ ...prev, email: e.target.value }))}
+                placeholder="Enter email address"
+              />
+            </div>
+            <div className="flex justify-end space-x-3 mt-6">
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setShowEditUserModal(false);
+                  setSelectedUser(null);
+                  setEditUserData({
+                    username: '',
+                    displayName: '',
+                    email: ''
+                  });
+                }}
+              >
+                Cancel
+              </Button>
+              <Button onClick={handleUpdateUser}>
+                Update User
+              </Button>
+            </div>
+          </div>
+        </Modal>
+      )}
+
+      {/* Delete Game Confirmation Modal */}
+      <Modal
+        isOpen={showGameDeleteModal}
+        onClose={() => setShowGameDeleteModal(false)}
+        title="Delete Game"
+        size="sm"
+      >
+        <div className="space-y-6">
+          <div className="text-center">
+            <div className="bg-red-100 p-3 rounded-full w-fit mx-auto mb-4">
+              <AlertTriangle className="w-8 h-8 text-red-600" />
+            </div>
+            <h3 className="text-lg font-semibold text-charcoal-900 mb-2">
+              Delete Game?
+            </h3>
+            <p className="text-charcoal-600">
+              This will permanently delete this game and all associated data. This action cannot be undone.
+            </p>
+          </div>
+          
+          {gameToDelete && (
+            <div className="bg-charcoal-50 p-4 rounded-xl">
+              <div className="text-sm space-y-1">
+                <div className="font-medium text-charcoal-900">
+                  {gameToDelete.user_display_name} - Score: {gameToDelete.total_score}
+                </div>
+                <div className="text-charcoal-600">
+                  {new Date(gameToDelete.played_at || gameToDelete.created_at).toLocaleString()}
+                </div>
+                {gameToDelete.location && (
+                  <div className="text-charcoal-600">
+                    Location: {gameToDelete.location}
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+          
+          <div className="flex justify-end space-x-3">
+            <Button
+              variant="outline"
+              onClick={() => setShowGameDeleteModal(false)}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={() => handleDeleteGame(gameToDelete?.id)}
+              className="bg-red-600 hover:bg-red-700 text-white"
+            >
+              Delete Game
             </Button>
           </div>
         </div>

@@ -1,6 +1,7 @@
 const Database = require('better-sqlite3');
 const bcrypt = require('bcryptjs');
 const path = require('path');
+const fs = require('fs');
 
 /**
  * Database initialization and schema setup
@@ -15,6 +16,7 @@ class DatabaseManager {
     this.db.pragma('foreign_keys = ON');
     
     this.initSchema();
+    this.runMigrations();
     // Create default users after schema initialization
     this.createDefaultUsers().catch(console.error);
   }
@@ -248,6 +250,57 @@ class DatabaseManager {
 
     console.log('Default admin settings created');
   }
+
+  /**
+   * Run database migrations
+   */
+  runMigrations() {
+    const migrationsPath = path.join(__dirname, 'migrations');
+    
+    // Create migrations table if it doesn't exist
+    this.db.exec(`
+      CREATE TABLE IF NOT EXISTS migrations (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        filename TEXT UNIQUE NOT NULL,
+        applied_at TEXT DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+    
+    // Check if migrations directory exists
+    if (!fs.existsSync(migrationsPath)) {
+      return;
+    }
+    
+    // Get all migration files
+    const migrationFiles = fs.readdirSync(migrationsPath)
+      .filter(file => file.endsWith('.js'))
+      .sort();
+    
+    for (const file of migrationFiles) {
+      // Check if migration was already applied
+      const applied = this.db.prepare(`
+        SELECT id FROM migrations WHERE filename = ?
+      `).get(file);
+      
+      if (!applied) {
+        console.log(`Applying migration: ${file}`);
+        try {
+          const migration = require(path.join(migrationsPath, file));
+          migration.applyMigration(this.db);
+          
+          // Record migration as applied
+          this.db.prepare(`
+            INSERT INTO migrations (filename) VALUES (?)
+          `).run(file);
+          
+          console.log(`Migration ${file} applied successfully`);
+        } catch (error) {
+          console.error(`Failed to apply migration ${file}:`, error);
+        }
+      }
+    }
+  }
+  
   getDatabase() {
     return this.db;
   }

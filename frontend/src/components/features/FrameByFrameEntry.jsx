@@ -99,6 +99,35 @@ const FrameByFrameEntry = ({ onGameComplete, initialData = {} }) => {
     
     // Clear errors
     setErrors({});
+
+    // Auto-advance to next frame when current frame is complete
+    if (numValue !== null) {
+      const currentFrameNumber = frame.frame_number;
+      
+      if (currentFrameNumber < 10) {
+        // Frames 1-9: advance on strike or after second throw
+        if (throwIndex === 0 && numValue === 10) {
+          // Strike - move to next frame
+          if (currentFrameNumber < 10) {
+            setSelectedFrame(currentFrameNumber + 1);
+          }
+        } else if (throwIndex === 1) {
+          // Second throw complete - move to next frame
+          if (currentFrameNumber < 10) {
+            setSelectedFrame(currentFrameNumber + 1);
+          }
+        }
+      } else if (currentFrameNumber === 10) {
+        // 10th frame: more complex logic
+        const throws = updatedFrames[9].throws || [];
+        const isComplete = BowlingScoreCalculator.isFrameComplete(throws, 10);
+        
+        if (!isComplete && throwIndex < 2) {
+          // Frame not complete, stay on 10th frame but don't auto-advance
+          // User can manually navigate if needed
+        }
+      }
+    }
   };
 
   // Get display value for throw
@@ -216,40 +245,94 @@ const FrameByFrameEntry = ({ onGameComplete, initialData = {} }) => {
           <div className="space-y-4">
             {/* Throw Inputs */}
             <div className="grid grid-cols-1 gap-4">
-              {getAvailableThrows(frames[selectedFrame - 1]).map((throwIndex) => (
-                <div key={throwIndex} className="border rounded-lg p-4 bg-gray-50">
-                  <div className="grid md:grid-cols-2 gap-4">
-                    {/* Pins Input */}
-                    <div>
-                      <label className="block text-sm font-medium text-charcoal-700 mb-2">
-                        {throwIndex === 0 ? 'First Throw' : throwIndex === 1 ? 'Second Throw' : 'Third Throw'} - Pins
+              {getAvailableThrows(frames[selectedFrame - 1]).map((throwIndex) => {
+                const currentValue = frames[selectedFrame - 1]?.throws?.[throwIndex];
+                const firstThrow = frames[selectedFrame - 1]?.throws?.[0] || 0;
+                const isSecondThrow = throwIndex === 1;
+                const maxPins = isSecondThrow && selectedFrame < 10 ? 10 - firstThrow : 10;
+                const isStrike = currentValue === 10;
+                const isSpare = isSecondThrow && selectedFrame < 10 && firstThrow + currentValue === 10;
+
+                return (
+                  <div key={throwIndex} className="border-2 border-charcoal-200 rounded-xl p-4 bg-white">
+                    <div className="mb-3">
+                      <label className="block text-lg font-bold text-charcoal-800 mb-3">
+                        {throwIndex === 0 ? '1st Throw' : throwIndex === 1 ? '2nd Throw' : '3rd Throw'}
+                        {isStrike && <span className="ml-2 text-green-600">✓ Strike!</span>}
+                        {isSpare && <span className="ml-2 text-blue-600">✓ Spare!</span>}
                       </label>
-                      <Input
-                        type="number"
-                        min="0"
-                        max="10"
-                        value={frames[selectedFrame - 1]?.throws?.[throwIndex] || ''}
-                        onChange={(e) => handleThrowInput(selectedFrame - 1, throwIndex, e.target.value)}
-                        placeholder="0"
-                        className="text-center text-lg font-semibold"
-                      />
-                    </div>
-                    
-                    {/* Ball Selection */}
-                    <div>
-                      <label className="block text-sm font-medium text-charcoal-700 mb-2">
-                        Ball Used (Optional)
-                      </label>
-                      <BallSelector
-                        selectedBall={getBallForThrow(selectedFrame, throwIndex)}
-                        onBallSelect={(ball) => setBallForThrow(selectedFrame, throwIndex, ball)}
-                        availableBalls={availableBalls}
-                        houseBallWeights={houseBallWeights}
-                      />
+                      
+                      {/* Quick Action Buttons */}
+                      <div className="grid grid-cols-4 gap-1.5 mb-2">
+                        {/* Strike button (X) */}
+                        {(!isSecondThrow || selectedFrame === 10) && (
+                          <button
+                            onClick={() => handleThrowInput(selectedFrame - 1, throwIndex, '10')}
+                            className={`p-2 rounded-lg font-bold text-base border-2 transition-all ${
+                              currentValue === 10
+                                ? 'bg-green-600 text-white border-green-700 shadow-lg'
+                                : 'bg-white text-charcoal-800 border-charcoal-300 hover:border-green-500 hover:bg-green-50'
+                            }`}
+                          >
+                            X
+                          </button>
+                        )}
+                        
+                        {/* Spare button (/) - only for second throw */}
+                        {isSecondThrow && selectedFrame < 10 && firstThrow < 10 && (
+                          <button
+                            onClick={() => handleThrowInput(selectedFrame - 1, throwIndex, String(10 - firstThrow))}
+                            className={`p-2 rounded-lg font-bold text-base border-2 transition-all ${
+                              firstThrow + currentValue === 10
+                                ? 'bg-blue-600 text-white border-blue-700 shadow-lg'
+                                : 'bg-white text-charcoal-800 border-charcoal-300 hover:border-blue-500 hover:bg-blue-50'
+                            }`}
+                          >
+                            /
+                          </button>
+                        )}
+                        
+                        {/* Gutter button (0) */}
+                        <button
+                          onClick={() => handleThrowInput(selectedFrame - 1, throwIndex, '0')}
+                          className={`p-2 rounded-lg font-bold text-base border-2 transition-all ${
+                            currentValue === 0
+                              ? 'bg-gray-600 text-white border-gray-700 shadow-lg'
+                              : 'bg-white text-charcoal-800 border-charcoal-300 hover:border-gray-500 hover:bg-gray-50'
+                          }`}
+                        >
+                          0
+                        </button>
+                        
+                        {/* Miss/Clear button */}
+                        <button
+                          onClick={() => handleThrowInput(selectedFrame - 1, throwIndex, '')}
+                          className="p-2 rounded-lg font-medium text-xs border-2 border-charcoal-300 bg-white text-charcoal-600 hover:bg-charcoal-50"
+                        >
+                          Clear
+                        </button>
+                      </div>
+                      
+                      {/* Number Buttons */}
+                      <div className="grid grid-cols-5 gap-1.5">
+                        {Array.from({ length: maxPins }, (_, i) => i + 1).map((num) => (
+                          <button
+                            key={num}
+                            onClick={() => handleThrowInput(selectedFrame - 1, throwIndex, String(num))}
+                            className={`p-2 rounded-lg font-bold text-base border-2 transition-all ${
+                              currentValue === num
+                                ? 'bg-blue-600 text-white border-blue-700 shadow-lg'
+                                : 'bg-white text-charcoal-800 border-charcoal-300 hover:border-blue-500 hover:bg-blue-50'
+                            }`}
+                          >
+                            {num}
+                          </button>
+                        ))}
+                      </div>
                     </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
 
             {/* Split Tracking */}

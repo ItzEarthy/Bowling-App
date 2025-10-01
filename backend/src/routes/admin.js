@@ -26,7 +26,8 @@ const createUserSchema = z.object({
 
 const updateUserStatusSchema = z.object({
   body: z.object({
-    status: z.enum(['active', 'suspended'])
+    status: z.enum(['active', 'suspended']),
+    role: z.enum(['user', 'admin']).optional()
   })
 });
 
@@ -117,12 +118,60 @@ router.post('/users', authenticateToken, requireAdmin, validateRequest(createUse
 
 /**
  * PUT /api/admin/users/:id/status
- * Update user status (admin only)
+ * Update user status and/or role (admin only)
  */
 router.put('/users/:id/status', authenticateToken, requireAdmin, validateRequest(updateUserStatusSchema), (req, res, next) => {
   try {
     const userId = parseInt(req.params.id);
-    const { status } = req.body;
+    const { status, role } = req.body;
+    const currentUserId = req.user.userId;
+
+    // Prevent changing own status/role
+    if (userId === currentUserId) {
+      return res.status(400).json({ error: 'Cannot change your own status or role' });
+    }
+
+    // Check if user exists
+    const user = global.db.prepare(`
+      SELECT id, role FROM users WHERE id = ?
+    `).get(userId);
+
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    // Update role if provided
+    if (role && role !== user.role) {
+      global.db.prepare(`
+        UPDATE users SET role = ? WHERE id = ?
+      `).run(role, userId);
+
+      // Log the action
+      logAdminAction(currentUserId, 'role_updated', 'user', userId, 
+        `Changed user role to ${role}`, req.ip);
+    }
+
+    // For now, we'll just return success for status since we don't have a status column
+    // In a real implementation, you'd update the user's status in the database
+    res.json({
+      message: role ? `User role updated to ${role}` : `User status updated to ${status}`,
+      status,
+      role: role || user.role
+    });
+
+  } catch (error) {
+    next(error);
+  }
+});
+
+/**
+ * PUT /api/admin/users/:id
+ * Update user details (admin only)
+ */
+router.put('/users/:id', authenticateToken, requireAdmin, (req, res, next) => {
+  try {
+    const userId = parseInt(req.params.id);
+    const { username, displayName, email } = req.body;
 
     // Check if user exists
     const user = global.db.prepare(`
@@ -133,11 +182,96 @@ router.put('/users/:id/status', authenticateToken, requireAdmin, validateRequest
       return res.status(404).json({ error: 'User not found' });
     }
 
-    // For now, we'll just return success since we don't have a status column
-    // In a real implementation, you'd update the user's status in the database
-    res.json({
-      message: `User status updated to ${status}`,
-      status
+    const updates = [];
+    const values = [];
+
+    if (username) {
+      // Check if username is already taken by another user
+      const existingUser = global.db.prepare(`
+        SELECT id FROM users WHERE username = ? AND id != ?
+      `).get(username, userId);
+
+      if (existingUser) {
+        return res.status(400).json({ error: 'Username is already taken' });
+      }
+
+      updates.push('username = ?');
+      values.push(username);
+    }
+
+    if (displayName) {
+      updates.push('display_name = ?');
+      values.push(displayName);
+    }
+
+    if (email) {
+      // Check if email is already taken by another user
+      const existingUser = global.db.prepare(`
+        SELECT id FROM users WHERE email = ? AND id != ?
+      `).get(email, userId);
+
+      if (existingUser) {
+        return res.status(400).json({ error: 'Email is already taken' });
+      }
+
+      updates.push('email = ?');
+      values.push(email);
+    }
+
+    if (updates.length > 0) {
+      values.push(userId);
+      global.db.prepare(`
+        UPDATE users SET ${updates.join(', ')} WHERE id = ?
+      `).run(...values);
+
+      // Log the action
+      logAdminAction(req.user.userId, 'user_updated', 'user', userId, 
+        `Updated user details`, req.ip);
+    }
+
+    res.json({ message: 'User updated successfully' });
+
+  } catch (error) {
+    next(error);
+  }
+});
+
+/**
+ * POST /api/admin/users/:id/force-logout
+ * Force logout a user (admin only)
+ */
+router.post('/users/:id/force-logout', authenticateToken, requireAdmin, (req, res, next) => {
+  try {
+    const userId = parseInt(req.params.id);
+    const currentUserId = req.user.userId;
+
+    // Prevent self-logout
+    if (userId === currentUserId) {
+      return res.status(400).json({ error: 'Cannot force logout yourself' });
+    }
+
+    // Check if user exists
+    const user = global.db.prepare(`
+      SELECT id, username FROM users WHERE id = ?
+    `).get(userId);
+
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    // In a real implementation, you would:
+    // 1. Invalidate all active sessions/tokens for this user
+    // 2. Add the user to a blacklist table
+    // 3. Store revoked tokens in a cache (Redis)
+    // For now, we'll just log the action
+    
+    // Log the action
+    logAdminAction(currentUserId, 'user_forced_logout', 'user', userId, 
+      `Forced logout for user: ${user.username}`, req.ip);
+
+    res.json({ 
+      message: `User ${user.username} has been logged out`,
+      userId: user.id
     });
 
   } catch (error) {

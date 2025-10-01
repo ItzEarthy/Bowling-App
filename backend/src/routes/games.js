@@ -97,7 +97,9 @@ router.post('/', authenticateToken, validateRequest(submitCompleteGameSchema), (
       frames, 
       is_complete, 
       created_at,
-      timestamp 
+      timestamp,
+      frameThrowPins,
+      frameBalls
     } = req.body;
     const userId = req.user.userId;
 
@@ -118,6 +120,12 @@ router.post('/', authenticateToken, validateRequest(submitCompleteGameSchema), (
       }
     }
 
+    // Prepare pin data JSON
+    const pinData = JSON.stringify({
+      frameThrowPins: frameThrowPins || {},
+      frameBalls: frameBalls || {}
+    });
+
     // Create new game
     const insertGame = global.db.prepare(`
       INSERT INTO games (
@@ -130,9 +138,10 @@ router.post('/', authenticateToken, validateRequest(submitCompleteGameSchema), (
         notes, 
         entry_mode, 
         is_complete, 
-        created_at
+        created_at,
+        pin_data
       )
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `);
 
     // Normalize values to types supported by better-sqlite3 (numbers, strings, bigints, buffers, null)
@@ -168,7 +177,8 @@ router.post('/', authenticateToken, validateRequest(submitCompleteGameSchema), (
         notes != null ? String(notes) : null,
         entryMode != null ? String(entryMode) : 'pin_by_pin',
         Number(gameIsComplete),
-        String(gameCreatedAt)
+        String(gameCreatedAt),
+        String(pinData)
       );
     } catch (err) {
       // Let the error handler provide structured responses, but add some context
@@ -255,6 +265,16 @@ router.post('/', authenticateToken, validateRequest(submitCompleteGameSchema), (
       SELECT * FROM frames WHERE game_id = ? ORDER BY frame_number
     `).all(gameId);
 
+    // Parse pin_data if it exists
+    let parsedPinData = { frameThrowPins: {}, frameBalls: {} };
+    if (game.pin_data) {
+      try {
+        parsedPinData = JSON.parse(game.pin_data);
+      } catch (e) {
+        console.error('Error parsing pin_data:', e);
+      }
+    }
+
     res.status(201).json({
       message: 'Game saved successfully',
       game: {
@@ -274,6 +294,8 @@ router.post('/', authenticateToken, validateRequest(submitCompleteGameSchema), (
         entry_mode: game.entry_mode,
         is_complete: Boolean(game.is_complete),
         created_at: game.created_at,
+        frameThrowPins: parsedPinData.frameThrowPins || {},
+        frameBalls: parsedPinData.frameBalls || {},
         frames: gameFrames.map(frame => ({
           id: frame.id,
           frame_number: frame.frame_number,
@@ -315,24 +337,131 @@ router.get('/', authenticateToken, validateRequest(gamesQuerySchema), (req, res,
       LIMIT ? OFFSET ?
     `).all(userId, limit, offset);
 
-    const gamesWithDetails = games.map(game => ({
-      id: game.id,
-      ball: game.ball_id ? {
-        id: game.ball_id,
-        name: game.ball_name,
-        brand: game.ball_brand,
-        weight: game.ball_weight
-      } : null,
-      location: game.location,
-      score: game.score,
-      total_score: game.total_score,
-      strikes: game.strikes,
-      spares: game.spares,
-      notes: game.notes,
-      entry_mode: game.entry_mode,
-      is_complete: Boolean(game.is_complete),
-      created_at: game.created_at
-    }));
+    const gamesWithDetails = games.map(game => {
+      // Parse pin_data if it exists
+      let parsedPinData = { frameThrowPins: {}, frameBalls: {} };
+      if (game.pin_data) {
+        try {
+          parsedPinData = JSON.parse(game.pin_data);
+        } catch (e) {
+          console.error('Error parsing pin_data:', e);
+        }
+      }
+
+      return {
+        id: game.id,
+        ball: game.ball_id ? {
+          id: game.ball_id,
+          name: game.ball_name,
+          brand: game.ball_brand,
+          weight: game.ball_weight
+        } : null,
+        location: game.location,
+        score: game.score,
+        total_score: game.total_score,
+        strikes: game.strikes,
+        spares: game.spares,
+        notes: game.notes,
+        entry_mode: game.entry_mode,
+        is_complete: Boolean(game.is_complete),
+        created_at: game.created_at,
+        frameThrowPins: parsedPinData.frameThrowPins || {},
+        frameBalls: parsedPinData.frameBalls || {}
+      };
+    });
+
+    res.json({
+      games: gamesWithDetails,
+      pagination: {
+        page,
+        limit,
+        total: totalCount,
+        totalPages: Math.ceil(totalCount / limit)
+      }
+    });
+
+  } catch (error) {
+    next(error);
+  }
+});
+
+/**
+ * GET /api/games/user/:userId
+ * Get paginated list of a specific user's games (for leaderboard/social features)
+ */
+router.get('/user/:userId', authenticateToken, (req, res, next) => {
+  try {
+    const targetUserId = parseInt(req.params.userId);
+    const page = parseInt(req.query.page) || 1;
+    const limit = Math.min(parseInt(req.query.limit) || 20, 100); // Max 100 games per request
+    const offset = (page - 1) * limit;
+
+    // Verify target user exists
+    const targetUser = global.db.prepare(`SELECT id FROM users WHERE id = ?`).get(targetUserId);
+    if (!targetUser) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    // Get total count
+    const totalCount = global.db.prepare(`
+      SELECT COUNT(*) as count FROM games WHERE user_id = ?
+    `).get(targetUserId).count;
+
+    // Get games with ball info (no frame details for performance)
+    const games = global.db.prepare(`
+      SELECT g.*, b.name as ball_name, b.brand as ball_brand, b.weight as ball_weight
+      FROM games g
+      LEFT JOIN balls b ON g.ball_id = b.id
+      WHERE g.user_id = ?
+      ORDER BY g.created_at DESC
+      LIMIT ? OFFSET ?
+    `).all(targetUserId, limit, offset);
+
+    // For each game, get frames if needed for stats calculation
+    const gamesWithDetails = games.map(game => {
+      const frames = global.db.prepare(`
+        SELECT * FROM frames WHERE game_id = ? ORDER BY frame_number
+      `).all(game.id);
+
+      // Parse pin_data if it exists
+      let parsedPinData = { frameThrowPins: {}, frameBalls: {} };
+      if (game.pin_data) {
+        try {
+          parsedPinData = JSON.parse(game.pin_data);
+        } catch (e) {
+          console.error('Error parsing pin_data:', e);
+        }
+      }
+
+      return {
+        id: game.id,
+        user_id: game.user_id,
+        ball: game.ball_id ? {
+          id: game.ball_id,
+          name: game.ball_name,
+          brand: game.ball_brand,
+          weight: game.ball_weight
+        } : null,
+        location: game.location,
+        score: game.score,
+        total_score: game.total_score,
+        strikes: game.strikes,
+        spares: game.spares,
+        notes: game.notes,
+        entry_mode: game.entry_mode,
+        is_complete: Boolean(game.is_complete),
+        created_at: game.created_at,
+        frameThrowPins: parsedPinData.frameThrowPins || {},
+        frameBalls: parsedPinData.frameBalls || {},
+        frames: frames.map(frame => ({
+          id: frame.id,
+          frame_number: frame.frame_number,
+          throws: JSON.parse(frame.throws_data),
+          cumulative_score: frame.cumulative_score,
+          is_complete: Boolean(frame.is_complete)
+        }))
+      };
+    });
 
     res.json({
       games: gamesWithDetails,
@@ -375,6 +504,16 @@ router.get('/:gameId', authenticateToken, validateRequest(gameIdSchema), (req, r
       SELECT * FROM frames WHERE game_id = ? ORDER BY frame_number
     `).all(gameId);
 
+    // Parse pin_data if it exists
+    let parsedPinData = { frameThrowPins: {}, frameBalls: {} };
+    if (game.pin_data) {
+      try {
+        parsedPinData = JSON.parse(game.pin_data);
+      } catch (e) {
+        console.error('Error parsing pin_data:', e);
+      }
+    }
+
     res.json({
       game: {
         id: game.id,
@@ -394,6 +533,8 @@ router.get('/:gameId', authenticateToken, validateRequest(gameIdSchema), (req, r
         entry_mode: game.entry_mode,
         is_complete: Boolean(game.is_complete),
         created_at: game.created_at,
+        frameThrowPins: parsedPinData.frameThrowPins || {},
+        frameBalls: parsedPinData.frameBalls || {},
         frames: frames.map(frame => ({
           id: frame.id,
           frame_number: frame.frame_number,

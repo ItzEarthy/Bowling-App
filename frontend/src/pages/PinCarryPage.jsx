@@ -2,7 +2,9 @@ import React, { useState, useEffect } from 'react';
 import Card, { CardContent, CardHeader, CardTitle } from '../components/ui/Card';
 import Button from '../components/ui/Button';
 import PageHeader from '../components/layout/PageHeader';
+import Spinner from '../components/ui/Spinner';
 import { pinCarryAnalyzer, PIN_PATTERNS, CARRY_PATTERNS } from '../utils/pinCarryAnalysis';
+import { gameAPI } from '../lib/api';
 import useAuthStore from '../stores/authStore';
 
 const PinCarryPage = () => {
@@ -25,7 +27,76 @@ const PinCarryPage = () => {
       // Initialize carry tracking for user
       pinCarryAnalyzer.initializeCarryTracking(user.id);
       
-      // Get comprehensive analysis
+  // Fetch all games for the user from the API (user-specific endpoint returns frames + pin data)
+  const response = await gameAPI.getUserGames(user.id); // returns user's games with frames and pin data
+  const games = response.data.games || [];
+      
+      // Process each game to update carry analysis
+      for (const game of games) {
+        if (game.entry_mode === 'pin_by_pin' && game.frameThrowPins && game.frames) {
+          // Process pin-by-pin games with actual pin data
+          for (const frame of game.frames) {
+            if (frame.frame_number < 10 && frame.throws && frame.throws.length > 0) {
+              const frameKey = `${frame.frame_number}`;
+              const firstThrowKey = `${frameKey}-1`;
+              const firstThrowPins = game.frameThrowPins[firstThrowKey] || [];
+              const firstThrowCount = frame.throws[0] || 0;
+              
+              // Record first ball
+              pinCarryAnalyzer.recordFirstBall(user.id, {
+                pinsKnocked: firstThrowCount,
+                isStrike: firstThrowCount === 10,
+                pinsHit: firstThrowPins,
+                remainingPins: firstThrowPins.length > 0 
+                  ? [1, 2, 3, 4, 5, 6, 7, 8, 9, 10].filter(p => !firstThrowPins.includes(p))
+                  : []
+              });
+              
+              // Record second ball if exists
+              if (frame.throws.length > 1) {
+                const secondThrowKey = `${frameKey}-2`;
+                const secondThrowPins = game.frameThrowPins[secondThrowKey] || [];
+                const secondThrowCount = frame.throws[1] || 0;
+                
+                pinCarryAnalyzer.recordSecondBall(user.id, {
+                  pinsKnocked: secondThrowCount,
+                  isSpare: firstThrowCount + secondThrowCount === 10,
+                  leavePattern: firstThrowPins,
+                  pinsHit: secondThrowPins
+                });
+              }
+            }
+          }
+        } else if (game.frames && Array.isArray(game.frames)) {
+          // Process frame-by-frame or final score games (no specific pin data)
+          for (const frame of game.frames) {
+            if (frame.frame_number < 10 && frame.throws && frame.throws.length > 0) {
+              const firstThrow = frame.throws[0] || 0;
+              
+              // Record with simulated pin data
+              pinCarryAnalyzer.recordFirstBall(user.id, {
+                pinsKnocked: firstThrow,
+                isStrike: firstThrow === 10,
+                pinsHit: Array.from({ length: firstThrow }, (_, i) => i + 1),
+                remainingPins: Array.from({ length: 10 - firstThrow }, (_, i) => i + firstThrow + 1)
+              });
+              
+              // Process second ball if exists
+              if (frame.throws.length > 1) {
+                const secondThrow = frame.throws[1] || 0;
+                pinCarryAnalyzer.recordSecondBall(user.id, {
+                  pinsKnocked: secondThrow,
+                  isSpare: firstThrow + secondThrow === 10,
+                  leavePattern: Array.from({ length: firstThrow }, (_, i) => i + 1),
+                  pinsHit: Array.from({ length: secondThrow }, (_, i) => i + firstThrow + 1)
+                });
+              }
+            }
+          }
+        }
+      }
+      
+      // Get comprehensive analysis after processing all games
       const analysis = pinCarryAnalyzer.getCarryAnalysis(user.id);
       setCarryAnalysis(analysis);
       
@@ -407,11 +478,11 @@ const PinCarryPage = () => {
   if (loading) {
     return (
       <div className="p-6">
-        <PageHeader title="Pin Carry Analysis" />
+        <PageHeader title="Pin Carry Analysis" subtitle="Analyzing your pin leave patterns and carry percentages" />
         <div className="flex items-center justify-center py-12">
           <div className="text-center">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-            <div>Loading carry analysis...</div>
+            <Spinner size="lg" />
+            <div className="mt-4 text-charcoal-600 font-medium">Loading carry analysis from your games...</div>
           </div>
         </div>
       </div>
@@ -420,47 +491,69 @@ const PinCarryPage = () => {
 
   return (
     <div className="p-6 max-w-7xl mx-auto">
-      <PageHeader title="Pin Carry Analysis" />
+      <PageHeader 
+        title="Pin Carry Analysis" 
+        subtitle="Detailed analysis of your pin leave patterns and carry percentages"
+      />
       
-      {/* Tab Navigation */}
-      <div className="mb-6">
-        <div className="border-b border-gray-200">
-          <nav className="-mb-px flex space-x-8">
-            {[
-              { key: 'overview', label: 'Overview', icon: '📊' },
-              { key: 'pin-leaves', label: 'Pin Leaves', icon: '🎳' },
-              { key: 'carry-patterns', label: 'Carry Patterns', icon: '⚡' },
-              { key: 'trends', label: 'Trends', icon: '📈' }
-            ].map((tab) => (
-              <button
-                key={tab.key}
-                onClick={() => setActiveTab(tab.key)}
-                className={`py-2 px-1 border-b-2 font-medium text-sm ${
-                  activeTab === tab.key
-                    ? 'border-blue-500 text-blue-600'
-                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                }`}
-              >
-                <span className="mr-2">{tab.icon}</span>
-                {tab.label}
-              </button>
-            ))}
-          </nav>
-        </div>
-      </div>
+      {/* Check if there's any data to display */}
+      {!carryAnalysis || carryAnalysis.overall_stats?.total_frames === 0 ? (
+        <Card className="p-12">
+          <div className="text-center">
+            <div className="text-6xl mb-4">🎳</div>
+            <h3 className="text-xl font-semibold text-charcoal-900 mb-2">No Game Data Available</h3>
+            <p className="text-charcoal-600 mb-6">
+              Start bowling and tracking your games to see detailed pin carry analysis, 
+              leave patterns, and improvement recommendations.
+            </p>
+            <Button onClick={() => window.location.href = '/game-setup'} className="bg-blue-600 text-white hover:bg-blue-700">
+              Start New Game
+            </Button>
+          </div>
+        </Card>
+      ) : (
+        <>
+          {/* Tab Navigation */}
+          <div className="mb-6">
+            <div className="border-b border-gray-200">
+              <nav className="-mb-px flex space-x-8">
+                {[
+                  { key: 'overview', label: 'Overview', icon: '📊' },
+                  { key: 'pin-leaves', label: 'Pin Leaves', icon: '🎳' },
+                  { key: 'carry-patterns', label: 'Carry Patterns', icon: '⚡' },
+                  { key: 'trends', label: 'Trends', icon: '📈' }
+                ].map((tab) => (
+                  <button
+                    key={tab.key}
+                    onClick={() => setActiveTab(tab.key)}
+                    className={`py-2 px-1 border-b-2 font-medium text-sm ${
+                      activeTab === tab.key
+                        ? 'border-blue-500 text-blue-600'
+                        : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                    }`}
+                  >
+                    <span className="mr-2">{tab.icon}</span>
+                    {tab.label}
+                  </button>
+                ))}
+              </nav>
+            </div>
+          </div>
 
-      {/* Export Button */}
-      <div className="mb-6 flex justify-end">
-        <Button onClick={exportAnalysis} className="bg-blue-600 text-white hover:bg-blue-700">
-          Export Analysis
-        </Button>
-      </div>
+          {/* Export Button */}
+          <div className="mb-6 flex justify-end">
+            <Button onClick={exportAnalysis} className="bg-blue-600 text-white hover:bg-blue-700">
+              Export Analysis
+            </Button>
+          </div>
 
-      {/* Tab Content */}
-      {activeTab === 'overview' && renderOverview()}
-      {activeTab === 'pin-leaves' && renderPinLeaves()}
-      {activeTab === 'carry-patterns' && renderCarryPatterns()}
-      {activeTab === 'trends' && renderTrends()}
+          {/* Tab Content */}
+          {activeTab === 'overview' && renderOverview()}
+          {activeTab === 'pin-leaves' && renderPinLeaves()}
+          {activeTab === 'carry-patterns' && renderCarryPatterns()}
+          {activeTab === 'trends' && renderTrends()}
+        </>
+      )}
 
       {/* Pattern Detail Modal */}
       {selectedPattern && (

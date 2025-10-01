@@ -27,6 +27,7 @@ const AchievementsPage = () => {
   const [achievementEngine, setAchievementEngine] = useState(null);
   const [selectedCategory, setSelectedCategory] = useState('all');
   const [selectedRarity, setSelectedRarity] = useState('all');
+  const [selectedStatus, setSelectedStatus] = useState('all');
   const [showModal, setShowModal] = useState(false);
   const [selectedAchievement, setSelectedAchievement] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -116,6 +117,16 @@ const AchievementsPage = () => {
 
     if (selectedRarity !== 'all') {
       filtered = filtered.filter(achievement => achievement.rarity === selectedRarity);
+    }
+
+    if (selectedStatus !== 'all') {
+      if (selectedStatus === 'earned') {
+        filtered = filtered.filter(achievement => achievement.earned);
+      } else if (selectedStatus === 'in_progress') {
+        filtered = filtered.filter(achievement => !achievement.earned && achievement.progress > 0);
+      } else if (selectedStatus === 'locked') {
+        filtered = filtered.filter(achievement => !achievement.earned && achievement.progress === 0);
+      }
     }
 
     return filtered.sort((a, b) => {
@@ -263,12 +274,27 @@ const AchievementsPage = () => {
               </select>
             </div>
 
+            <div>
+              <label className="block text-sm font-medium text-charcoal-700 mb-1">Status</label>
+              <select
+                value={selectedStatus}
+                onChange={(e) => setSelectedStatus(e.target.value)}
+                className="px-3 py-2 border border-charcoal-200 rounded-lg focus:border-blue-500 focus:outline-none"
+              >
+                <option value="all">All Achievements</option>
+                <option value="earned">Earned</option>
+                <option value="in_progress">In Progress</option>
+                <option value="locked">Locked/Not Started</option>
+              </select>
+            </div>
+
             <div className="flex items-end">
               <Button 
                 variant="outline" 
                 onClick={() => {
                   setSelectedCategory('all');
                   setSelectedRarity('all');
+                  setSelectedStatus('all');
                 }}
               >
                 Clear Filters
