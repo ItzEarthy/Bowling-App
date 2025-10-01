@@ -25,7 +25,7 @@ const registerSchema = z.object({
 
 const loginSchema = z.object({
   body: z.object({
-    email: z.string().email('Invalid email format'),
+    emailOrUsername: z.string().min(1, 'Email or username is required'),
     password: z.string().min(1, 'Password is required')
   })
 });
@@ -95,17 +95,17 @@ router.post('/register', validateRequest(registerSchema), async (req, res, next)
  */
 router.post('/login', validateRequest(loginSchema), async (req, res, next) => {
   try {
-    const { email, password } = req.body;
+    const { emailOrUsername, password } = req.body;
 
-    // Find user by email
+    // Find user by email or username
     const user = global.db.prepare(`
-      SELECT id, username, display_name, email, hashed_password 
-      FROM users WHERE email = ?
-    `).get(email);
+      SELECT id, username, display_name, email, hashed_password, role
+      FROM users WHERE email = ? OR username = ?
+    `).get(emailOrUsername, emailOrUsername);
 
     if (!user) {
       return res.status(401).json({ 
-        error: 'Invalid email or password' 
+        error: 'Invalid email/username or password' 
       });
     }
 
@@ -114,7 +114,7 @@ router.post('/login', validateRequest(loginSchema), async (req, res, next) => {
 
     if (!isValidPassword) {
       return res.status(401).json({ 
-        error: 'Invalid email or password' 
+        error: 'Invalid email/username or password' 
       });
     }
 
@@ -136,7 +136,8 @@ router.post('/login', validateRequest(loginSchema), async (req, res, next) => {
         id: user.id,
         username: user.username,
         displayName: user.display_name,
-        email: user.email
+        email: user.email,
+        role: user.role
       },
       token
     });

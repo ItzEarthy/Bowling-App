@@ -19,6 +19,7 @@ import ArsenalPage from './pages/ArsenalPage';
 import StatsPage from './pages/StatsPage';
 import SettingsPage from './pages/SettingsPage';
 import ProfilePage from './pages/ProfilePage';
+import AdminPage from './pages/AdminPage';
 
 // Protected Route Component
 const ProtectedRoute = ({ children }) => {
@@ -82,6 +83,7 @@ function App() {
             <Route path="arsenal" element={<ArsenalPage />} />
             <Route path="settings" element={<SettingsPage />} />
             <Route path="profile" element={<ProfilePage />} />
+            <Route path="admin" element={<AdminPage />} />
           </Route>
 
           {/* Temporary public game routes for testing */}

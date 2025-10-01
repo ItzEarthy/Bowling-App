@@ -1,12 +1,16 @@
 import React from 'react';
 import { NavLink } from 'react-router-dom';
-import { Home, BarChart3, Users, Target, Settings, User } from 'lucide-react';
+import { Home, BarChart3, Users, Target, Settings, User, Shield } from 'lucide-react';
+import useAuthStore from '../../stores/authStore';
 
 /**
  * Bottom Navigation Component
  * Clean Retro themed navigation with icons
  */
 const BottomNavigation = () => {
+  const { user } = useAuthStore();
+  const isAdmin = user?.role === 'admin';
+
   const navItems = [
     {
       path: '/dashboard',
@@ -28,11 +32,15 @@ const BottomNavigation = () => {
       label: 'Friends',
       icon: Users
     },
-    {
+    ...(isAdmin ? [{
+      path: '/admin',
+      label: 'Admin',
+      icon: Shield
+    }] : [{
       path: '/profile',
       label: 'Profile',
       icon: User
-    }
+    }])
   ];
 
   return (

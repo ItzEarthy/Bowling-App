@@ -15,7 +15,8 @@ class DatabaseManager {
     this.db.pragma('foreign_keys = ON');
     
     this.initSchema();
-    this.createDefaultUsers();
+    // Create default users after schema initialization
+    this.createDefaultUsers().catch(console.error);
   }
 
   /**
@@ -147,9 +148,30 @@ class DatabaseManager {
   }
 
   /**
-   * Get database instance
-   * @returns {Database} SQLite database instance
+   * Create default admin user if it doesn't exist
    */
+  async createDefaultUsers() {
+    try {
+      // Check if admin user already exists
+      const adminExists = this.db.prepare(`
+        SELECT id FROM users WHERE username = 'admin'
+      `).get();
+
+      if (!adminExists) {
+        const bcrypt = require('bcryptjs');
+        const hashedPassword = await bcrypt.hash('admin', 12);
+        
+        this.db.prepare(`
+          INSERT INTO users (username, display_name, email, hashed_password, role)
+          VALUES (?, ?, ?, ?, ?)
+        `).run('admin', 'Administrator', 'admin@bowling-app.com', hashedPassword, 'admin');
+        
+        console.log('Default admin user created (username: admin, password: admin)');
+      }
+    } catch (error) {
+      console.error('Error creating default users:', error);
+    }
+  }
   getDatabase() {
     return this.db;
   }

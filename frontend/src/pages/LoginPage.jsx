@@ -15,7 +15,7 @@ const LoginPage = () => {
   const { login, isLoading, error, clearError } = useAuthStore();
   
   const [formData, setFormData] = useState({
-    email: '',
+    emailOrUsername: '',
     password: ''
   });
   
@@ -42,10 +42,8 @@ const LoginPage = () => {
   const validateForm = () => {
     const errors = {};
     
-    if (!formData.email) {
-      errors.email = 'Email is required';
-    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
-      errors.email = 'Please enter a valid email address';
+    if (!formData.emailOrUsername) {
+      errors.emailOrUsername = 'Email or username is required';
     }
     
     if (!formData.password) {
@@ -94,16 +92,16 @@ const LoginPage = () => {
             </div>
           )}
 
-          {/* Email Field */}
+          {/* Email or Username Field */}
           <Input
-            label="Email Address"
-            type="email"
-            name="email"
-            value={formData.email}
+            label="Email or Username"
+            type="text"
+            name="emailOrUsername"
+            value={formData.emailOrUsername}
             onChange={handleChange}
-            error={validationErrors.email}
+            error={validationErrors.emailOrUsername}
             required
-            placeholder="your@email.com"
+            placeholder="your@email.com or username"
           />
 
           {/* Password Field */}

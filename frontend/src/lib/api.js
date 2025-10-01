@@ -57,6 +57,11 @@ export const userAPI = {
   changePassword: (data) => api.put('/users/me/password', data),
   deleteAccount: () => api.delete('/users/me'),
   searchUsers: (username) => api.get(`/users/search?username=${encodeURIComponent(username)}`),
+  // Admin endpoints
+  getAllUsers: () => api.get('/admin/users'),
+  deleteUserAsAdmin: (userId) => api.delete(`/admin/users/${userId}`),
+  updateUserStatus: (userId, status) => api.put(`/admin/users/${userId}/status`, { status }),
+  createUser: (userData) => api.post('/admin/users', userData),
 };
 
 // Games API calls

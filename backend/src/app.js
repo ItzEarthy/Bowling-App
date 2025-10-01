@@ -11,6 +11,7 @@ const userRoutes = require('./routes/users');
 const gameRoutes = require('./routes/games');
 const ballRoutes = require('./routes/balls');
 const friendRoutes = require('./routes/friends');
+const adminRoutes = require('./routes/admin');
 
 /**
  * Express application setup with middleware and routes
@@ -60,6 +61,7 @@ app.use('/api/users', userRoutes);
 app.use('/api/games', gameRoutes);
 app.use('/api/balls', ballRoutes);
 app.use('/api/friends', friendRoutes);
+app.use('/api/admin', adminRoutes);
 
 // 404 handler
 app.use(notFoundHandler);

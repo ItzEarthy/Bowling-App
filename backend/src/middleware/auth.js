@@ -63,6 +63,28 @@ const validateRequest = (schemas) => {
 };
 
 /**
+ * Admin authorization middleware
+ * Requires user to be authenticated and have admin role
+ */
+const requireAdmin = (req, res, next) => {
+  // Check if user is authenticated (should be set by authenticateToken middleware)
+  if (!req.user) {
+    return res.status(401).json({ error: 'Authentication required' });
+  }
+
+  // Get user from database to check role
+  const user = global.db.prepare(`
+    SELECT role FROM users WHERE id = ?
+  `).get(req.user.userId);
+
+  if (!user || user.role !== 'admin') {
+    return res.status(403).json({ error: 'Admin access required' });
+  }
+
+  next();
+};
+
+/**
  * Global error handling middleware
  * Catches all errors and sends standardized JSON responses
  */
@@ -119,6 +141,7 @@ const notFoundHandler = (req, res) => {
 module.exports = {
   authenticateToken,
   validateRequest,
+  requireAdmin,
   errorHandler,
   notFoundHandler
 };
