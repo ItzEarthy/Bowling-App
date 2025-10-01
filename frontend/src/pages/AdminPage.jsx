@@ -15,7 +15,22 @@ import {
   BarChart3,
   AlertTriangle,
   CheckCircle,
-  Clock
+  Clock,
+  Download,
+  Upload,
+  FileText,
+  Server,
+  Palette,
+  Globe,
+  Lock,
+  Bell,
+  Eye,
+  Save,
+  Search,
+  Filter,
+  MoreVertical,
+  Trash,
+  RefreshCw
 } from 'lucide-react';
 import useAuthStore from '../stores/authStore';
 import PageHeader from '../components/layout/PageHeader';
@@ -24,7 +39,7 @@ import Button from '../components/ui/Button';
 import Input from '../components/ui/Input';
 import Modal from '../components/ui/Modal';
 import Spinner from '../components/ui/Spinner';
-import { userAPI, gameAPI, ballAPI } from '../lib/api';
+import { userAPI } from '../lib/api';
 
 /**
  * Admin Portal Component
@@ -41,67 +56,74 @@ const AdminPage = () => {
   const [systemStats, setSystemStats] = useState(null);
   const [users, setUsers] = useState([]);
   const [games, setGames] = useState([]);
+  const [adminSettings, setAdminSettings] = useState([]);
+  const [systemLogs, setSystemLogs] = useState([]);
   const [selectedUser, setSelectedUser] = useState(null);
+  const [selectedUsers, setSelectedUsers] = useState([]);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [userFilter, setUserFilter] = useState('all');
   
   // Modal states
   const [showUserModal, setShowUserModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [showSettingsModal, setShowSettingsModal] = useState(false);
+  const [showBulkModal, setShowBulkModal] = useState(false);
+  const [showCreateUserModal, setShowCreateUserModal] = useState(false);
   const [userToDelete, setUserToDelete] = useState(null);
+  const [editingSetting, setEditingSetting] = useState(null);
+  
+  // Form states
+  const [newUserData, setNewUserData] = useState({
+    username: '',
+    displayName: '',
+    email: '',
+    password: '',
+    role: 'user'
+  });
+  const [settingValue, setSettingValue] = useState('');
 
-  // Check admin access
+  // Check admin access and load data when tab changes
   useEffect(() => {
     if (!user || user.role !== 'admin') {
       navigate('/dashboard');
       return;
     }
     loadAdminData();
-  }, [user, navigate]);
+  }, [user, navigate, activeTab]);
 
   const loadAdminData = async () => {
     try {
       setIsLoading(true);
       
-      // Load system statistics
-      const [usersResponse, gamesResponse] = await Promise.all([
-        userAPI.getAllUsers(), // We'll need to create this endpoint
-        gameAPI.getGames(1, 100) // Get recent games for stats
-      ]);
-
-      setUsers(usersResponse.data.users || []);
-      setGames(gamesResponse.data.games || []);
+      const promises = [];
       
-      // Calculate system stats
-      calculateSystemStats(usersResponse.data.users || [], gamesResponse.data.games || []);
+      if (activeTab === 'overview') {
+        promises.push(userAPI.getAdminStats());
+      } else if (activeTab === 'users') {
+        promises.push(userAPI.getAllUsers());
+      } else if (activeTab === 'settings') {
+        promises.push(userAPI.getAdminSettings());
+      } else if (activeTab === 'logs') {
+        promises.push(userAPI.getSystemLogs(1, 50));
+      }
+
+      const responses = await Promise.all(promises);
+
+      if (activeTab === 'overview') {
+        setSystemStats(responses[0].data.stats);
+      } else if (activeTab === 'users') {
+        setUsers(responses[0].data.users || []);
+      } else if (activeTab === 'settings') {
+        setAdminSettings(responses[0].data.settings || []);
+      } else if (activeTab === 'logs') {
+        setSystemLogs(responses[0].data.logs || []);
+      }
     } catch (err) {
       setError('Failed to load admin data');
       console.error('Admin data load error:', err);
     } finally {
       setIsLoading(false);
     }
-  };
-
-  const calculateSystemStats = (usersList, gamesList) => {
-    const now = new Date();
-    const oneWeekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
-    const oneMonthAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
-
-    const recentUsers = usersList.filter(u => new Date(u.created_at) >= oneWeekAgo);
-    const recentGames = gamesList.filter(g => new Date(g.created_at) >= oneWeekAgo);
-    const activeUsers = usersList.filter(u => {
-      const userGames = gamesList.filter(g => g.user_id === u.id);
-      return userGames.some(g => new Date(g.created_at) >= oneMonthAgo);
-    });
-
-    setSystemStats({
-      totalUsers: usersList.length,
-      totalGames: gamesList.length,
-      activeUsers: activeUsers.length,
-      newUsersThisWeek: recentUsers.length,
-      newGamesThisWeek: recentGames.length,
-      averageGamesPerUser: usersList.length > 0 ? (gamesList.length / usersList.length).toFixed(1) : 0,
-      systemHealth: 'Excellent',
-      uptime: '99.9%'
-    });
   };
 
   const handleDeleteUser = async () => {
@@ -126,6 +148,72 @@ const AdminPage = () => {
       setError('Failed to update user status');
     }
   };
+
+  const handleCreateUser = async () => {
+    try {
+      await userAPI.createUser(newUserData);
+      setShowCreateUserModal(false);
+      setNewUserData({
+        username: '',
+        displayName: '',
+        email: '',
+        password: '',
+        role: 'user'
+      });
+      loadAdminData(); // Reload users
+    } catch (err) {
+      setError('Failed to create user');
+    }
+  };
+
+  const handleUpdateSetting = async () => {
+    try {
+      await userAPI.updateAdminSetting(editingSetting.setting_key, settingValue);
+      setAdminSettings(prev => prev.map(s => 
+        s.setting_key === editingSetting.setting_key 
+          ? { ...s, setting_value: settingValue }
+          : s
+      ));
+      setShowSettingsModal(false);
+      setEditingSetting(null);
+    } catch (err) {
+      setError('Failed to update setting');
+    }
+  };
+
+  const handleBulkDelete = async () => {
+    try {
+      await userAPI.bulkUserOperation('delete', selectedUsers);
+      setUsers(prev => prev.filter(u => !selectedUsers.includes(u.id)));
+      setSelectedUsers([]);
+      setShowBulkModal(false);
+    } catch (err) {
+      setError('Failed to delete users');
+    }
+  };
+
+  const handleCreateBackup = async () => {
+    try {
+      const response = await userAPI.createBackup();
+      alert(`Backup created: ${response.data.backupPath}`);
+    } catch (err) {
+      setError('Failed to create backup');
+    }
+  };
+
+  const filteredUsers = users.filter(user => {
+    const matchesSearch = user.display_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         user.username.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         user.email.toLowerCase().includes(searchTerm.toLowerCase());
+    
+    const matchesFilter = userFilter === 'all' || 
+                         (userFilter === 'admin' && user.role === 'admin') ||
+                         (userFilter === 'user' && user.role !== 'admin') ||
+                         (userFilter === 'active' && (user.status || 'active') === 'active') ||
+                         (userFilter === 'suspended' && (user.status || 'active') === 'suspended');
+    
+    return matchesSearch && matchesFilter;
+  });
 
   if (!user || user.role !== 'admin') {
     return (
@@ -198,15 +286,26 @@ const AdminPage = () => {
           Games
         </button>
         <button
-          onClick={() => setActiveTab('system')}
+          onClick={() => setActiveTab('settings')}
           className={`flex-1 py-2 px-4 rounded-md text-sm font-medium transition-all ${
-            activeTab === 'system'
+            activeTab === 'settings'
               ? 'bg-white text-charcoal-900 shadow-sm'
               : 'text-charcoal-600 hover:text-charcoal-900'
           }`}
         >
-          <Database className="w-4 h-4 inline mr-2" />
-          System
+          <Settings className="w-4 h-4 inline mr-2" />
+          Settings
+        </button>
+        <button
+          onClick={() => setActiveTab('logs')}
+          className={`flex-1 py-2 px-4 rounded-md text-sm font-medium transition-all ${
+            activeTab === 'logs'
+              ? 'bg-white text-charcoal-900 shadow-sm'
+              : 'text-charcoal-600 hover:text-charcoal-900'
+          }`}
+        >
+          <FileText className="w-4 h-4 inline mr-2" />
+          Logs
         </button>
       </div>
 
@@ -221,11 +320,11 @@ const AdminPage = () => {
                   <Users className="w-8 h-8 text-blue-600" />
                 </div>
                 <div className="text-3xl font-bold text-charcoal-900 mb-1">
-                  {systemStats?.totalUsers || 0}
+                  {systemStats?.users?.total_users || 0}
                 </div>
                 <div className="text-sm text-charcoal-600">Total Users</div>
                 <div className="text-xs text-green-600 mt-1">
-                  +{systemStats?.newUsersThisWeek || 0} this week
+                  +{systemStats?.users?.new_users_week || 0} this week
                 </div>
               </CardContent>
             </Card>
@@ -236,10 +335,10 @@ const AdminPage = () => {
                   <Activity className="w-8 h-8 text-green-600" />
                 </div>
                 <div className="text-3xl font-bold text-charcoal-900 mb-1">
-                  {systemStats?.activeUsers || 0}
+                  {systemStats?.games?.completed_games || 0}
                 </div>
-                <div className="text-sm text-charcoal-600">Active Users</div>
-                <div className="text-xs text-charcoal-500 mt-1">Last 30 days</div>
+                <div className="text-sm text-charcoal-600">Completed Games</div>
+                <div className="text-xs text-charcoal-500 mt-1">All time</div>
               </CardContent>
             </Card>
 
@@ -249,11 +348,11 @@ const AdminPage = () => {
                   <Target className="w-8 h-8 text-purple-600" />
                 </div>
                 <div className="text-3xl font-bold text-charcoal-900 mb-1">
-                  {systemStats?.totalGames || 0}
+                  {systemStats?.games?.total_games || 0}
                 </div>
                 <div className="text-sm text-charcoal-600">Total Games</div>
                 <div className="text-xs text-green-600 mt-1">
-                  +{systemStats?.newGamesThisWeek || 0} this week
+                  +{systemStats?.games?.new_games_week || 0} this week
                 </div>
               </CardContent>
             </Card>
@@ -264,10 +363,10 @@ const AdminPage = () => {
                   <BarChart3 className="w-8 h-8 text-orange-600" />
                 </div>
                 <div className="text-3xl font-bold text-charcoal-900 mb-1">
-                  {systemStats?.averageGamesPerUser || 0}
+                  {Math.round(systemStats?.games?.avg_score || 0)}
                 </div>
-                <div className="text-sm text-charcoal-600">Avg Games/User</div>
-                <div className="text-xs text-charcoal-500 mt-1">All time</div>
+                <div className="text-sm text-charcoal-600">Avg Score</div>
+                <div className="text-xs text-charcoal-500 mt-1">All games</div>
               </CardContent>
             </Card>
           </div>
@@ -284,57 +383,163 @@ const AdminPage = () => {
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 <div className="text-center">
                   <div className="text-2xl font-bold text-green-600 mb-1">
-                    {systemStats?.systemHealth || 'Unknown'}
+                    Excellent
                   </div>
                   <div className="text-sm text-charcoal-600">Overall Status</div>
                 </div>
                 <div className="text-center">
                   <div className="text-2xl font-bold text-blue-600 mb-1">
-                    {systemStats?.uptime || 'Unknown'}
+                    {Math.floor((systemStats?.uptime || 0) / 3600)}h
                   </div>
                   <div className="text-sm text-charcoal-600">Uptime</div>
                 </div>
                 <div className="text-center">
                   <div className="text-2xl font-bold text-purple-600 mb-1">
-                    {new Date().toLocaleDateString()}
+                    {systemStats?.users?.admin_users || 0}
                   </div>
-                  <div className="text-sm text-charcoal-600">Last Updated</div>
+                  <div className="text-sm text-charcoal-600">Admin Users</div>
                 </div>
               </div>
             </CardContent>
           </Card>
+
+          {/* Recent Activity */}
+          {systemStats?.recentActivity && (
+            <Card>
+              <CardHeader>
+                <CardTitle>Recent Activity</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-3">
+                  {systemStats.recentActivity.slice(0, 5).map((activity, index) => (
+                    <div key={index} className="flex items-center space-x-3 p-3 bg-charcoal-50 rounded-lg">
+                      <div className={`p-2 rounded-lg ${
+                        activity.type === 'user_registered' 
+                          ? 'bg-blue-100 text-blue-600' 
+                          : 'bg-green-100 text-green-600'
+                      }`}>
+                        {activity.type === 'user_registered' ? 
+                          <Users className="w-4 h-4" /> : 
+                          <Target className="w-4 h-4" />
+                        }
+                      </div>
+                      <div className="flex-1">
+                        <div className="text-sm font-medium text-charcoal-900">
+                          {activity.type === 'user_registered' ? 'New User' : 'Game Completed'}
+                        </div>
+                        <div className="text-xs text-charcoal-600">
+                          {activity.details}
+                        </div>
+                      </div>
+                      <div className="text-xs text-charcoal-500">
+                        {new Date(activity.timestamp).toLocaleDateString()}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          )}
         </div>
       )}
 
       {/* Users Tab */}
       {activeTab === 'users' && (
         <div className="space-y-6">
+          {/* User Management Controls */}
+          <Card>
+            <CardContent className="p-4">
+              <div className="flex flex-col sm:flex-row gap-4 items-center justify-between">
+                <div className="flex gap-3 items-center flex-1">
+                  <div className="relative">
+                    <Search className="w-4 h-4 absolute left-3 top-1/2 transform -translate-y-1/2 text-charcoal-500" />
+                    <Input
+                      placeholder="Search users..."
+                      value={searchTerm}
+                      onChange={(e) => setSearchTerm(e.target.value)}
+                      className="pl-10 w-64"
+                    />
+                  </div>
+                  <select
+                    value={userFilter}
+                    onChange={(e) => setUserFilter(e.target.value)}
+                    className="px-3 py-2 border border-charcoal-200 rounded-lg text-sm"
+                  >
+                    <option value="all">All Users</option>
+                    <option value="admin">Admins</option>
+                    <option value="user">Regular Users</option>
+                    <option value="active">Active</option>
+                    <option value="suspended">Suspended</option>
+                  </select>
+                </div>
+                <div className="flex gap-2">
+                  {selectedUsers.length > 0 && (
+                    <Button
+                      variant="outline"
+                      onClick={() => setShowBulkModal(true)}
+                      className="text-red-600 border-red-200 hover:bg-red-50"
+                    >
+                      <Trash className="w-4 h-4 mr-2" />
+                      Delete Selected ({selectedUsers.length})
+                    </Button>
+                  )}
+                  <Button onClick={() => setShowCreateUserModal(true)}>
+                    <Plus className="w-4 h-4 mr-2" />
+                    Add User
+                  </Button>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
           <Card>
             <CardHeader>
-              <CardTitle className="flex items-center justify-between">
-                <span>User Management</span>
-                <Button onClick={() => setShowUserModal(true)}>
-                  <Plus className="w-4 h-4 mr-2" />
-                  Add User
-                </Button>
-              </CardTitle>
+              <CardTitle>User Management</CardTitle>
             </CardHeader>
             <CardContent>
               <div className="overflow-x-auto">
                 <table className="w-full">
                   <thead>
                     <tr className="border-b border-charcoal-200">
+                      <th className="text-left py-3 px-4">
+                        <input
+                          type="checkbox"
+                          checked={selectedUsers.length === filteredUsers.length && filteredUsers.length > 0}
+                          onChange={(e) => {
+                            if (e.target.checked) {
+                              setSelectedUsers(filteredUsers.map(u => u.id));
+                            } else {
+                              setSelectedUsers([]);
+                            }
+                          }}
+                          className="rounded"
+                        />
+                      </th>
                       <th className="text-left py-3 px-4 font-medium text-charcoal-700">User</th>
                       <th className="text-left py-3 px-4 font-medium text-charcoal-700">Email</th>
                       <th className="text-left py-3 px-4 font-medium text-charcoal-700">Role</th>
-                      <th className="text-left py-3 px-4 font-medium text-charcoal-700">Status</th>
+                      <th className="text-left py-3 px-4 font-medium text-charcoal-700">Games</th>
                       <th className="text-left py-3 px-4 font-medium text-charcoal-700">Joined</th>
                       <th className="text-left py-3 px-4 font-medium text-charcoal-700">Actions</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {users.map((user) => (
+                    {filteredUsers.map((user) => (
                       <tr key={user.id} className="border-b border-charcoal-100 hover:bg-charcoal-50">
+                        <td className="py-3 px-4">
+                          <input
+                            type="checkbox"
+                            checked={selectedUsers.includes(user.id)}
+                            onChange={(e) => {
+                              if (e.target.checked) {
+                                setSelectedUsers(prev => [...prev, user.id]);
+                              } else {
+                                setSelectedUsers(prev => prev.filter(id => id !== user.id));
+                              }
+                            }}
+                            className="rounded"
+                          />
+                        </td>
                         <td className="py-3 px-4">
                           <div className="flex items-center space-x-3">
                             <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center text-white text-sm font-bold">
@@ -356,15 +561,7 @@ const AdminPage = () => {
                             {user.role || 'user'}
                           </span>
                         </td>
-                        <td className="py-3 px-4">
-                          <span className={`px-2 py-1 rounded-lg text-xs font-medium ${
-                            (user.status || 'active') === 'active'
-                              ? 'bg-green-100 text-green-600' 
-                              : 'bg-red-100 text-red-600'
-                          }`}>
-                            {user.status || 'active'}
-                          </span>
-                        </td>
+                        <td className="py-3 px-4 text-charcoal-700">{user.gameCount || 0}</td>
                         <td className="py-3 px-4 text-charcoal-600 text-sm">
                           {new Date(user.created_at).toLocaleDateString()}
                         </td>
@@ -402,36 +599,104 @@ const AdminPage = () => {
         </div>
       )}
 
-      {/* Games Tab */}
-      {activeTab === 'games' && (
+      {/* Settings Tab */}
+      {activeTab === 'settings' && (
         <div className="space-y-6">
           <Card>
             <CardHeader>
-              <CardTitle>Recent Games</CardTitle>
+              <CardTitle className="flex items-center justify-between">
+                <span>System Settings</span>
+                <Button onClick={handleCreateBackup} variant="outline">
+                  <Download className="w-4 h-4 mr-2" />
+                  Create Backup
+                </Button>
+              </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="space-y-4">
-                {games.slice(0, 10).map((game) => (
-                  <div key={game.id} className="flex items-center justify-between p-4 bg-charcoal-50 rounded-xl">
-                    <div className="flex items-center space-x-4">
-                      <div className="bg-teal-100 p-2 rounded-lg">
-                        <Target className="w-5 h-5 text-teal-600" />
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {adminSettings.map((setting) => (
+                  <div key={setting.setting_key} className="p-4 border border-charcoal-200 rounded-xl">
+                    <div className="flex items-center justify-between mb-2">
+                      <h4 className="font-medium text-charcoal-900">
+                        {setting.setting_key.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
+                      </h4>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => {
+                          setEditingSetting(setting);
+                          setSettingValue(setting.setting_value);
+                          setShowSettingsModal(true);
+                        }}
+                      >
+                        <Edit className="w-3 h-3" />
+                      </Button>
+                    </div>
+                    <div className="text-sm text-charcoal-600 mb-2">
+                      {setting.description}
+                    </div>
+                    <div className="font-mono text-sm bg-charcoal-50 p-2 rounded">
+                      {setting.setting_value}
+                    </div>
+                    {setting.updated_at && (
+                      <div className="text-xs text-charcoal-500 mt-2">
+                        Updated: {new Date(setting.updated_at).toLocaleString()}
                       </div>
-                      <div>
-                        <div className="font-medium text-charcoal-900">
-                          {game.location || 'Bowling Game'}
-                        </div>
-                        <div className="text-sm text-charcoal-600">
-                          by @{game.username} • {new Date(game.created_at).toLocaleDateString()}
-                        </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
+      {/* Logs Tab */}
+      {activeTab === 'logs' && (
+        <div className="space-y-6">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center justify-between">
+                <span>System Logs</span>
+                <Button onClick={() => loadAdminData()} variant="outline">
+                  <RefreshCw className="w-4 h-4 mr-2" />
+                  Refresh
+                </Button>
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-3">
+                {systemLogs.map((log) => (
+                  <div key={log.id} className="flex items-center space-x-4 p-3 bg-charcoal-50 rounded-lg">
+                    <div className="flex-shrink-0">
+                      <div className={`p-2 rounded-lg ${
+                        log.action.includes('delete') ? 'bg-red-100 text-red-600' :
+                        log.action.includes('create') ? 'bg-green-100 text-green-600' :
+                        log.action.includes('update') ? 'bg-blue-100 text-blue-600' :
+                        'bg-gray-100 text-gray-600'
+                      }`}>
+                        <Activity className="w-4 h-4" />
                       </div>
                     </div>
-                    <div className="text-right">
-                      <div className="text-lg font-bold text-charcoal-900">
-                        {game.total_score || game.score}
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center space-x-2">
+                        <span className="font-medium text-charcoal-900">
+                          {log.action.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
+                        </span>
+                        {log.username && (
+                          <span className="text-sm text-charcoal-600">
+                            by @{log.username}
+                          </span>
+                        )}
                       </div>
-                      <div className="text-xs text-charcoal-600">
-                        {game.entry_mode}
+                      {log.details && (
+                        <div className="text-sm text-charcoal-600 truncate">
+                          {log.details}
+                        </div>
+                      )}
+                      <div className="text-xs text-charcoal-500 mt-1">
+                        {new Date(log.created_at).toLocaleString()}
+                        {log.ip_address && ` • ${log.ip_address}`}
                       </div>
                     </div>
                   </div>
@@ -442,85 +707,187 @@ const AdminPage = () => {
         </div>
       )}
 
-      {/* System Tab */}
-      {activeTab === 'system' && (
-        <div className="space-y-6">
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center space-x-2">
-                <Database className="w-5 h-5" />
-                <span>System Information</span>
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div>
-                  <h4 className="font-medium text-charcoal-900 mb-3">Application Info</h4>
-                  <div className="space-y-2 text-sm">
-                    <div className="flex justify-between">
-                      <span className="text-charcoal-600">Version</span>
-                      <span className="text-charcoal-900">1.0.0</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-charcoal-600">Environment</span>
-                      <span className="text-charcoal-900">Production</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-charcoal-600">Last Deploy</span>
-                      <span className="text-charcoal-900">{new Date().toLocaleDateString()}</span>
-                    </div>
-                  </div>
-                </div>
-                <div>
-                  <h4 className="font-medium text-charcoal-900 mb-3">Database Stats</h4>
-                  <div className="space-y-2 text-sm">
-                    <div className="flex justify-between">
-                      <span className="text-charcoal-600">Total Records</span>
-                      <span className="text-charcoal-900">{(systemStats?.totalUsers || 0) + (systemStats?.totalGames || 0)}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-charcoal-600">Database Size</span>
-                      <span className="text-charcoal-900">~2.3 MB</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-charcoal-600">Last Backup</span>
-                      <span className="text-charcoal-900">Auto-daily</span>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+      {/* User Management Modals */}
+      {showCreateUserModal && (
+        <Modal
+          isOpen={showCreateUserModal}
+          onClose={() => {
+            setShowCreateUserModal(false);
+            setNewUser({ username: '', email: '', password: '', display_name: '', role: 'user' });
+          }}
+          title="Create New User"
+        >
+          <div className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-charcoal-700 mb-2">
+                Username
+              </label>
+              <Input
+                value={newUser.username}
+                onChange={(e) => setNewUser(prev => ({ ...prev, username: e.target.value }))}
+                placeholder="Enter username"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-charcoal-700 mb-2">
+                Email
+              </label>
+              <Input
+                type="email"
+                value={newUser.email}
+                onChange={(e) => setNewUser(prev => ({ ...prev, email: e.target.value }))}
+                placeholder="Enter email"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-charcoal-700 mb-2">
+                Display Name
+              </label>
+              <Input
+                value={newUser.display_name}
+                onChange={(e) => setNewUser(prev => ({ ...prev, display_name: e.target.value }))}
+                placeholder="Enter display name"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-charcoal-700 mb-2">
+                Password
+              </label>
+              <Input
+                type="password"
+                value={newUser.password}
+                onChange={(e) => setNewUser(prev => ({ ...prev, password: e.target.value }))}
+                placeholder="Enter password"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-charcoal-700 mb-2">
+                Role
+              </label>
+              <select
+                value={newUser.role}
+                onChange={(e) => setNewUser(prev => ({ ...prev, role: e.target.value }))}
+                className="w-full px-3 py-2 border border-charcoal-200 rounded-lg"
+              >
+                <option value="user">User</option>
+                <option value="admin">Admin</option>
+              </select>
+            </div>
+            <div className="flex justify-end space-x-3 mt-6">
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setShowCreateUserModal(false);
+                  setNewUser({ username: '', email: '', password: '', display_name: '', role: 'user' });
+                }}
+              >
+                Cancel
+              </Button>
+              <Button onClick={handleCreateUser}>
+                Create User
+              </Button>
+            </div>
+          </div>
+        </Modal>
+      )}
 
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center space-x-2">
-                <Settings className="w-5 h-5" />
-                <span>Admin Actions</span>
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <Button variant="outline" className="justify-start">
-                  <Database className="w-4 h-4 mr-2" />
-                  Backup Database
-                </Button>
-                <Button variant="outline" className="justify-start">
-                  <Activity className="w-4 h-4 mr-2" />
-                  View System Logs
-                </Button>
-                <Button variant="outline" className="justify-start">
-                  <Users className="w-4 h-4 mr-2" />
-                  Export User Data
-                </Button>
-                <Button variant="outline" className="justify-start">
-                  <Target className="w-4 h-4 mr-2" />
-                  Generate Reports
-                </Button>
+      {showBulkModal && (
+        <Modal
+          isOpen={showBulkModal}
+          onClose={() => setShowBulkModal(false)}
+          title="Bulk Delete Users"
+          size="sm"
+        >
+          <div className="space-y-6">
+            <div className="text-center">
+              <div className="bg-red-100 p-3 rounded-full w-fit mx-auto mb-4">
+                <Trash className="w-8 h-8 text-red-600" />
               </div>
-            </CardContent>
-          </Card>
-        </div>
+              <h3 className="text-lg font-semibold text-charcoal-900 mb-2">
+                Delete {selectedUsers.length} Users?
+              </h3>
+              <p className="text-charcoal-600">
+                This will permanently delete all selected users and their associated data. 
+                This action cannot be undone.
+              </p>
+            </div>
+            
+            <div className="flex justify-end space-x-3">
+              <Button
+                variant="outline"
+                onClick={() => setShowBulkModal(false)}
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={() => handleBulkUserOperation('delete')}
+                className="bg-red-600 hover:bg-red-700 text-white"
+              >
+                Delete Users
+              </Button>
+            </div>
+          </div>
+        </Modal>
+      )}
+
+      {/* Settings Modal */}
+      {showSettingsModal && editingSetting && (
+        <Modal
+          isOpen={showSettingsModal}
+          onClose={() => {
+            setShowSettingsModal(false);
+            setEditingSetting(null);
+            setSettingValue('');
+          }}
+          title={`Edit Setting: ${editingSetting.setting_key.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}`}
+        >
+          <div className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-charcoal-700 mb-2">
+                Description
+              </label>
+              <p className="text-sm text-charcoal-600 bg-charcoal-50 p-2 rounded">
+                {editingSetting.description}
+              </p>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-charcoal-700 mb-2">
+                Value
+              </label>
+              {editingSetting.setting_key.includes('enabled') || editingSetting.setting_key.includes('allowed') ? (
+                <select
+                  value={settingValue}
+                  onChange={(e) => setSettingValue(e.target.value)}
+                  className="w-full px-3 py-2 border border-charcoal-200 rounded-lg"
+                >
+                  <option value="true">Enabled</option>
+                  <option value="false">Disabled</option>
+                </select>
+              ) : (
+                <Input
+                  value={settingValue}
+                  onChange={(e) => setSettingValue(e.target.value)}
+                  placeholder="Enter setting value"
+                />
+              )}
+            </div>
+            <div className="flex justify-end space-x-3 mt-6">
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setShowSettingsModal(false);
+                  setEditingSetting(null);
+                  setSettingValue('');
+                }}
+              >
+                Cancel
+              </Button>
+              <Button onClick={handleUpdateSetting}>
+                Update Setting
+              </Button>
+            </div>
+          </div>
+        </Modal>
       )}
 
       {/* Delete User Confirmation Modal */}
@@ -564,7 +931,7 @@ const AdminPage = () => {
               Cancel
             </Button>
             <Button
-              onClick={handleDeleteUser}
+              onClick={() => handleDeleteUser(userToDelete?.id)}
               className="bg-red-600 hover:bg-red-700 text-white"
             >
               Delete User

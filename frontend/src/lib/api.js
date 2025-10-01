@@ -62,6 +62,12 @@ export const userAPI = {
   deleteUserAsAdmin: (userId) => api.delete(`/admin/users/${userId}`),
   updateUserStatus: (userId, status) => api.put(`/admin/users/${userId}/status`, { status }),
   createUser: (userData) => api.post('/admin/users', userData),
+  getAdminStats: () => api.get('/admin/stats'),
+  getAdminSettings: () => api.get('/admin/settings'),
+  updateAdminSetting: (key, value) => api.put(`/admin/settings/${key}`, { value }),
+  getSystemLogs: (page = 1, limit = 50) => api.get(`/admin/logs?page=${page}&limit=${limit}`),
+  bulkUserOperation: (action, userIds) => api.post('/admin/users/bulk', { action, userIds }),
+  createBackup: () => api.post('/admin/backup'),
 };
 
 // Games API calls

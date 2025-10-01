@@ -96,6 +96,34 @@ class DatabaseManager {
       )
     `);
 
+    // Admin settings table
+    this.db.exec(`
+      CREATE TABLE IF NOT EXISTS admin_settings (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        setting_key TEXT UNIQUE NOT NULL,
+        setting_value TEXT NOT NULL,
+        description TEXT,
+        updated_by INTEGER,
+        updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY(updated_by) REFERENCES users(id)
+      )
+    `);
+
+    // System logs table
+    this.db.exec(`
+      CREATE TABLE IF NOT EXISTS system_logs (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        action TEXT NOT NULL,
+        user_id INTEGER,
+        target_type TEXT,
+        target_id INTEGER,
+        details TEXT,
+        ip_address TEXT,
+        created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY(user_id) REFERENCES users(id)
+      )
+    `);
+
     // Create indexes for better performance
     this.createIndexes();
   }
@@ -107,12 +135,17 @@ class DatabaseManager {
     const indexes = [
       'CREATE INDEX IF NOT EXISTS idx_users_username ON users(username)',
       'CREATE INDEX IF NOT EXISTS idx_users_email ON users(email)',
+      'CREATE INDEX IF NOT EXISTS idx_users_role ON users(role)',
       'CREATE INDEX IF NOT EXISTS idx_balls_user_id ON balls(user_id)',
       'CREATE INDEX IF NOT EXISTS idx_games_user_id ON games(user_id)',
+      'CREATE INDEX IF NOT EXISTS idx_games_created_at ON games(created_at)',
       'CREATE INDEX IF NOT EXISTS idx_frames_game_id ON frames(game_id)',
       'CREATE INDEX IF NOT EXISTS idx_friends_requester ON friends(requester_id)',
       'CREATE INDEX IF NOT EXISTS idx_friends_receiver ON friends(receiver_id)',
-      'CREATE INDEX IF NOT EXISTS idx_friends_status ON friends(status)'
+      'CREATE INDEX IF NOT EXISTS idx_friends_status ON friends(status)',
+      'CREATE INDEX IF NOT EXISTS idx_admin_settings_key ON admin_settings(setting_key)',
+      'CREATE INDEX IF NOT EXISTS idx_system_logs_user_id ON system_logs(user_id)',
+      'CREATE INDEX IF NOT EXISTS idx_system_logs_created_at ON system_logs(created_at)'
     ];
 
     indexes.forEach(indexSQL => {
@@ -128,29 +161,6 @@ class DatabaseManager {
    * Create default users (admin account)
    */
   async createDefaultUsers() {
-    // Check if admin user already exists
-    const existingAdmin = this.db.prepare(`
-      SELECT id FROM users WHERE username = 'admin'
-    `).get();
-
-    if (!existingAdmin) {
-      // Create default admin user
-      const saltRounds = 12;
-      const hashedPassword = await bcrypt.hash('admin', saltRounds);
-      
-      this.db.prepare(`
-        INSERT INTO users (username, display_name, email, hashed_password, role)
-        VALUES (?, ?, ?, ?, ?)
-      `).run('admin', 'Administrator', 'admin@bowling-app.local', hashedPassword, 'admin');
-      
-      console.log('Default admin user created: username=admin, password=admin');
-    }
-  }
-
-  /**
-   * Create default admin user if it doesn't exist
-   */
-  async createDefaultUsers() {
     try {
       // Check if admin user already exists
       const adminExists = this.db.prepare(`
@@ -158,8 +168,8 @@ class DatabaseManager {
       `).get();
 
       if (!adminExists) {
-        const bcrypt = require('bcryptjs');
-        const hashedPassword = await bcrypt.hash('admin', 12);
+        const saltRounds = 12;
+        const hashedPassword = await bcrypt.hash('admin', saltRounds);
         
         this.db.prepare(`
           INSERT INTO users (username, display_name, email, hashed_password, role)
@@ -167,10 +177,76 @@ class DatabaseManager {
         `).run('admin', 'Administrator', 'admin@bowling-app.com', hashedPassword, 'admin');
         
         console.log('Default admin user created (username: admin, password: admin)');
+        
+        // Create default admin settings
+        await this.createDefaultSettings();
       }
     } catch (error) {
       console.error('Error creating default users:', error);
     }
+  }
+
+  /**
+   * Create default admin settings
+   */
+  async createDefaultSettings() {
+    const defaultSettings = [
+      {
+        key: 'app_name',
+        value: 'Bowling Tracker Pro',
+        description: 'Application display name'
+      },
+      {
+        key: 'max_users',
+        value: '1000',
+        description: 'Maximum number of users allowed'
+      },
+      {
+        key: 'require_email_verification',
+        value: 'false',
+        description: 'Require email verification for new accounts'
+      },
+      {
+        key: 'auto_backup_enabled',
+        value: 'true',
+        description: 'Enable automatic database backups'
+      },
+      {
+        key: 'maintenance_mode',
+        value: 'false',
+        description: 'Enable maintenance mode'
+      },
+      {
+        key: 'default_theme',
+        value: 'light',
+        description: 'Default application theme'
+      },
+      {
+        key: 'session_timeout',
+        value: '168',
+        description: 'Session timeout in hours'
+      },
+      {
+        key: 'max_games_per_user',
+        value: '500',
+        description: 'Maximum games per user'
+      }
+    ];
+
+    for (const setting of defaultSettings) {
+      const existing = this.db.prepare(`
+        SELECT id FROM admin_settings WHERE setting_key = ?
+      `).get(setting.key);
+
+      if (!existing) {
+        this.db.prepare(`
+          INSERT INTO admin_settings (setting_key, setting_value, description)
+          VALUES (?, ?, ?)
+        `).run(setting.key, setting.value, setting.description);
+      }
+    }
+
+    console.log('Default admin settings created');
   }
   getDatabase() {
     return this.db;
