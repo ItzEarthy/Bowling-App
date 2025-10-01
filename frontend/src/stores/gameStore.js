@@ -1,5 +1,7 @@
 import { create } from 'zustand';
 import BowlingScoreCalculator from '../utils/bowlingScoring';
+import { streakTracker } from '../utils/streakTracker';
+import { AchievementEngine } from '../utils/achievementEngine';
 
 /**
  * Game store for managing current game state
@@ -252,6 +254,9 @@ const useGameStore = create((set, get) => ({
       error: null 
     });
 
+    // Process for streaks and achievements
+    get().processCompletedGame(newGame);
+
     return newGame;
   },
 
@@ -282,6 +287,9 @@ const useGameStore = create((set, get) => ({
       error: null 
     });
 
+    // Process for streaks and achievements
+    get().processCompletedGame(newGame);
+
     return newGame;
   },
 
@@ -307,7 +315,68 @@ const useGameStore = create((set, get) => ({
       error: null 
     });
 
+    // Process for streaks and achievements
+    get().processCompletedGame(newGame);
+
     return newGame;
+  },
+
+  // Process completed game for streaks and achievements
+  processCompletedGame: async (gameData) => {
+    const game = gameData || get().currentGame;
+    if (!game || !game.is_complete) return null;
+
+    try {
+      // Load previous games for context
+      const storedGames = localStorage.getItem('bowling-games');
+      const previousGames = storedGames ? JSON.parse(storedGames) : [];
+
+      // Process streaks
+      const streakResult = streakTracker.processGame({
+        ...game,
+        previous_games: previousGames
+      });
+
+      // Process achievements
+      const achievementEngine = new AchievementEngine();
+      const user = JSON.parse(localStorage.getItem('auth-user') || '{}');
+      achievementEngine.setUserData(user, [...previousGames, game]);
+      const achievementResult = achievementEngine.processGame(game);
+
+      // Store notifications
+      const allNotifications = [
+        ...(streakResult.notifications || []),
+        ...(achievementResult.newAchievements || []).map(achievement => ({
+          id: Date.now() + Math.random(),
+          type: 'achievement',
+          message: `🏆 Achievement Unlocked: ${achievement.title}`,
+          achievement,
+          timestamp: new Date().toISOString()
+        }))
+      ];
+
+      if (allNotifications.length > 0) {
+        // Store streak notifications
+        const existingStreakNotifications = JSON.parse(localStorage.getItem('streak-notifications') || '[]');
+        const updatedStreakNotifications = [...existingStreakNotifications, ...streakResult.notifications];
+        localStorage.setItem('streak-notifications', JSON.stringify(updatedStreakNotifications));
+
+        // Store achievement notifications
+        const existingAchievementNotifications = JSON.parse(localStorage.getItem('achievement-notifications') || '[]');
+        const achievementNotifications = allNotifications.filter(n => n.type === 'achievement');
+        const updatedAchievementNotifications = [...existingAchievementNotifications, ...achievementNotifications];
+        localStorage.setItem('achievement-notifications', JSON.stringify(updatedAchievementNotifications));
+      }
+
+      return {
+        streaks: streakResult.streaks,
+        achievements: achievementResult.newAchievements,
+        notifications: allNotifications
+      };
+    } catch (error) {
+      console.error('Failed to process completed game:', error);
+      return null;
+    }
   },
 
   // Convert game data for API submission

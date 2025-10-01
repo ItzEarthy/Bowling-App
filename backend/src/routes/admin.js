@@ -439,6 +439,175 @@ router.post('/backup', authenticateToken, requireAdmin, (req, res, next) => {
 });
 
 /**
+ * Admin User Functionality Routes
+ * These routes allow admins to access the same functionality as regular users
+ */
+
+/**
+ * GET /api/admin/user-profile
+ * Get admin's user profile (same as regular users)
+ */
+router.get('/user-profile', authenticateToken, requireAdmin, (req, res, next) => {
+  try {
+    const user = global.db.prepare(`
+      SELECT id, username, display_name, email, created_at, role
+      FROM users WHERE id = ?
+    `).get(req.user.userId);
+
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    res.json({
+      user: {
+        id: user.id,
+        username: user.username,
+        displayName: user.display_name,
+        email: user.email,
+        createdAt: user.created_at,
+        role: user.role
+      }
+    });
+
+  } catch (error) {
+    next(error);
+  }
+});
+
+/**
+ * PUT /api/admin/user-profile
+ * Update admin's user profile (same as regular users)
+ */
+router.put('/user-profile', authenticateToken, requireAdmin, async (req, res, next) => {
+  try {
+    const { username, displayName, email } = req.body;
+    const userId = req.user.userId;
+
+    // Get current user data
+    const currentUser = global.db.prepare(`
+      SELECT id, username, display_name, email, hashed_password, role
+      FROM users WHERE id = ?
+    `).get(userId);
+
+    if (!currentUser) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    const updateData = {};
+
+    // Check if username is being changed and if it's already taken
+    if (username && username !== currentUser.username) {
+      const existingUser = global.db.prepare(`
+        SELECT id FROM users WHERE username = ? AND id != ?
+      `).get(username, userId);
+
+      if (existingUser) {
+        return res.status(400).json({ error: 'Username is already taken' });
+      }
+
+      updateData.username = username;
+    }
+
+    // Check if email is being changed and if it's already taken
+    if (email && email !== currentUser.email) {
+      const existingUser = global.db.prepare(`
+        SELECT id FROM users WHERE email = ? AND id != ?
+      `).get(email, userId);
+
+      if (existingUser) {
+        return res.status(400).json({ error: 'Email is already taken' });
+      }
+
+      updateData.email = email;
+    }
+
+    // Update display name
+    if (displayName && displayName !== currentUser.display_name) {
+      updateData.display_name = displayName;
+    }
+
+    // Perform update if there are changes
+    if (Object.keys(updateData).length > 0) {
+      const updateFields = Object.keys(updateData).map(field => `${field} = ?`).join(', ');
+      const updateValues = Object.values(updateData);
+      
+      global.db.prepare(`
+        UPDATE users SET ${updateFields} WHERE id = ?
+      `).run(...updateValues, userId);
+    }
+
+    // Return updated user data
+    const updatedUser = global.db.prepare(`
+      SELECT id, username, display_name, email, created_at, role
+      FROM users WHERE id = ?
+    `).get(userId);
+
+    res.json({
+      message: 'Profile updated successfully',
+      user: {
+        id: updatedUser.id,
+        username: updatedUser.username,
+        displayName: updatedUser.display_name,
+        email: updatedUser.email,
+        createdAt: updatedUser.created_at,
+        role: updatedUser.role
+      }
+    });
+
+  } catch (error) {
+    next(error);
+  }
+});
+
+/**
+ * PUT /api/admin/user-password
+ * Change admin's password (same as regular users)
+ */
+router.put('/user-password', authenticateToken, requireAdmin, async (req, res, next) => {
+  try {
+    const { currentPassword, newPassword } = req.body;
+    const userId = req.user.userId;
+
+    // Get current user data
+    const currentUser = global.db.prepare(`
+      SELECT id, username, hashed_password
+      FROM users WHERE id = ?
+    `).get(userId);
+
+    if (!currentUser) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    // Verify current password
+    const isValidPassword = await bcrypt.compare(currentPassword, currentUser.hashed_password);
+    
+    if (!isValidPassword) {
+      return res.status(400).json({ error: 'Current password is incorrect' });
+    }
+
+    // Hash new password
+    const saltRounds = 12;
+    const hashedNewPassword = await bcrypt.hash(newPassword, saltRounds);
+
+    // Update password
+    global.db.prepare(`
+      UPDATE users SET hashed_password = ? WHERE id = ?
+    `).run(hashedNewPassword, userId);
+
+    // Log admin action
+    logAdminAction(userId, 'password_changed', 'user', userId, 
+      'Admin changed their own password', req.ip);
+
+    res.json({
+      message: 'Password changed successfully'
+    });
+
+  } catch (error) {
+    next(error);
+  }
+});
+
+/**
  * Helper function to log admin actions
  */
 function logAdminAction(userId, action, targetType, targetId, details, ipAddress) {

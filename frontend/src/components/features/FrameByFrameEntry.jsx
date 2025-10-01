@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Target, Calculator, Save, RotateCcw, Edit } from 'lucide-react';
+import { Target, Calculator, Save, RotateCcw, Edit, AlertTriangle } from 'lucide-react';
 import Card, { CardContent } from '../ui/Card';
 import Button from '../ui/Button';
 import Input from '../ui/Input';
@@ -19,6 +19,7 @@ const FrameByFrameEntry = ({ onGameComplete, initialData = {} }) => {
   const [errors, setErrors] = useState({});
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [gameDate, setGameDate] = useState(initialData.gameDate || new Date().toISOString().split('T')[0]);
+  const [splits, setSplits] = useState({});
 
   // Update frames when data changes
   useEffect(() => {
@@ -91,6 +92,14 @@ const FrameByFrameEntry = ({ onGameComplete, initialData = {} }) => {
     setSelectedFrame(frameNumber);
   };
 
+  // Handle split toggle
+  const handleSplitToggle = (frameNumber) => {
+    setSplits(prev => ({
+      ...prev,
+      [frameNumber]: !prev[frameNumber]
+    }));
+  };
+
   // Clear all frames
   const handleClear = () => {
     setFrames(BowlingScoreCalculator.createEmptyGame());
@@ -113,6 +122,7 @@ const FrameByFrameEntry = ({ onGameComplete, initialData = {} }) => {
         entryMode: 'frame_by_frame',
         frames: frames,
         totalScore: totalScore,
+        splits: splits, // Include split data
         created_at: new Date(gameDate + 'T' + new Date().toTimeString().split(' ')[0]).toISOString()
       };
 
@@ -191,6 +201,30 @@ const FrameByFrameEntry = ({ onGameComplete, initialData = {} }) => {
                 </div>
               ))}
             </div>
+
+            {/* Split Tracking */}
+            {selectedFrame < 10 && frames[selectedFrame - 1]?.throws?.[0] > 0 && frames[selectedFrame - 1]?.throws?.[0] < 10 && (
+              <div className="bg-orange-50 border border-orange-200 rounded-lg p-4">
+                <div className="flex items-center justify-between mb-3">
+                  <div className="flex items-center space-x-2">
+                    <AlertTriangle className="w-5 h-5 text-orange-600" />
+                    <span className="font-medium text-orange-900">Split Situation?</span>
+                  </div>
+                  <Button
+                    variant={splits[selectedFrame] ? "primary" : "outline"}
+                    size="sm"
+                    onClick={() => handleSplitToggle(selectedFrame)}
+                  >
+                    {splits[selectedFrame] ? "Split Marked" : "Mark as Split"}
+                  </Button>
+                </div>
+                {splits[selectedFrame] && (
+                  <p className="text-sm text-orange-700">
+                    Split marked for Frame {selectedFrame}. This will be tracked in your statistics.
+                  </p>
+                )}
+              </div>
+            )}
 
             {/* Visual Display */}
             <div className="bg-charcoal-50 rounded-lg p-4">

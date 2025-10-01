@@ -11,7 +11,8 @@ import {
   Camera,
   Edit3,
   Trash2,
-  Settings
+  Settings,
+  LogOut
 } from 'lucide-react';
 import useAuthStore from '../stores/authStore';
 import PageHeader from '../components/layout/PageHeader';
@@ -35,6 +36,10 @@ const ProfilePage = () => {
   const [showCurrentPassword, setShowCurrentPassword] = useState(false);
   const [showNewPassword, setShowNewPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  
+  // Profile picture state
+  const [profilePicture, setProfilePicture] = useState(null);
+  const [profilePicturePreview, setProfilePicturePreview] = useState(null);
   
   const [profileData, setProfileData] = useState({
     username: '',
@@ -70,6 +75,38 @@ const ProfilePage = () => {
     setPasswordData(prev => ({ ...prev, [field]: value }));
     setError(null);
     setSuccess(null);
+  };
+
+  const handleProfilePictureChange = (event) => {
+    const file = event.target.files[0];
+    if (file) {
+      // Validate file type
+      if (!file.type.startsWith('image/')) {
+        setError('Please select a valid image file');
+        return;
+      }
+      
+      // Validate file size (max 5MB)
+      if (file.size > 5 * 1024 * 1024) {
+        setError('Image file size must be less than 5MB');
+        return;
+      }
+      
+      setProfilePicture(file);
+      
+      // Create preview URL
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        setProfilePicturePreview(e.target.result);
+      };
+      reader.readAsDataURL(file);
+      
+      setError(null);
+    }
+  };
+
+  const handleProfilePictureClick = () => {
+    document.getElementById('profile-picture-input').click();
   };
 
   const validateProfile = () => {
@@ -186,20 +223,30 @@ const ProfilePage = () => {
     }
   };
 
-  if (isLoading) {
-    return (
-      <div className="flex items-center justify-center h-64">
-        <Spinner size="lg" />
-      </div>
-    );
-  }
+  const handleLogout = () => {
+    logout();
+    navigate('/login');
+  };
 
+  // Render header even while loading so navigation remains visible
   return (
     <div>
       <PageHeader 
         title="Profile Settings"
         subtitle="Manage your account information and preferences"
+        action={
+          <Button onClick={handleLogout} variant="outline" className="text-red-600 border-red-200 hover:bg-red-50">
+            <LogOut className="w-4 h-4 mr-2" />
+            Logout
+          </Button>
+        }
       />
+
+      {isLoading && (
+        <div className="flex items-center justify-center h-64">
+          <Spinner size="lg" />
+        </div>
+      )}
 
       {/* Tab Navigation */}
       <div className="flex space-x-1 bg-charcoal-100 p-1 rounded-lg mb-6">
@@ -264,12 +311,32 @@ const ProfilePage = () => {
             {/* Profile Avatar Section */}
             <div className="flex items-center space-x-6">
               <div className="relative">
-                <div className="w-20 h-20 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center text-white text-2xl font-bold">
-                  {profileData.displayName.charAt(0).toUpperCase() || 'U'}
-                </div>
-                <button className="absolute -bottom-2 -right-2 bg-white border-2 border-charcoal-200 rounded-full p-2 hover:bg-charcoal-50 transition-colors">
+                {profilePicturePreview ? (
+                  <img 
+                    src={profilePicturePreview} 
+                    alt="Profile" 
+                    className="w-20 h-20 rounded-full object-cover border-2 border-charcoal-200"
+                  />
+                ) : (
+                  <div className="w-20 h-20 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center text-white text-2xl font-bold">
+                    {profileData.displayName.charAt(0).toUpperCase() || 'U'}
+                  </div>
+                )}
+                <button 
+                  onClick={handleProfilePictureClick}
+                  className="absolute -bottom-2 -right-2 bg-white border-2 border-charcoal-200 rounded-full p-2 hover:bg-charcoal-50 transition-colors"
+                  title="Change profile picture"
+                >
                   <Camera className="w-4 h-4 text-charcoal-600" />
                 </button>
+                {/* Hidden file input */}
+                <input
+                  id="profile-picture-input"
+                  type="file"
+                  accept="image/*"
+                  onChange={handleProfilePictureChange}
+                  className="hidden"
+                />
               </div>
               <div>
                 <h3 className="text-lg font-semibold text-charcoal-900">{profileData.displayName}</h3>

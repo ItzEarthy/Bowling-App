@@ -1,6 +1,6 @@
 import React from 'react';
-import { NavLink } from 'react-router-dom';
-import { Home, BarChart3, Users, Target, Settings, User, Shield } from 'lucide-react';
+import { NavLink, useNavigate } from 'react-router-dom';
+import { Home, BarChart3, Users, Target, Settings, User, Shield, LogOut, TrendingUp, Trophy, LineChart, Flame, Zap, Droplets, Wrench, Activity } from 'lucide-react';
 import useAuthStore from '../../stores/authStore';
 
 /**
@@ -8,8 +8,14 @@ import useAuthStore from '../../stores/authStore';
  * Clean Retro themed navigation with icons
  */
 const BottomNavigation = () => {
-  const { user } = useAuthStore();
+  const { user, logout } = useAuthStore();
+  const navigate = useNavigate();
   const isAdmin = user?.role === 'admin';
+
+  const handleLogout = () => {
+    logout();
+    navigate('/login');
+  };
 
   const navItems = [
     {
@@ -18,19 +24,54 @@ const BottomNavigation = () => {
       icon: Home
     },
     {
+      path: '/arsenal',
+      label: 'Arsenal',
+      icon: Target
+    },
+    {
       path: '/game-log',
       label: 'Games',
-      icon: Target
+      icon: BarChart3
     },
     {
       path: '/stats',
       label: 'Stats',
-      icon: BarChart3
+      icon: TrendingUp
+    },
+    {
+      path: '/trends',
+      label: 'Trends',
+      icon: LineChart
+    },
+    {
+      path: '/streaks',
+      label: 'Streaks',
+      icon: Zap
+    },
+    {
+      path: '/achievements',
+      label: 'Awards',
+      icon: Trophy
     },
     {
       path: '/friends',
       label: 'Friends',
       icon: Users
+    },
+    {
+      path: '/oil-patterns',
+      label: 'Oil',
+      icon: Droplets
+    },
+    {
+      path: '/ball-maintenance',
+      label: 'Maint',
+      icon: Wrench
+    },
+    {
+      path: '/pin-carry',
+      label: 'Carry',
+      icon: Activity
     },
     ...(isAdmin ? [{
       path: '/admin',

@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { Zap, Save, RotateCcw, Target, Eye, EyeOff } from 'lucide-react';
+import { Zap, Save, RotateCcw, Target, Eye, EyeOff, AlertTriangle } from 'lucide-react';
 import Card, { CardContent } from '../ui/Card';
 import Button from '../ui/Button';
 import Input from '../ui/Input';
 import BowlingScorecard from './BowlingScorecard';
 import BowlingScoreCalculator from '../../utils/bowlingScoring';
+import { analyzeSplitFromPins, getSplitAdvice } from '../../utils/splitDetection';
 
 /**
  * Individual Pin Component for Pin Selection
@@ -86,6 +87,8 @@ const PinByPinEntry = ({ onGameComplete, initialData = {} }) => {
   const [showScorecard, setShowScorecard] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [gameDate, setGameDate] = useState(initialData.gameDate || new Date().toISOString().split('T')[0]);
+  const [currentSplit, setCurrentSplit] = useState(null);
+  const [showSplitAdvice, setShowSplitAdvice] = useState(false);
 
   // Calculate available pins for current throw
   const getAvailablePins = () => {
@@ -130,6 +133,18 @@ const PinByPinEntry = ({ onGameComplete, initialData = {} }) => {
           const firstThrowPins = throws[0] || 0;
           if (firstThrowPins + newSelection.length > 10) {
             return prev;
+          }
+        }
+
+        // Check for split after first throw
+        if (currentThrow === 1 && newSelection.length > 0 && newSelection.length < 10) {
+          const splitInfo = analyzeSplitFromPins(newSelection);
+          if (splitInfo) {
+            setCurrentSplit(splitInfo);
+            setShowSplitAdvice(true);
+          } else {
+            setCurrentSplit(null);
+            setShowSplitAdvice(false);
           }
         }
         
@@ -407,6 +422,37 @@ const PinByPinEntry = ({ onGameComplete, initialData = {} }) => {
                       </span>
                     ))}
                   </div>
+                </div>
+              )}
+
+              {/* Split Alert */}
+              {currentSplit && showSplitAdvice && (
+                <div className="bg-orange-50 border border-orange-200 rounded-xl p-4 mb-6">
+                  <div className="flex items-center space-x-3 mb-3">
+                    <AlertTriangle className="w-6 h-6 text-orange-600" />
+                    <div>
+                      <h4 className="font-semibold text-orange-900">{currentSplit.name}</h4>
+                      <p className="text-sm text-orange-700">
+                        Difficulty: <span className="capitalize">{currentSplit.difficulty.replace('_', ' ')}</span>
+                        {currentSplit.conversionRate > 0 && (
+                          <> • {currentSplit.conversionRate}% pro conversion rate</>
+                        )}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="bg-orange-100 rounded-lg p-3">
+                    <p className="text-sm text-orange-800">
+                      <strong>Tip:</strong> {getSplitAdvice(currentSplit)}
+                    </p>
+                  </div>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setShowSplitAdvice(false)}
+                    className="mt-2 text-orange-600 hover:text-orange-700"
+                  >
+                    Dismiss
+                  </Button>
                 </div>
               )}
 

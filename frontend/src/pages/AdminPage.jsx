@@ -30,7 +30,12 @@ import {
   Filter,
   MoreVertical,
   Trash,
-  RefreshCw
+  RefreshCw,
+  User,
+  Mail,
+  EyeOff,
+  Camera,
+  LogOut
 } from 'lucide-react';
 import useAuthStore from '../stores/authStore';
 import PageHeader from '../components/layout/PageHeader';
@@ -39,7 +44,7 @@ import Button from '../components/ui/Button';
 import Input from '../components/ui/Input';
 import Modal from '../components/ui/Modal';
 import Spinner from '../components/ui/Spinner';
-import { userAPI } from '../lib/api';
+import { userAPI, gameAPI, friendAPI } from '../lib/api';
 
 /**
  * Admin Portal Component
@@ -47,10 +52,11 @@ import { userAPI } from '../lib/api';
  */
 const AdminPage = () => {
   const navigate = useNavigate();
-  const { user } = useAuthStore();
+  const { user, updateUser, logout } = useAuthStore();
   const [activeTab, setActiveTab] = useState('overview');
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [success, setSuccess] = useState(null);
   
   // Data states
   const [systemStats, setSystemStats] = useState(null);
@@ -82,14 +88,74 @@ const AdminPage = () => {
   });
   const [settingValue, setSettingValue] = useState('');
 
+  // Admin Profile States
+  const [isSaving, setIsSaving] = useState(false);
+  const [showCurrentPassword, setShowCurrentPassword] = useState(false);
+  const [showNewPassword, setShowNewPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [profileSubTab, setProfileSubTab] = useState('info');
+  
+  // Profile picture state
+  const [profilePicture, setProfilePicture] = useState(null);
+  const [profilePicturePreview, setProfilePicturePreview] = useState(null);
+  
+  const [profileData, setProfileData] = useState({
+    username: '',
+    displayName: '',
+    email: ''
+  });
+
+  const [passwordData, setPasswordData] = useState({
+    currentPassword: '',
+    newPassword: '',
+    confirmPassword: ''
+  });
+
   // Check admin access and load data when tab changes
   useEffect(() => {
     if (!user || user.role !== 'admin') {
       navigate('/dashboard');
       return;
     }
-    loadAdminData();
+    if (activeTab === 'profile') {
+      loadProfileData();
+    } else {
+      loadAdminData();
+    }
   }, [user, navigate, activeTab]);
+
+  // Initialize profile data when user changes
+  useEffect(() => {
+    if (user) {
+      setProfileData({
+        username: user.username || '',
+        displayName: user.displayName || user.display_name || '',
+        email: user.email || ''
+      });
+    }
+  }, [user]);
+
+  const loadProfileData = async () => {
+    try {
+      setIsLoading(true);
+      const response = await userAPI.getAdminProfile();
+      const userData = response.data.user;
+      
+      setProfileData({
+        username: userData.username || '',
+        displayName: userData.displayName || '',
+        email: userData.email || ''
+      });
+      
+      // Update auth store with fresh data
+      updateUser(userData);
+    } catch (err) {
+      setError('Failed to load profile data');
+      console.error('Profile data load error:', err);
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   const loadAdminData = async () => {
     try {
@@ -201,6 +267,148 @@ const AdminPage = () => {
     }
   };
 
+  // Profile management functions
+  const handleProfileChange = (field, value) => {
+    setProfileData(prev => ({ ...prev, [field]: value }));
+    setError(null);
+    setSuccess(null);
+  };
+
+  const handlePasswordChange = (field, value) => {
+    setPasswordData(prev => ({ ...prev, [field]: value }));
+    setError(null);
+    setSuccess(null);
+  };
+
+  const handleProfilePictureChange = (event) => {
+    const file = event.target.files[0];
+    if (file) {
+      // Validate file type
+      if (!file.type.startsWith('image/')) {
+        setError('Please select a valid image file');
+        return;
+      }
+      
+      // Validate file size (max 5MB)
+      if (file.size > 5 * 1024 * 1024) {
+        setError('Image file size must be less than 5MB');
+        return;
+      }
+      
+      setProfilePicture(file);
+      
+      // Create preview URL
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        setProfilePicturePreview(e.target.result);
+      };
+      reader.readAsDataURL(file);
+      
+      setError(null);
+    }
+  };
+
+  const handleProfilePictureClick = () => {
+    document.getElementById('admin-profile-picture-input').click();
+  };
+
+  const validateProfile = () => {
+    if (!profileData.username.trim()) {
+      setError('Username is required');
+      return false;
+    }
+    if (!profileData.displayName.trim()) {
+      setError('Display name is required');
+      return false;
+    }
+    if (!profileData.email.trim()) {
+      setError('Email is required');
+      return false;
+    }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(profileData.email)) {
+      setError('Please enter a valid email address');
+      return false;
+    }
+    return true;
+  };
+
+  const validatePassword = () => {
+    if (!passwordData.currentPassword) {
+      setError('Current password is required');
+      return false;
+    }
+    if (!passwordData.newPassword) {
+      setError('New password is required');
+      return false;
+    }
+    if (passwordData.newPassword.length < 6) {
+      setError('New password must be at least 6 characters long');
+      return false;
+    }
+    if (passwordData.newPassword !== passwordData.confirmPassword) {
+      setError('New passwords do not match');
+      return false;
+    }
+    return true;
+  };
+
+  const handleSaveProfile = async () => {
+    if (!validateProfile()) return;
+
+    setIsSaving(true);
+    setError(null);
+    try {
+      const response = await userAPI.updateAdminProfile({
+        username: profileData.username,
+        displayName: profileData.displayName,
+        email: profileData.email
+      });
+
+      // Update the auth store with new user data
+      updateUser(response.data.user);
+      setSuccess('Profile updated successfully!');
+      
+      // Clear success message after 3 seconds
+      setTimeout(() => setSuccess(null), 3000);
+    } catch (err) {
+      setError(err.response?.data?.error || 'Failed to update profile');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleChangePassword = async () => {
+    if (!validatePassword()) return;
+
+    setIsSaving(true);
+    setError(null);
+    try {
+      await userAPI.changeAdminPassword({
+        currentPassword: passwordData.currentPassword,
+        newPassword: passwordData.newPassword
+      });
+
+      setSuccess('Password changed successfully!');
+      setPasswordData({
+        currentPassword: '',
+        newPassword: '',
+        confirmPassword: ''
+      });
+      
+      // Clear success message after 3 seconds
+      setTimeout(() => setSuccess(null), 3000);
+    } catch (err) {
+      setError(err.response?.data?.error || 'Failed to change password');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleLogout = () => {
+    logout();
+    navigate('/login');
+  };
+
   const filteredUsers = users.filter(user => {
     const matchesSearch = user.display_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          user.username.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -227,26 +435,38 @@ const AdminPage = () => {
     );
   }
 
-  if (isLoading) {
-    return (
-      <div className="flex items-center justify-center h-64">
-        <Spinner size="lg" />
-      </div>
-    );
-  }
-
+  // Render header and navigation even while loading so the app chrome stays visible.
   return (
     <div>
       <PageHeader 
         title="Admin Portal"
         subtitle="System administration and user management"
         icon={<Shield className="w-8 h-8" />}
+        action={
+          <Button onClick={handleLogout} variant="outline" className="text-red-600 border-red-200 hover:bg-red-50">
+            <LogOut className="w-4 h-4 mr-2" />
+            Logout
+          </Button>
+        }
       />
 
-      {/* Error Message */}
+      {/* Show a local spinner in the content area when loading instead of returning early */}
+      {isLoading && (
+        <div className="flex items-center justify-center h-64">
+          <Spinner size="lg" />
+        </div>
+      )}
+
+      {/* Error/Success Messages */}
       {error && (
         <div className="bg-red-50 border border-red-200 rounded-xl p-4 mb-6">
           <p className="text-red-600 text-sm">{error}</p>
+        </div>
+      )}
+
+      {success && (
+        <div className="bg-green-50 border border-green-200 rounded-xl p-4 mb-6">
+          <p className="text-green-600 text-sm">{success}</p>
         </div>
       )}
 
@@ -273,6 +493,17 @@ const AdminPage = () => {
         >
           <Users className="w-4 h-4 inline mr-2" />
           Users
+        </button>
+        <button
+          onClick={() => setActiveTab('profile')}
+          className={`flex-1 py-2 px-4 rounded-md text-sm font-medium transition-all ${
+            activeTab === 'profile'
+              ? 'bg-white text-charcoal-900 shadow-sm'
+              : 'text-charcoal-600 hover:text-charcoal-900'
+          }`}
+        >
+          <User className="w-4 h-4 inline mr-2" />
+          My Profile
         </button>
         <button
           onClick={() => setActiveTab('games')}
@@ -599,6 +830,328 @@ const AdminPage = () => {
         </div>
       )}
 
+      {/* My Profile Tab */}
+      {activeTab === 'profile' && (
+        <div>
+          {/* Profile Sub-Tab Navigation */}
+          <div className="flex space-x-1 bg-charcoal-100 p-1 rounded-lg mb-6">
+            <button
+              onClick={() => setProfileSubTab('info')}
+              className={`flex-1 py-2 px-4 rounded-md text-sm font-medium transition-all ${
+                profileSubTab === 'info'
+                  ? 'bg-white text-charcoal-900 shadow-sm'
+                  : 'text-charcoal-600 hover:text-charcoal-900'
+              }`}
+            >
+              <User className="w-4 h-4 inline mr-2" />
+              Profile Info
+            </button>
+            <button
+              onClick={() => setProfileSubTab('password')}
+              className={`flex-1 py-2 px-4 rounded-md text-sm font-medium transition-all ${
+                profileSubTab === 'password'
+                  ? 'bg-white text-charcoal-900 shadow-sm'
+                  : 'text-charcoal-600 hover:text-charcoal-900'
+              }`}
+            >
+              <Lock className="w-4 h-4 inline mr-2" />
+              Change Password
+            </button>
+            <button
+              onClick={() => setProfileSubTab('games')}
+              className={`flex-1 py-2 px-4 rounded-md text-sm font-medium transition-all ${
+                profileSubTab === 'games'
+                  ? 'bg-white text-charcoal-900 shadow-sm'
+                  : 'text-charcoal-600 hover:text-charcoal-900'
+              }`}
+            >
+              <Target className="w-4 h-4 inline mr-2" />
+              My Games
+            </button>
+          </div>
+
+          {/* Profile Info Sub-Tab */}
+          {profileSubTab === 'info' && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center space-x-2">
+                  <User className="w-5 h-5" />
+                  <span>Profile Information</span>
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                {/* Profile Avatar Section */}
+                <div className="flex items-center space-x-6">
+                  <div className="relative">
+                    {profilePicturePreview ? (
+                      <img 
+                        src={profilePicturePreview} 
+                        alt="Profile" 
+                        className="w-20 h-20 rounded-full object-cover border-2 border-charcoal-200"
+                      />
+                    ) : (
+                      <div className="w-20 h-20 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center text-white text-2xl font-bold">
+                        {profileData.displayName.charAt(0).toUpperCase() || 'A'}
+                      </div>
+                    )}
+                    <button 
+                      onClick={handleProfilePictureClick}
+                      className="absolute -bottom-2 -right-2 bg-white border-2 border-charcoal-200 rounded-full p-2 hover:bg-charcoal-50 transition-colors"
+                      title="Change profile picture"
+                    >
+                      <Camera className="w-4 h-4 text-charcoal-600" />
+                    </button>
+                    {/* Hidden file input */}
+                    <input
+                      id="admin-profile-picture-input"
+                      type="file"
+                      accept="image/*"
+                      onChange={handleProfilePictureChange}
+                      className="hidden"
+                    />
+                  </div>
+                  <div>
+                    <h3 className="text-lg font-semibold text-charcoal-900">{profileData.displayName}</h3>
+                    <p className="text-charcoal-600">@{profileData.username}</p>
+                    <div className="flex items-center space-x-1 mt-1">
+                      <Shield className="w-4 h-4 text-blue-600" />
+                      <span className="text-sm text-blue-600 font-medium">Administrator</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Profile Form */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div>
+                    <label className="block text-sm font-medium text-charcoal-700 mb-2">
+                      Username
+                    </label>
+                    <Input
+                      type="text"
+                      value={profileData.username}
+                      onChange={(e) => handleProfileChange('username', e.target.value)}
+                      placeholder="Enter username"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-charcoal-700 mb-2">
+                      Display Name
+                    </label>
+                    <Input
+                      type="text"
+                      value={profileData.displayName}
+                      onChange={(e) => handleProfileChange('displayName', e.target.value)}
+                      placeholder="Enter display name"
+                    />
+                  </div>
+
+                  <div className="md:col-span-2">
+                    <label className="block text-sm font-medium text-charcoal-700 mb-2">
+                      Email Address
+                    </label>
+                    <Input
+                      type="email"
+                      value={profileData.email}
+                      onChange={(e) => handleProfileChange('email', e.target.value)}
+                      placeholder="Enter email address"
+                    />
+                  </div>
+                </div>
+
+                {/* Save Button */}
+                <div className="flex justify-end">
+                  <Button
+                    onClick={handleSaveProfile}
+                    disabled={isSaving}
+                    className="px-6"
+                  >
+                    {isSaving ? (
+                      <>
+                        <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2" />
+                        Saving...
+                      </>
+                    ) : (
+                      <>
+                        <Save className="w-4 h-4 mr-2" />
+                        Save Changes
+                      </>
+                    )}
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Password Sub-Tab */}
+          {profileSubTab === 'password' && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center space-x-2">
+                  <Lock className="w-5 h-5" />
+                  <span>Change Password</span>
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                <div>
+                  <label className="block text-sm font-medium text-charcoal-700 mb-2">
+                    Current Password
+                  </label>
+                  <div className="relative">
+                    <Input
+                      type={showCurrentPassword ? 'text' : 'password'}
+                      value={passwordData.currentPassword}
+                      onChange={(e) => handlePasswordChange('currentPassword', e.target.value)}
+                      placeholder="Enter current password"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowCurrentPassword(!showCurrentPassword)}
+                      className="absolute right-3 top-1/2 transform -translate-y-1/2 text-charcoal-500 hover:text-charcoal-700"
+                    >
+                      {showCurrentPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                    </button>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-charcoal-700 mb-2">
+                    New Password
+                  </label>
+                  <div className="relative">
+                    <Input
+                      type={showNewPassword ? 'text' : 'password'}
+                      value={passwordData.newPassword}
+                      onChange={(e) => handlePasswordChange('newPassword', e.target.value)}
+                      placeholder="Enter new password"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowNewPassword(!showNewPassword)}
+                      className="absolute right-3 top-1/2 transform -translate-y-1/2 text-charcoal-500 hover:text-charcoal-700"
+                    >
+                      {showNewPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                    </button>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-charcoal-700 mb-2">
+                    Confirm New Password
+                  </label>
+                  <div className="relative">
+                    <Input
+                      type={showConfirmPassword ? 'text' : 'password'}
+                      value={passwordData.confirmPassword}
+                      onChange={(e) => handlePasswordChange('confirmPassword', e.target.value)}
+                      placeholder="Confirm new password"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                      className="absolute right-3 top-1/2 transform -translate-y-1/2 text-charcoal-500 hover:text-charcoal-700"
+                    >
+                      {showConfirmPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                    </button>
+                  </div>
+                </div>
+
+                {/* Password Requirements */}
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                  <h4 className="text-sm font-medium text-blue-900 mb-2">Password Requirements:</h4>
+                  <ul className="text-sm text-blue-800 space-y-1">
+                    <li>• At least 6 characters long</li>
+                    <li>• Must be different from your current password</li>
+                  </ul>
+                </div>
+
+                {/* Change Password Button */}
+                <div className="flex justify-end">
+                  <Button
+                    onClick={handleChangePassword}
+                    disabled={isSaving}
+                    className="px-6"
+                  >
+                    {isSaving ? (
+                      <>
+                        <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2" />
+                        Changing...
+                      </>
+                    ) : (
+                      <>
+                        <Lock className="w-4 h-4 mr-2" />
+                        Change Password
+                      </>
+                    )}
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Games Sub-Tab */}
+          {profileSubTab === 'games' && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center justify-between">
+                  <div className="flex items-center space-x-2">
+                    <Target className="w-5 h-5" />
+                    <span>My Games</span>
+                  </div>
+                  <Button onClick={() => navigate('/game-setup')} variant="primary">
+                    <Plus className="w-4 h-4 mr-2" />
+                    Start New Game
+                  </Button>
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="text-center py-8">
+                  <Target className="w-12 h-12 text-charcoal-400 mx-auto mb-4" />
+                  <p className="text-charcoal-600 font-medium">Access All Game Features</p>
+                  <p className="text-charcoal-500 text-sm mb-4">
+                    As an admin, you have access to all user features including game tracking
+                  </p>
+                  <div className="space-y-2">
+                    <Button onClick={() => navigate('/dashboard')} variant="outline" className="mr-2">
+                      View Dashboard
+                    </Button>
+                    <Button onClick={() => navigate('/game-log')} variant="outline" className="mr-2">
+                      Game History
+                    </Button>
+                    <Button onClick={() => navigate('/stats')} variant="outline">
+                      View Stats
+                    </Button>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+        </div>
+      )}
+
+      {/* Games Tab */}
+      {activeTab === 'games' && (
+        <div className="space-y-6">
+          <Card>
+            <CardHeader>
+              <CardTitle>All Games Overview</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-center py-8">
+                <Target className="w-12 h-12 text-charcoal-400 mx-auto mb-4" />
+                <p className="text-charcoal-600 font-medium">Games Management</p>
+                <p className="text-charcoal-500 text-sm mb-4">
+                  View and manage all games in the system
+                </p>
+                <p className="text-charcoal-500 text-sm">
+                  This feature will be implemented to show system-wide game statistics and management tools.
+                </p>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
       {/* Settings Tab */}
       {activeTab === 'settings' && (
         <div className="space-y-6">
@@ -713,7 +1266,7 @@ const AdminPage = () => {
           isOpen={showCreateUserModal}
           onClose={() => {
             setShowCreateUserModal(false);
-            setNewUser({ username: '', email: '', password: '', display_name: '', role: 'user' });
+            setNewUserData({ username: '', displayName: '', email: '', password: '', role: 'user' });
           }}
           title="Create New User"
         >
@@ -723,8 +1276,8 @@ const AdminPage = () => {
                 Username
               </label>
               <Input
-                value={newUser.username}
-                onChange={(e) => setNewUser(prev => ({ ...prev, username: e.target.value }))}
+                value={newUserData.username}
+                onChange={(e) => setNewUserData(prev => ({ ...prev, username: e.target.value }))}
                 placeholder="Enter username"
               />
             </div>
@@ -734,8 +1287,8 @@ const AdminPage = () => {
               </label>
               <Input
                 type="email"
-                value={newUser.email}
-                onChange={(e) => setNewUser(prev => ({ ...prev, email: e.target.value }))}
+                value={newUserData.email}
+                onChange={(e) => setNewUserData(prev => ({ ...prev, email: e.target.value }))}
                 placeholder="Enter email"
               />
             </div>
@@ -744,8 +1297,8 @@ const AdminPage = () => {
                 Display Name
               </label>
               <Input
-                value={newUser.display_name}
-                onChange={(e) => setNewUser(prev => ({ ...prev, display_name: e.target.value }))}
+                value={newUserData.displayName}
+                onChange={(e) => setNewUserData(prev => ({ ...prev, displayName: e.target.value }))}
                 placeholder="Enter display name"
               />
             </div>
@@ -755,8 +1308,8 @@ const AdminPage = () => {
               </label>
               <Input
                 type="password"
-                value={newUser.password}
-                onChange={(e) => setNewUser(prev => ({ ...prev, password: e.target.value }))}
+                value={newUserData.password}
+                onChange={(e) => setNewUserData(prev => ({ ...prev, password: e.target.value }))}
                 placeholder="Enter password"
               />
             </div>
@@ -765,8 +1318,8 @@ const AdminPage = () => {
                 Role
               </label>
               <select
-                value={newUser.role}
-                onChange={(e) => setNewUser(prev => ({ ...prev, role: e.target.value }))}
+                value={newUserData.role}
+                onChange={(e) => setNewUserData(prev => ({ ...prev, role: e.target.value }))}
                 className="w-full px-3 py-2 border border-charcoal-200 rounded-lg"
               >
                 <option value="user">User</option>
@@ -778,7 +1331,7 @@ const AdminPage = () => {
                 variant="outline"
                 onClick={() => {
                   setShowCreateUserModal(false);
-                  setNewUser({ username: '', email: '', password: '', display_name: '', role: 'user' });
+                  setNewUserData({ username: '', displayName: '', email: '', password: '', role: 'user' });
                 }}
               >
                 Cancel

@@ -61,20 +61,8 @@ const DashboardPage = () => {
           ).length
         });
 
-        // Calculate weekly trend data
-        const weeklyScores = [];
-        for (let i = 0; i < 4; i++) {
-          const weekStart = new Date(Date.now() - (i + 1) * 7 * 24 * 60 * 60 * 1000);
-          const weekEnd = new Date(Date.now() - i * 7 * 24 * 60 * 60 * 1000);
-          const weekGames = completedGames.filter(game => {
-            const gameDate = new Date(game.created_at);
-            return gameDate >= weekStart && gameDate < weekEnd;
-          });
-          const weekAvg = weekGames.length > 0 ? 
-            Math.round(weekGames.reduce((sum, game) => sum + game.score, 0) / weekGames.length) : 0;
-          weeklyScores.unshift(weekAvg);
-        }
-        setTrendData({ weeklyScores });
+        // Calculate weekly trend data (for future use)
+        // Note: This trend data could be used for charts/graphs in the future
       } else {
         setStats({
           gameAverage: 0,

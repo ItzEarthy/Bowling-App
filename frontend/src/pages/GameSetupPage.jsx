@@ -108,73 +108,100 @@ const GameSetupPage = () => {
         </div>
       )}
 
-      <div className="space-y-8">
+      <div className="max-w-4xl mx-auto space-y-8">
         {/* Quick Start Option */}
-        <Card className="bg-mint-green-50 border-2 border-mint-green-200">
-          <CardContent>
-            <div className="text-center">
-              <h2 className="text-xl font-semibold text-charcoal-900 font-heading mb-2">
-                🎳 Quick Start
-              </h2>
-              <p className="text-charcoal-600 mb-4">
-                Jump straight into a game without setup
-              </p>
-              <Button 
-                onClick={handleQuickStart}
-                variant="primary"
-                size="lg"
-              >
-                <Play className="w-5 h-5 mr-2" />
-                Start Bowling Now
-              </Button>
+        <Card className="bg-gradient-to-r from-mint-green-50 to-teal-50 border-2 border-mint-green-200 shadow-sm">
+          <CardContent className="text-center py-8">
+            <div className="inline-flex items-center justify-center w-16 h-16 bg-mint-green-100 rounded-full mb-4">
+              <Play className="w-8 h-8 text-mint-green-600" />
             </div>
+            <h2 className="text-2xl font-bold text-charcoal-900 font-heading mb-2">
+              🎳 Quick Start
+            </h2>
+            <p className="text-charcoal-600 mb-6 max-w-md mx-auto">
+              Jump straight into a game without setup - perfect for casual play
+            </p>
+            <Button 
+              onClick={handleQuickStart}
+              variant="primary"
+              size="lg"
+              className="px-8 py-3"
+            >
+              <Play className="w-5 h-5 mr-2" />
+              Start Bowling Now
+            </Button>
           </CardContent>
         </Card>
 
         {/* Divider */}
-        <div className="text-center">
-          <span className="text-charcoal-400 bg-white px-4">or customize your game</span>
+        <div className="relative">
+          <div className="absolute inset-0 flex items-center">
+            <div className="w-full border-t border-charcoal-200"></div>
+          </div>
+          <div className="relative flex justify-center">
+            <span className="bg-white px-6 text-charcoal-500 font-medium">or customize your game</span>
+          </div>
         </div>
 
         {/* Ball Selection */}
-        <Card>
-          <CardContent>
-            <h2 className="text-xl font-semibold text-charcoal-900 font-heading mb-4">
+        <Card className="shadow-sm">
+          <CardHeader className="pb-4">
+            <h2 className="text-2xl font-bold text-charcoal-900 font-heading flex items-center">
+              <span className="inline-flex items-center justify-center w-8 h-8 bg-teal-100 rounded-full mr-3">
+                🎯
+              </span>
               Select Your Bowling Ball
             </h2>
-            
+            <p className="text-charcoal-600 mt-2">
+              Choose which ball you'll be using for this game
+            </p>
+          </CardHeader>
+          <CardContent>
             {balls.length === 0 ? (
-              <div className="text-center py-8">
-                <p className="text-charcoal-600 mb-4">
-                  You don't have any bowling balls in your arsenal yet.
+              <div className="text-center py-12 bg-gray-50 rounded-xl">
+                <div className="inline-flex items-center justify-center w-16 h-16 bg-gray-200 rounded-full mb-4">
+                  <span className="text-gray-500 text-2xl">🎳</span>
+                </div>
+                <h3 className="text-lg font-semibold text-charcoal-900 mb-2">No Balls in Arsenal</h3>
+                <p className="text-charcoal-600 mb-6 max-w-md mx-auto">
+                  You don't have any bowling balls in your arsenal yet. Add some to track performance!
                 </p>
-                <Button 
-                  variant="outline" 
-                  onClick={() => navigate('/arsenal')}
-                >
-                  Add Your First Ball
-                </Button>
-                <p className="text-charcoal-500 text-sm mt-2">
-                  Or skip and play without selecting a specific ball
-                </p>
+                <div className="space-y-3">
+                  <Button 
+                    variant="primary" 
+                    onClick={() => navigate('/arsenal')}
+                  >
+                    Add Your First Ball
+                  </Button>
+                  <p className="text-charcoal-500 text-sm">
+                    Or skip and play without selecting a specific ball
+                  </p>
+                </div>
               </div>
             ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                 {/* Skip Ball Option */}
                 <div 
-                  className={`p-4 border-2 rounded-xl cursor-pointer transition-all ${
+                  className={`p-6 border-2 rounded-xl cursor-pointer transition-all transform hover:scale-105 ${
                     selectedBall === null 
-                      ? 'border-mint-green-500 bg-mint-green-50' 
-                      : 'border-charcoal-300 hover:border-charcoal-400'
+                      ? 'border-mint-green-500 bg-mint-green-50 shadow-lg ring-2 ring-mint-green-200' 
+                      : 'border-charcoal-300 hover:border-charcoal-400 bg-white hover:shadow-md'
                   }`}
                   onClick={() => setSelectedBall(null)}
                 >
                   <div className="text-center">
-                    <div className="w-12 h-12 bg-charcoal-200 rounded-full mx-auto mb-3 flex items-center justify-center">
-                      <span className="text-charcoal-600 font-bold">?</span>
+                    <div className="w-16 h-16 bg-gradient-to-br from-charcoal-200 to-charcoal-300 rounded-full mx-auto mb-4 flex items-center justify-center shadow-inner">
+                      <span className="text-charcoal-600 font-bold text-xl">?</span>
                     </div>
-                    <h3 className="font-medium text-charcoal-900">No specific ball</h3>
+                    <h3 className="font-semibold text-charcoal-900 mb-1">No Specific Ball</h3>
                     <p className="text-sm text-charcoal-600">Play without tracking equipment</p>
+                    {selectedBall === null && (
+                      <div className="mt-3">
+                        <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-mint-green-100 text-mint-green-800">
+                          ✓ Selected
+                        </span>
+                      </div>
+                    )}
                   </div>
                 </div>
 
@@ -182,17 +209,55 @@ const GameSetupPage = () => {
                 {balls.map((ball) => (
                   <div 
                     key={ball.id}
-                    className={`p-4 border-2 rounded-xl cursor-pointer transition-all ${
+                    className={`p-6 border-2 rounded-xl cursor-pointer transition-all transform hover:scale-105 ${
                       selectedBall?.id === ball.id 
-                        ? 'border-mint-green-500 bg-mint-green-50' 
-                        : 'border-charcoal-300 hover:border-charcoal-400'
+                        ? 'border-mint-green-500 bg-mint-green-50 shadow-lg ring-2 ring-mint-green-200' 
+                        : 'border-charcoal-300 hover:border-charcoal-400 bg-white hover:shadow-md'
                     }`}
                     onClick={() => setSelectedBall(ball)}
                   >
                     <div className="text-center">
-                      <div className="w-12 h-12 bg-gradient-to-br from-charcoal-600 to-charcoal-800 rounded-full mx-auto mb-3"></div>
-                      <h3 className="font-medium text-charcoal-900">{ball.name}</h3>
-                      <p className="text-sm text-charcoal-600">{ball.brand} • {ball.weight}lbs</p>
+                      {/* Ball Visual */}
+                      <div className="mb-4">
+                        {ball.image ? (
+                          <img 
+                            src={ball.image} 
+                            alt={ball.name}
+                            className="w-16 h-16 object-cover rounded-full border-2 border-gray-200 mx-auto shadow-md"
+                          />
+                        ) : (
+                          <div 
+                            className="w-16 h-16 rounded-full border-2 border-gray-200 mx-auto shadow-inner"
+                            style={{ 
+                              backgroundColor: ball.color || '#374151',
+                              background: `radial-gradient(circle at 30% 30%, ${ball.color || '#374151'}, ${ball.color || '#374151'}dd)`
+                            }}
+                          ></div>
+                        )}
+                      </div>
+                      
+                      <h3 className="font-semibold text-charcoal-900 mb-1 truncate">{ball.name}</h3>
+                      <p className="text-sm text-charcoal-600 mb-1">
+                        {ball.brand && `${ball.brand} • `}{ball.weight}lbs
+                      </p>
+                      
+                      {/* Additional ball specs */}
+                      {(ball.coverstock || ball.hook_potential) && (
+                        <p className="text-xs text-charcoal-500 mb-2">
+                          {ball.coverstock && ball.hook_potential 
+                            ? `${ball.coverstock} • ${ball.hook_potential} Hook`
+                            : ball.coverstock || `${ball.hook_potential} Hook`
+                          }
+                        </p>
+                      )}
+                      
+                      {selectedBall?.id === ball.id && (
+                        <div className="mt-3">
+                          <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-mint-green-100 text-mint-green-800">
+                            ✓ Selected
+                          </span>
+                        </div>
+                      )}
                     </div>
                   </div>
                 ))}
@@ -202,70 +267,109 @@ const GameSetupPage = () => {
         </Card>
 
         {/* Location Input */}
-        <Card>
+        <Card className="shadow-sm">
+          <CardHeader className="pb-4">
+            <h2 className="text-2xl font-bold text-charcoal-900 font-heading flex items-center">
+              <span className="inline-flex items-center justify-center w-8 h-8 bg-blue-100 rounded-full mr-3">
+                📍
+              </span>
+              Bowling Location
+            </h2>
+            <p className="text-charcoal-600 mt-2">
+              Where are you bowling today? (Optional)
+            </p>
+          </CardHeader>
           <CardContent>
             <Input
-              label="Location (Optional)"
+              label=""
               value={location}
               onChange={(e) => setLocation(e.target.value)}
-              placeholder="e.g., Sunset Lanes, Strike Zone"
-              helperText="Where are you bowling today?"
+              placeholder="e.g., Sunset Lanes, Strike Zone, Lucky Strike"
+              className="text-lg"
             />
+            <p className="text-sm text-charcoal-500 mt-2">
+              💡 Adding a location helps track your performance at different venues
+            </p>
           </CardContent>
         </Card>
 
         {/* Game Summary */}
-        <Card className="bg-cream-50 border-2 border-cream-200">
-          <CardContent>
-            <h2 className="text-xl font-semibold text-charcoal-900 font-heading mb-4">
+        <Card className="bg-gradient-to-r from-cream-50 to-yellow-50 border-2 border-cream-200 shadow-sm">
+          <CardHeader className="pb-4">
+            <h2 className="text-2xl font-bold text-charcoal-900 font-heading flex items-center">
+              <span className="inline-flex items-center justify-center w-8 h-8 bg-yellow-100 rounded-full mr-3">
+                📋
+              </span>
               Game Summary
             </h2>
-            
-            <div className="space-y-3">
-              <div className="flex justify-between">
-                <span className="text-charcoal-600">Ball:</span>
-                <span className="font-medium text-charcoal-900">
-                  {selectedBall ? `${selectedBall.name} (${selectedBall.weight}lbs)` : 'Not selected'}
-                </span>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              <div className="bg-white p-4 rounded-lg shadow-sm border">
+                <div className="flex items-center space-x-3">
+                  <div className="w-10 h-10 bg-teal-100 rounded-full flex items-center justify-center">
+                    🎳
+                  </div>
+                  <div>
+                    <p className="text-sm text-charcoal-600 font-medium">Ball</p>
+                    <p className="font-semibold text-charcoal-900">
+                      {selectedBall ? `${selectedBall.name} (${selectedBall.weight}lbs)` : 'Not selected'}
+                    </p>
+                  </div>
+                </div>
               </div>
               
-              <div className="flex justify-between">
-                <span className="text-charcoal-600">Location:</span>
-                <span className="font-medium text-charcoal-900">
-                  {location || 'Not specified'}
-                </span>
+              <div className="bg-white p-4 rounded-lg shadow-sm border">
+                <div className="flex items-center space-x-3">
+                  <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
+                    📍
+                  </div>
+                  <div>
+                    <p className="text-sm text-charcoal-600 font-medium">Location</p>
+                    <p className="font-semibold text-charcoal-900">
+                      {location || 'Not specified'}
+                    </p>
+                  </div>
+                </div>
               </div>
               
-              <div className="flex justify-between">
-                <span className="text-charcoal-600">Date:</span>
-                <span className="font-medium text-charcoal-900">
-                  {new Date().toLocaleDateString()}
-                </span>
+              <div className="bg-white p-4 rounded-lg shadow-sm border">
+                <div className="flex items-center space-x-3">
+                  <div className="w-10 h-10 bg-purple-100 rounded-full flex items-center justify-center">
+                    📅
+                  </div>
+                  <div>
+                    <p className="text-sm text-charcoal-600 font-medium">Date</p>
+                    <p className="font-semibold text-charcoal-900">
+                      {new Date().toLocaleDateString()}
+                    </p>
+                  </div>
+                </div>
               </div>
             </div>
           </CardContent>
         </Card>
 
         {/* Start Game Buttons */}
-        <div className="text-center space-y-4">
+        <div className="text-center space-y-6 pb-8">
           <Button 
             onClick={handleStartGame}
             variant="primary"
             size="lg"
             isLoading={isCreatingGame}
             disabled={isCreatingGame}
-            className="w-full md:w-auto"
+            className="px-12 py-4 text-lg font-semibold shadow-lg hover:shadow-xl transition-shadow"
           >
-            <Play className="w-5 h-5 mr-2" />
+            <Play className="w-6 h-6 mr-3" />
             {isCreatingGame ? 'Starting Game...' : 'Continue to Game Entry'}
           </Button>
           
-          <div className="text-center">
+          <div>
             <Button 
               variant="outline" 
               onClick={handleQuickStart}
               disabled={isCreatingGame}
-              className="text-sm"
+              className="text-sm px-6 py-2"
             >
               Quick Start (Skip Setup)
             </Button>

@@ -68,6 +68,10 @@ export const userAPI = {
   getSystemLogs: (page = 1, limit = 50) => api.get(`/admin/logs?page=${page}&limit=${limit}`),
   bulkUserOperation: (action, userIds) => api.post('/admin/users/bulk', { action, userIds }),
   createBackup: () => api.post('/admin/backup'),
+  // Admin user functionality (same as regular users but for admins)
+  getAdminProfile: () => api.get('/admin/user-profile'),
+  updateAdminProfile: (data) => api.put('/admin/user-profile', data),
+  changeAdminPassword: (data) => api.put('/admin/user-password', data),
 };
 
 // Games API calls
