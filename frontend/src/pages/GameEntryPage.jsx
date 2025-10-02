@@ -35,7 +35,7 @@ const GameEntryPage = () => {
   };
 
   const handleBackToSetup = () => {
-    navigate('/game-setup');
+    navigate('/app/game-setup');
   };
 
   const handleGameComplete = async (gameData) => {
@@ -56,7 +56,7 @@ const GameEntryPage = () => {
       const savedGame = response.data.game;
       
       // Navigate to success page or dashboard
-      navigate('/dashboard', {
+      navigate('/app/dashboard', {
         state: {
           message: 'Game saved successfully!',
           gameId: savedGame?.id

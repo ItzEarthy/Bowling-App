@@ -241,7 +241,7 @@ const DashboardPage = () => {
             <Button 
               variant="outline" 
               size="sm" 
-              onClick={() => navigate('/game-log')}
+              onClick={() => navigate('/app/game-log')}
             >
               View All
             </Button>

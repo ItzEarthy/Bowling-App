@@ -129,7 +129,7 @@ const AdminPage = () => {
   // Check admin access and load data when tab changes
   useEffect(() => {
     if (!currentUser || currentUser.role !== 'admin') {
-      navigate('/dashboard');
+      navigate('/app/dashboard');
       return;
     }
     if (activeTab === 'profile') {
@@ -1258,7 +1258,7 @@ const AdminPage = () => {
                     <Target className="w-5 h-5" />
                     <span>My Games</span>
                   </div>
-                  <Button onClick={() => navigate('/game-setup')} variant="primary">
+                  <Button onClick={() => navigate('/app/game-setup')} variant="primary">
                     <Plus className="w-4 h-4 mr-2" />
                     Start New Game
                   </Button>
@@ -1275,10 +1275,10 @@ const AdminPage = () => {
                     <Button onClick={() => navigate('/dashboard')} variant="outline" className="mr-2">
                       View Dashboard
                     </Button>
-                    <Button onClick={() => navigate('/game-log')} variant="outline" className="mr-2">
+                    <Button onClick={() => navigate('/app/game-log')} variant="outline" className="mr-2">
                       Game History
                     </Button>
-                    <Button onClick={() => navigate('/stats')} variant="outline">
+                    <Button onClick={() => navigate('/app/stats')} variant="outline">
                       View Stats
                     </Button>
                   </div>

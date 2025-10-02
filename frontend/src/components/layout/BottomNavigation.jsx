@@ -19,36 +19,36 @@ const BottomNavigation = () => {
 
   const navItems = [
     {
-      path: '/dashboard',
+      path: '/app/dashboard',
       label: 'Home',
       icon: Home
     },
     {
-      path: '/game-log',
+      path: '/app/game-log',
       label: 'Games',
       icon: BarChart3
     },
     {
-      path: '/stats',
+      path: '/app/stats',
       label: 'Stats',
       icon: TrendingUp
     },
     {
-      path: '/friends',
+      path: '/app/friends',
       label: 'Social',
       icon: Users
     },
     {
-      path: '/arsenal',
+      path: '/app/arsenal',
       label: 'Arsenal',
       icon: Target
     },
     ...(isAdmin ? [{
-      path: '/admin',
+      path: '/app/admin',
       label: 'Admin',
       icon: Shield
     }] : [{
-      path: '/profile',
+      path: '/app/profile',
       label: 'Profile',
       icon: User
     }])

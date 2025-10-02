@@ -7,6 +7,10 @@ import ErrorBoundary from './components/ui/ErrorBoundary';
 import Layout from './components/layout/Layout';
 
 // Pages
+import LandingPage from './pages/LandingPage';
+import AboutPage from './pages/AboutPage';
+import FeaturesPage from './pages/FeaturesPage';
+import ContactPage from './pages/ContactPage';
 import LoginPage from './pages/LoginPage';
 import RegisterPage from './pages/RegisterPage';
 import DashboardPage from './pages/DashboardPage';
@@ -35,7 +39,7 @@ const ProtectedRoute = ({ children }) => {
 // Public Route Component (redirect to dashboard if authenticated)
 const PublicRoute = ({ children }) => {
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
-  return !isAuthenticated ? children : <Navigate to="/dashboard" replace />;
+  return !isAuthenticated ? children : <Navigate to="/app/dashboard" replace />;
 };
 
 function App() {
@@ -52,7 +56,13 @@ function App() {
       <ErrorBoundary>
         <div className="min-h-screen bg-cream-50">
           <Routes>
-          {/* Public Routes */}
+          {/* Public Landing & Info Routes */}
+          <Route path="/" element={<LandingPage />} />
+          <Route path="/about" element={<AboutPage />} />
+          <Route path="/features" element={<FeaturesPage />} />
+          <Route path="/contact" element={<ContactPage />} />
+          
+          {/* Public Auth Routes */}
           <Route 
             path="/login" 
             element={
@@ -72,14 +82,14 @@ function App() {
 
           {/* Protected Routes */}
           <Route 
-            path="/" 
+            path="/app" 
             element={
               <ProtectedRoute>
                 <Layout />
               </ProtectedRoute>
             }
           >
-            <Route index element={<Navigate to="/dashboard" replace />} />
+            <Route index element={<Navigate to="/app/dashboard" replace />} />
             <Route path="dashboard" element={<DashboardPage />} />
             <Route path="game-setup" element={<GameSetupPage />} />
             <Route path="game-entry" element={<GameEntryPage />} />
@@ -97,11 +107,14 @@ function App() {
           </Route>
 
           {/* Temporary public game routes for testing */}
-          <Route path="game" element={<Layout><GamePage /></Layout>} />
-          <Route path="game/:gameId" element={<Layout><GamePage /></Layout>} />
+          <Route path="/game" element={<Layout><GamePage /></Layout>} />
+          <Route path="/game/:gameId" element={<Layout><GamePage /></Layout>} />
 
+          {/* Legacy route redirects */}
+          <Route path="/dashboard" element={<Navigate to="/app/dashboard" replace />} />
+          
           {/* Catch all route */}
-          <Route path="*" element={<Navigate to="/dashboard" replace />} />
+          <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
         </div>
       </ErrorBoundary>

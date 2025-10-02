@@ -113,7 +113,7 @@ const GameSetupPage = () => {
       };
       
       // Navigate to the game entry page with setup data
-      navigate('/game-entry', { 
+      navigate('/app/game-entry', { 
         state: { gameSetup } 
       });
     } catch (err) {
@@ -135,7 +135,7 @@ const GameSetupPage = () => {
   };
 
   const handleBack = () => {
-    navigate('/dashboard');
+    navigate('/app/dashboard');
   };
 
   if (isLoading) {
@@ -272,7 +272,7 @@ const GameSetupPage = () => {
                     <div className="space-y-3">
                       <Button 
                         variant="primary" 
-                        onClick={() => navigate('/arsenal')}
+                        onClick={() => navigate('/app/arsenal')}
                       >
                         Add Your First Ball
                       </Button>
