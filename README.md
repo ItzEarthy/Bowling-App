@@ -65,8 +65,8 @@ cd bowling-app
 docker-compose up -d
 
 # Access the application
-# Frontend: http://localhost:3000
-# Backend API: http://localhost:5000
+# Frontend: http://localhost:8031
+# Backend API: http://localhost:8032
 ```
 
 ### Local Development
