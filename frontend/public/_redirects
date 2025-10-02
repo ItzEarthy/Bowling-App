@@ -1,0 +1,8 @@
+# Cloudflare Pages / Netlify redirects for client-side routing
+# All non-API routes should serve index.html to allow React Router to handle navigation
+
+# API requests should proxy to the backend (if using Cloudflare Workers proxy)
+/api/*  https://api.yourdomain.com/api/:splat  200
+
+# All other routes serve index.html for client-side routing
+/*  /index.html  200

@@ -7,7 +7,7 @@ export default defineConfig({
     react(),
     VitePWA({
       registerType: 'autoUpdate',
-      includeAssets: ['favicon.ico', 'apple-touch-icon.png', 'masked-icon.svg', 'PinStats.png'],
+      includeAssets: ['favicon.ico', 'apple-touch-icon.png', 'masked-icon.svg', 'PinStats.png', '_redirects'],
       manifest: {
         name: 'Pin Stats',
         short_name: 'PinStats',
@@ -31,14 +31,16 @@ export default defineConfig({
         globPatterns: ['**/*.{js,css,html,ico,png,svg}'],
         runtimeCaching: [
           {
-            urlPattern: /^https:\/\/api\./,
+            // Cache API requests with NetworkFirst strategy
+            urlPattern: /^https?:.*\/api\/.*/,
             handler: 'NetworkFirst',
             options: {
               cacheName: 'api-cache',
               expiration: {
                 maxEntries: 100,
                 maxAgeSeconds: 300 // 5 minutes
-              }
+              },
+              networkTimeoutSeconds: 10
             }
           }
         ]
@@ -47,6 +49,26 @@ export default defineConfig({
   ],
   server: {
     host: true,
-    port: 8031
+    port: 8031,
+    // Proxy API requests during development
+    proxy: {
+      '/api': {
+        target: 'http://localhost:8032',
+        changeOrigin: true,
+        secure: false
+      }
+    }
+  },
+  build: {
+    outDir: 'dist',
+    sourcemap: false,
+    // Optimize build for production
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          'react-vendor': ['react', 'react-dom', 'react-router-dom'],
+        }
+      }
+    }
   }
 })

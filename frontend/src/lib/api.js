@@ -1,18 +1,34 @@
 import axios from 'axios';
 
-// Determine the API base URL based on environment
+/**
+ * Determine the API base URL based on environment
+ * 
+ * Priority:
+ * 1. VITE_API_BASE_URL environment variable (for Cloudflare Pages, Netlify, etc.)
+ * 2. Production: Use /api (assumes reverse proxy or Cloudflare Worker handles routing)
+ * 3. Development: Use localhost:8032/api
+ */
 const getApiBaseUrl = () => {
+  // Check for environment variable first (highest priority)
+  if (import.meta.env.VITE_API_BASE_URL) {
+    return import.meta.env.VITE_API_BASE_URL;
+  }
+  
+  // Server-side rendering fallback
   if (typeof window === 'undefined') {
     return 'http://localhost:8032/api';
   }
   
-  // In production (custom domain), use relative path /api
-  // This assumes your reverse proxy routes /api to the backend
+  // Production: Use relative path /api
+  // This works with:
+  // - Reverse proxy (Nginx/Traefik) routing /api to backend
+  // - Cloudflare Workers proxying /api requests
+  // - _redirects file handling /api routing
   if (window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1') {
     return '/api';
   }
   
-  // In development, use localhost with port
+  // Development: Use localhost with backend port
   return `${window.location.protocol}//${window.location.hostname}:8032/api`;
 };
 
@@ -24,6 +40,11 @@ const api = axios.create({
     'Content-Type': 'application/json',
   },
 });
+
+// Log the API base URL in development for debugging
+if (import.meta.env.DEV) {
+  console.log('API Base URL:', api.defaults.baseURL);
+}
 
 // Request interceptor to add auth token
 api.interceptors.request.use(
