@@ -8,6 +8,7 @@ export default defineConfig({
     VitePWA({
       registerType: 'autoUpdate',
       includeAssets: ['favicon.ico', 'apple-touch-icon.png', 'masked-icon.svg', 'PinStats.png'],
+      injectRegister: 'auto',
       manifest: {
         name: 'Pin Stats',
         short_name: 'PinStats',
@@ -20,15 +21,30 @@ export default defineConfig({
         start_url: '/',
         icons: [
           {
-            src: 'PinStats.png',
+            src: '/PinStats.png',
+            sizes: '192x192',
+            type: 'image/png',
+            purpose: 'any'
+          },
+          {
+            src: '/PinStats.png',
             sizes: '512x512',
             type: 'image/png',
-            purpose: 'any maskable'
+            purpose: 'any'
+          },
+          {
+            src: '/PinStats.png',
+            sizes: '512x512',
+            type: 'image/png',
+            purpose: 'maskable'
           }
-        ]
+        ],
+        categories: ['sports', 'lifestyle', 'social'],
+        lang: 'en',
+        dir: 'ltr'
       },
       workbox: {
-        globPatterns: ['**/*.{js,css,html,ico,png,svg}'],
+        globPatterns: ['**/*.{js,css,html,ico,png,svg,json}'],
         runtimeCaching: [
           {
             urlPattern: /^https:\/\/api\./,
