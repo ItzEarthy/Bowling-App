@@ -179,9 +179,9 @@ class DatabaseManager {
    */
   async createDefaultUsers() {
     try {
-      // Check if admin user already exists
+      // Check if ANY admin user already exists (by role, not just username)
       const adminExists = this.db.prepare(`
-        SELECT id FROM users WHERE username = 'admin'
+        SELECT id FROM users WHERE role = 'admin' LIMIT 1
       `).get();
 
       if (!adminExists) {
@@ -197,6 +197,8 @@ class DatabaseManager {
         
         // Create default admin settings
         await this.createDefaultSettings();
+      } else {
+        console.log('Admin user already exists, skipping default admin creation');
       }
     } catch (error) {
       console.error('Error creating default users:', error);
