@@ -31,26 +31,9 @@ app.use(helmet({
 }));
 
 // CORS configuration
-// Allow a comma-separated list of origins via FRONTEND_URLS or fall back to a single FRONTEND_URL.
-// If neither is set, reflect the incoming origin (useful for local network IPs).
-const frontendUrls = process.env.FRONTEND_URLS || process.env.FRONTEND_URL || '';
-const allowedOrigins = frontendUrls.split(',').map(s => s.trim()).filter(Boolean);
-
+const corsOrigin = process.env.CORS_ORIGIN || process.env.FRONTEND_URL || 'http://localhost:8031';
 app.use(cors({
-  origin: function (origin, callback) {
-    // Allow requests with no origin (e.g., curl, mobile apps)
-    if (!origin) return callback(null, true);
-    // If allowedOrigins provided, check list
-    if (allowedOrigins.length > 0) {
-      if (allowedOrigins.includes(origin)) {
-        return callback(null, true);
-      }
-      return callback(new Error('CORS origin not allowed'), false);
-    }
-  // No explicit allow list - reflect the incoming origin to allow local IPs
-  // The CORS middleware expects a boolean `true` to allow and will then echo the origin.
-  return callback(null, true);
-  },
+  origin: corsOrigin === '*' ? true : corsOrigin,
   credentials: true
 }));
 

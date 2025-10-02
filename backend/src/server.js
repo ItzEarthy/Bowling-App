@@ -9,8 +9,7 @@ global.db = dbManager.getDatabase();
 
 const PORT = process.env.PORT || 5000;
 
-const HOST = process.env.HOST || '0.0.0.0';
-const server = app.listen(PORT, HOST, () => {
+const server = app.listen(PORT, () => {
   console.log(`🎳 Bowling Tracker API Server running on port ${PORT}`);
   console.log(`📊 Database initialized at: ${process.env.DB_PATH || 'data/bowling.db'}`);
   console.log(`🌍 Environment: ${process.env.NODE_ENV || 'development'}`);

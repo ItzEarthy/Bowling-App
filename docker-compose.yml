@@ -7,8 +7,6 @@ services:
       dockerfile: Dockerfile
     ports:
       - "8031:3000"
-    environment:
-      - VITE_API_URL=http://backend:5000
     depends_on:
       - backend
     volumes:
@@ -24,6 +22,7 @@ services:
       - NODE_ENV=development
       - JWT_SECRET=your-super-secret-jwt-key-change-in-production
       - DB_PATH=/app/data/bowling.db
+      - CORS_ORIGIN=*
     volumes:
       # Do not bind-mount the host backend directory into the container in production
       # (it will overwrite the files created during image build, including package.json).
