@@ -6,7 +6,7 @@ services:
       context: ./frontend
       dockerfile: Dockerfile
     ports:
-      - "3000:3000"
+      - "8031:3000"
     environment:
       - VITE_API_URL=http://backend:5000
     depends_on:
@@ -19,7 +19,7 @@ services:
       context: ./backend
       dockerfile: Dockerfile
     ports:
-      - "5000:5000"
+      - "8032:5000"
     environment:
       - NODE_ENV=development
       - JWT_SECRET=your-super-secret-jwt-key-change-in-production
