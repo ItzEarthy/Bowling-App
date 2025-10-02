@@ -8,9 +8,7 @@ import Layout from './components/layout/Layout';
 
 // Pages
 // Removed LandingPage import to restore original routing behavior
-import AboutPage from './pages/AboutPage';
-import FeaturesPage from './pages/FeaturesPage';
-import ContactPage from './pages/ContactPage';
+
 import LoginPage from './pages/LoginPage';
 import RegisterPage from './pages/RegisterPage';
 import DashboardPage from './pages/DashboardPage';
@@ -61,10 +59,6 @@ function App() {
             path="/"
             element={<RootRedirect />}
           />
-          
-          <Route path="/about" element={<AboutPage />} />
-          <Route path="/features" element={<FeaturesPage />} />
-          <Route path="/contact" element={<ContactPage />} />
           
           {/* Public Auth Routes */}
           <Route 

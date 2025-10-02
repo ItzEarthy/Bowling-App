@@ -244,6 +244,39 @@ curl -v https://bowl.example.com/api/health
 
 If you want, share the Cloudflare tunnel/reverse-proxy configuration (without secrets) and I can suggest specific tweaks.
 
+### Portainer / Docker Compose example (environment variables)
+
+If you're running the services via Portainer or Docker Compose and exposing them through a Cloudflare tunnel, set environment variables on the containers (or in your compose file). Example `docker-compose.override.yml` snippet:
+
+```yaml
+services:
+	frontend:
+		environment:
+			- VITE_API_BASE_URL=https://bowl.soearthy.org/api   # optional: only if API is on different host
+		labels:
+			- traefik.http.routers.frontend.rule=Host(`bowl.soearthy.org`)
+
+	backend:
+		environment:
+			- PORT=5000
+			- CORS_ORIGINS=https://bowl.soearthy.org
+			- CSP_EXTRA_ORIGINS=https://bowl.soearthy.org
+		labels:
+			- traefik.http.routers.backend.rule=Host(`api.bowl.soearthy.org`) || PathPrefix(`/api`)
+```
+
+Adjust labels and hostnames to match your proxy/tunnel configuration. In many Cloudflare tunnel setups you can route both frontend and `/api` to the same hostname (recommended) and leave `VITE_API_BASE_URL` unset so the frontend uses same-origin `/api`.
+
+### CSP-specific troubleshooting (service worker / sw.js issues)
+
+- Confirm the service worker file exists at `/sw.js` in your deployed frontend build directory (often `dist/sw.js` or `public/sw.js` depending on bundler config).
+- If the browser logs "Refused to create a worker ... violates Content Security Policy", inspect response headers for the page and for `sw.js`. Look for `Content-Security-Policy` and verify `worker-src` or `script-src` includes `'self'` or the host serving `sw.js`.
+- We added `CSP_EXTRA_ORIGINS` to `backend/src/app.js` so you can include the public origin(s) there. Example: `CSP_EXTRA_ORIGINS=https://bowl.soearthy.org`.
+- If you're terminating HTTPS at Cloudflare and proxying internally via HTTP, CSP should still be based on public origin; ensure your proxy does not rewrite or strip CSP headers unexpectedly.
+- For a quick local test, open DevTools → Application → Service Workers and unregister any previous service worker, then reload. Old service workers can interfere with new builds and manifest fetches.
+
+If you'd like, I can generate a small checklist specific to your Portainer deployment and Cloudflare tunnel settings — paste your non-secret tunnel/ingress rules and I will tailor it.
+
 ### Docker Environment
 The Docker Compose configuration handles environment variables automatically for development. For production, update the `docker-compose.yml` with your specific values.
 
