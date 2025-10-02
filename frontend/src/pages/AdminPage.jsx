@@ -137,7 +137,7 @@ const AdminPage = () => {
     } else {
       loadAdminData();
     }
-  }, [currentUser, navigate, activeTab]);
+  }, [navigate, activeTab]); // Removed currentUser from dependencies to prevent infinite loop
 
   // Initialize profile data when user changes
   useEffect(() => {
