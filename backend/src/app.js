@@ -19,13 +19,25 @@ const adminRoutes = require('./routes/admin');
 const app = express();
 
 // Security middleware
+// Configure Content Security Policy with sensible defaults for a PWA.
+// Allow additional origins via CORS_ORIGINS if present (used for connect/manifest/worker destinations).
+const rawCspExtra = process.env.CSP_EXTRA_ORIGINS || '';
+const cspExtra = rawCspExtra.split(',').map(s => s.trim()).filter(Boolean);
+
+const makeSrcList = (base = ["'self'"]) => base.concat(cspExtra);
+
 app.use(helmet({
   contentSecurityPolicy: {
     directives: {
-      defaultSrc: ["'self'"],
-      styleSrc: ["'self'", "'unsafe-inline'"],
-      scriptSrc: ["'self'"],
-      imgSrc: ["'self'", "data:", "https:"],
+      defaultSrc: makeSrcList(["'self'"]),
+      scriptSrc: makeSrcList(["'self'"]),
+      styleSrc: makeSrcList(["'self'", "'unsafe-inline'"]),
+      imgSrc: makeSrcList(["'self'", 'data:', 'https:']),
+      connectSrc: makeSrcList(["'self'", 'https:']),
+      manifestSrc: makeSrcList(["'self'"]),
+      workerSrc: makeSrcList(["'self'", 'blob:']),
+      baseUri: ["'self'"],
+      objectSrc: ["'none'"],
     },
   },
 }));

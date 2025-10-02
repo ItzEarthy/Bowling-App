@@ -7,7 +7,7 @@ import ErrorBoundary from './components/ui/ErrorBoundary';
 import Layout from './components/layout/Layout';
 
 // Pages
-import LandingPage from './pages/LandingPage';
+// Removed LandingPage import to restore original routing behavior
 import AboutPage from './pages/AboutPage';
 import FeaturesPage from './pages/FeaturesPage';
 import ContactPage from './pages/ContactPage';
@@ -56,8 +56,12 @@ function App() {
       <ErrorBoundary>
         <div className="min-h-screen bg-cream-50">
           <Routes>
-          {/* Public Landing & Info Routes */}
-          <Route path="/" element={<LandingPage />} />
+          {/* Root: redirect to dashboard if authenticated, otherwise to login */}
+          <Route
+            path="/"
+            element={<RootRedirect />}
+          />
+          
           <Route path="/about" element={<AboutPage />} />
           <Route path="/features" element={<FeaturesPage />} />
           <Route path="/contact" element={<ContactPage />} />
@@ -120,6 +124,12 @@ function App() {
       </ErrorBoundary>
     </Router>
   );
+}
+
+// Small redirect component used for root path.
+function RootRedirect() {
+  const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
+  return isAuthenticated ? <Navigate to="/app/dashboard" replace /> : <Navigate to="/login" replace />;
 }
 
 export default App;
