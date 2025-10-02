@@ -19,62 +19,23 @@ const adminRoutes = require('./routes/admin');
 const app = express();
 
 // Security middleware
-// Configure Content Security Policy with sensible defaults for a PWA.
-// Allow additional origins via CORS_ORIGINS if present (used for connect/manifest/worker destinations).
-const rawCspExtra = process.env.CSP_EXTRA_ORIGINS || '';
-const cspExtra = rawCspExtra.split(',').map(s => s.trim()).filter(Boolean);
-
-const makeSrcList = (base = ["'self'"]) => base.concat(cspExtra);
-
 app.use(helmet({
   contentSecurityPolicy: {
     directives: {
-      defaultSrc: makeSrcList(["'self'"]),
-      scriptSrc: makeSrcList(["'self'"]),
-      styleSrc: makeSrcList(["'self'", "'unsafe-inline'"]),
-      imgSrc: makeSrcList(["'self'", 'data:', 'https:']),
-      connectSrc: makeSrcList(["'self'", 'https:']),
-      manifestSrc: makeSrcList(["'self'"]),
-      workerSrc: makeSrcList(["'self'", 'blob:']),
-      baseUri: ["'self'"],
-      objectSrc: ["'none'"],
+      defaultSrc: ["'self'"],
+      styleSrc: ["'self'", "'unsafe-inline'"],
+      scriptSrc: ["'self'"],
+      imgSrc: ["'self'", "data:", "https:"],
     },
   },
 }));
 
 // CORS configuration
-// Allow configuring multiple allowed origins via CORS_ORIGINS (comma-separated) or a single CORS_ORIGIN.
-// If not provided, allow same-origin requests by default (useful when frontend is proxied through the same host).
-const rawCorsOrigins = process.env.CORS_ORIGINS || process.env.CORS_ORIGIN || process.env.FRONTEND_URL || '';
-let allowedOrigins = null;
-if (rawCorsOrigins) {
-  // Support comma-separated list
-  allowedOrigins = rawCorsOrigins.split(',').map(s => s.trim()).filter(Boolean);
-}
-
-const corsOptions = {
-  origin: (origin, callback) => {
-    // Allow requests with no origin (e.g., server-to-server, curl, or same-origin)
-    if (!origin) return callback(null, true);
-
-    // If allowedOrigins not configured, allow same-origin only
-    if (!allowedOrigins) {
-      return callback(null, false);
-    }
-
-    // If wildcard present, allow any origin
-    if (allowedOrigins.includes('*')) return callback(null, true);
-
-    // Allow if origin matches one of the configured origins
-    if (allowedOrigins.includes(origin)) return callback(null, true);
-
-    // Not allowed
-    return callback(new Error('Not allowed by CORS'), false);
-  },
-  credentials: true,
-};
-
-app.use(cors(corsOptions));
+const corsOrigin = process.env.CORS_ORIGIN || process.env.FRONTEND_URL || 'http://localhost:8031';
+app.use(cors({
+  origin: corsOrigin === '*' ? true : corsOrigin,
+  credentials: true
+}));
 
 // Body parsing middleware
 app.use(express.json({ limit: '10mb' }));

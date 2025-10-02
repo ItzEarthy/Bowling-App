@@ -86,7 +86,7 @@ const GamePage = () => {
       const response = await api.post('/games', gameData);
       
       // Navigate to game log or dashboard after saving
-      navigate('/app/dashboard');
+      navigate('/dashboard');
     } catch (err) {
       setError('Failed to save game: ' + err.message);
     } finally {

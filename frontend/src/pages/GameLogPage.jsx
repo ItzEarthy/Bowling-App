@@ -263,7 +263,7 @@ const GameLogPage = () => {
               <Filter className="w-5 h-5 mr-2" />
               Filters
             </Button>
-            <Button onClick={() => navigate('/app/game-setup')} variant="primary">
+            <Button onClick={() => navigate('/game-setup')} variant="primary">
               New Game
             </Button>
           </div>
@@ -593,7 +593,7 @@ const GameLogPage = () => {
               <p className="text-charcoal-600 mb-6">
                 Start your first game to see your bowling history here
               </p>
-              <Button onClick={() => navigate('/app/game-setup')} variant="primary">
+              <Button onClick={() => navigate('/game-setup')} variant="primary">
                 Start Your First Game
               </Button>
             </div>
