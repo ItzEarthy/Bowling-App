@@ -14,9 +14,9 @@ const Layout = ({ children }) => {
   const hideNavigation = location.pathname === '/game' || location.pathname.startsWith('/game/');
 
   return (
-    <div className="min-h-screen bg-cream-50 pb-28 sm:pb-32">
+    <div className="min-h-screen bg-cream-50 pb-28 sm:pb-32 overflow-x-hidden">
       {/* Main Content */}
-      <main className="container mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-6 max-w-7xl">
+      <main className="container mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-6 max-w-7xl w-full overflow-x-hidden">
         {/* If Layout was rendered with explicit children (e.g. <Layout><GamePage/></Layout>), render them.
             Otherwise, render the nested <Outlet /> for routes that nest children. */}
         {children ? children : <Outlet />}

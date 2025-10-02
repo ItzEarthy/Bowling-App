@@ -12,7 +12,7 @@ const Card = ({
   onClick,
   ...props 
 }) => {
-  const baseClasses = 'bg-white rounded-2xl transition-all duration-200';
+  const baseClasses = 'bg-white rounded-2xl transition-all duration-200 w-full max-w-full overflow-hidden';
   
   const variants = {
     default: 'shadow-retro',

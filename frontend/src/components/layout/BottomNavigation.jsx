@@ -55,8 +55,8 @@ const BottomNavigation = () => {
   ];
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 bg-white border-t border-cream-200 shadow-retro-lg z-50 pb-safe">
-      <div className="container mx-auto px-2 sm:px-4">
+    <nav className="fixed bottom-0 left-0 right-0 bg-white border-t border-cream-200 shadow-retro-lg z-50 pb-safe overflow-hidden">
+      <div className="w-full max-w-7xl mx-auto px-2 sm:px-4">
         <div className="flex justify-around items-center py-3 sm:py-4">
           {navItems.map(({ path, label, icon: Icon }) => (
             <NavLink
