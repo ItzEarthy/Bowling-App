@@ -47,7 +47,7 @@ const Modal = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center">
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center">
       {/* Backdrop */}
       <div 
         className="fixed inset-0 bg-black bg-opacity-50 transition-opacity duration-300"
@@ -56,15 +56,15 @@ const Modal = ({
       
       {/* Modal */}
       <div className={`
-        relative bg-white rounded-3xl shadow-retro-lg w-full ${sizes[size]} 
-        mx-4 max-h-[90vh] overflow-hidden
+        relative bg-white rounded-t-3xl sm:rounded-3xl shadow-retro-lg w-full ${sizes[size]} 
+        mx-0 sm:mx-4 max-h-[90vh] sm:max-h-[85vh] overflow-hidden
         animate-fade-in transform transition-all duration-300
       `}>
         {/* Header */}
         {(title || showCloseButton) && (
-          <div className="flex items-center justify-between p-6 border-b border-cream-200">
+          <div className="flex items-center justify-between p-4 sm:p-6 border-b border-cream-200">
             {title && (
-              <h2 className="text-2xl font-bold text-charcoal-900 font-heading">
+              <h2 className="text-xl sm:text-2xl font-bold text-charcoal-900 font-heading">
                 {title}
               </h2>
             )}
@@ -72,7 +72,7 @@ const Modal = ({
             {showCloseButton && (
               <button
                 onClick={onClose}
-                className="p-2 text-charcoal-500 hover:text-charcoal-700 hover:bg-cream-100 rounded-lg transition-colors duration-200"
+                className="p-2 text-charcoal-500 hover:text-charcoal-700 hover:bg-cream-100 rounded-lg transition-colors duration-200 touch-target"
               >
                 <X size={20} />
               </button>
@@ -81,13 +81,13 @@ const Modal = ({
         )}
         
         {/* Content */}
-        <div className="p-6 max-h-[calc(90vh-200px)] overflow-y-auto">
+        <div className="p-4 sm:p-6 max-h-[calc(90vh-200px)] overflow-y-auto">
           {children}
         </div>
         
         {/* Footer */}
         {footer && (
-          <div className="border-t border-cream-200 p-6 bg-cream-50 rounded-b-3xl">
+          <div className="border-t border-cream-200 p-4 sm:p-6 bg-cream-50 rounded-b-3xl">
             {footer}
           </div>
         )}

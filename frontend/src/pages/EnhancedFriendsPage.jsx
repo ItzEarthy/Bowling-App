@@ -274,14 +274,14 @@ const EnhancedFriendsPage = () => {
   const generateMockLeaderboard = async () => {
     // Generate mock competitive data
     const users = [
-      { id: 1, username: 'StrikeMaster', displayName: 'Mike Johnson', avatar: null },
-      { id: 2, username: 'SpareQueen', displayName: 'Sarah Wilson', avatar: null },
-      { id: 3, username: 'PinDestroyer', displayName: 'Alex Chen', avatar: null },
-      { id: 4, username: 'BowlingPro', displayName: 'Emma Davis', avatar: null },
-      { id: 5, username: 'TenPinKing', displayName: 'David Lee', avatar: null },
-      { id: 6, username: 'GutterGuard', displayName: 'Lisa Park', avatar: null },
-      { id: 7, username: 'FrameAce', displayName: 'Tom Brown', avatar: null },
-      { id: 8, username: 'SplitChamp', displayName: 'Anna White', avatar: null }
+      { id: 1, username: 'StrikeMaster', displayName: 'Mike Johnson', avatar: null, profile_picture: null },
+      { id: 2, username: 'SpareQueen', displayName: 'Sarah Wilson', avatar: null, profile_picture: null },
+      { id: 3, username: 'PinDestroyer', displayName: 'Alex Chen', avatar: null, profile_picture: null },
+      { id: 4, username: 'BowlingPro', displayName: 'Emma Davis', avatar: null, profile_picture: null },
+      { id: 5, username: 'TenPinKing', displayName: 'David Lee', avatar: null, profile_picture: null },
+      { id: 6, username: 'GutterGuard', displayName: 'Lisa Park', avatar: null, profile_picture: null },
+      { id: 7, username: 'FrameAce', displayName: 'Tom Brown', avatar: null, profile_picture: null },
+      { id: 8, username: 'SplitChamp', displayName: 'Anna White', avatar: null, profile_picture: null }
     ];
 
     return users.map((user, index) => {
@@ -621,11 +621,19 @@ const EnhancedFriendsPage = () => {
                       </div>
                       
                       <div className="flex items-center space-x-3">
-                        <div className={`w-12 h-12 rounded-full flex items-center justify-center font-bold text-white ${
-                          user.isOnline ? 'bg-green-500' : 'bg-charcoal-400'
-                        }`}>
-                          {user.displayName?.charAt(0)?.toUpperCase() || 'U'}
-                        </div>
+                        {user.profile_picture || user.profilePicture ? (
+                          <img 
+                            src={user.profile_picture || user.profilePicture} 
+                            alt={user.displayName}
+                            className="w-12 h-12 rounded-full object-cover border-2 border-white shadow-sm"
+                          />
+                        ) : (
+                          <div className={`w-12 h-12 rounded-full flex items-center justify-center font-bold text-white ${
+                            user.isOnline ? 'bg-green-500' : 'bg-charcoal-400'
+                          }`}>
+                            {user.displayName?.charAt(0)?.toUpperCase() || 'U'}
+                          </div>
+                        )}
                         <div>
                           <div className="flex items-center space-x-2">
                             <h3 className="font-semibold text-charcoal-900">
@@ -712,11 +720,19 @@ const EnhancedFriendsPage = () => {
                       onClick={() => handleViewProfile(friend)}>
                   <CardContent className="p-6">
                     <div className="flex items-center space-x-4 mb-4">
-                      <div className={`w-16 h-16 rounded-full flex items-center justify-center font-bold text-white ${
-                        friend.isOnline ? 'bg-green-500' : 'bg-charcoal-400'
-                      }`}>
-                        {friend.displayName?.charAt(0)?.toUpperCase() || 'F'}
-                      </div>
+                      {friend.profile_picture || friend.profilePicture ? (
+                        <img 
+                          src={friend.profile_picture || friend.profilePicture} 
+                          alt={friend.displayName}
+                          className="w-16 h-16 rounded-full object-cover border-2 border-charcoal-200 shadow-sm"
+                        />
+                      ) : (
+                        <div className={`w-16 h-16 rounded-full flex items-center justify-center font-bold text-white ${
+                          friend.isOnline ? 'bg-green-500' : 'bg-charcoal-400'
+                        }`}>
+                          {friend.displayName?.charAt(0)?.toUpperCase() || 'F'}
+                        </div>
+                      )}
                       <div className="flex-1">
                         <h3 className="font-semibold text-charcoal-900">
                           {friend.displayName || friend.username}
@@ -769,9 +785,17 @@ const EnhancedFriendsPage = () => {
                 <Card key={request.id}>
                   <CardContent className="flex items-center justify-between p-6">
                     <div className="flex items-center space-x-4">
-                      <div className="w-12 h-12 bg-charcoal-400 rounded-full flex items-center justify-center font-bold text-white">
-                        {request.sender?.displayName?.charAt(0) || 'U'}
-                      </div>
+                      {request.sender?.profile_picture || request.sender?.profilePicture ? (
+                        <img 
+                          src={request.sender.profile_picture || request.sender.profilePicture} 
+                          alt={request.sender.displayName}
+                          className="w-12 h-12 rounded-full object-cover border-2 border-charcoal-200 shadow-sm"
+                        />
+                      ) : (
+                        <div className="w-12 h-12 bg-charcoal-400 rounded-full flex items-center justify-center font-bold text-white">
+                          {request.sender?.displayName?.charAt(0) || 'U'}
+                        </div>
+                      )}
                       <div>
                         <h3 className="font-semibold text-charcoal-900">
                           {request.sender?.displayName || request.sender?.username}
@@ -837,11 +861,19 @@ const EnhancedFriendsPage = () => {
                 <Card key={user.id}>
                   <CardContent className="flex items-center justify-between p-6">
                     <div className="flex items-center space-x-4">
-                      <div className={`w-12 h-12 rounded-full flex items-center justify-center font-bold text-white ${
-                        user.isOnline ? 'bg-green-500' : 'bg-charcoal-400'
-                      }`}>
-                        {user.displayName?.charAt(0)?.toUpperCase() || 'U'}
-                      </div>
+                      {user.profile_picture || user.profilePicture ? (
+                        <img 
+                          src={user.profile_picture || user.profilePicture} 
+                          alt={user.displayName}
+                          className="w-12 h-12 rounded-full object-cover border-2 border-charcoal-200 shadow-sm"
+                        />
+                      ) : (
+                        <div className={`w-12 h-12 rounded-full flex items-center justify-center font-bold text-white ${
+                          user.isOnline ? 'bg-green-500' : 'bg-charcoal-400'
+                        }`}>
+                          {user.displayName?.charAt(0)?.toUpperCase() || 'U'}
+                        </div>
+                      )}
                       <div>
                         <h3 className="font-semibold text-charcoal-900">
                           {user.displayName}
@@ -921,11 +953,19 @@ const EnhancedFriendsPage = () => {
           <div className="space-y-6">
             {/* Profile Header */}
             <div className="flex items-center space-x-6 p-6 bg-gradient-to-r from-blue-50 to-purple-50 rounded-lg">
-              <div className={`w-20 h-20 rounded-full flex items-center justify-center font-bold text-white text-2xl ${
-                selectedFriend.isOnline ? 'bg-green-500' : 'bg-charcoal-400'
-              }`}>
-                {selectedFriend.displayName?.charAt(0)?.toUpperCase() || 'U'}
-              </div>
+              {selectedFriend.profile_picture || selectedFriend.profilePicture ? (
+                <img 
+                  src={selectedFriend.profile_picture || selectedFriend.profilePicture} 
+                  alt={selectedFriend.displayName}
+                  className="w-20 h-20 rounded-full object-cover border-4 border-white shadow-lg"
+                />
+              ) : (
+                <div className={`w-20 h-20 rounded-full flex items-center justify-center font-bold text-white text-2xl ${
+                  selectedFriend.isOnline ? 'bg-green-500' : 'bg-charcoal-400'
+                }`}>
+                  {selectedFriend.displayName?.charAt(0)?.toUpperCase() || 'U'}
+                </div>
+              )}
               <div className="flex-1">
                 <h2 className="text-2xl font-bold text-charcoal-900">
                   {selectedFriend.displayName}

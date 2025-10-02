@@ -62,6 +62,10 @@ const ProfilePage = () => {
         displayName: user.displayName || user.display_name || '',
         email: user.email || ''
       });
+      // Set existing profile picture if available
+      if (user.profilePicture || user.profile_picture) {
+        setProfilePicturePreview(user.profilePicture || user.profile_picture);
+      }
     }
   }, [user]);
 
@@ -86,11 +90,8 @@ const ProfilePage = () => {
         return;
       }
       
-      // Validate file size (max 5MB)
-      if (file.size > 5 * 1024 * 1024) {
-        setError('Image file size must be less than 5MB');
-        return;
-      }
+      // Note: We don't validate file size on client side anymore
+      // since backend will handle compression for files >10MB
       
       setProfilePicture(file);
       
@@ -158,12 +159,16 @@ const ProfilePage = () => {
       const response = await userAPI.updateProfile({
         username: profileData.username,
         displayName: profileData.displayName,
-        email: profileData.email
+        email: profileData.email,
+        profilePicture: profilePicture ? profilePicturePreview : undefined
       });
 
       // Update the auth store with new user data
       updateUser(response.data.user);
       setSuccess('Profile updated successfully!');
+      
+      // Clear the file input state after successful save
+      setProfilePicture(null);
       
       // Clear success message after 3 seconds
       setTimeout(() => setSuccess(null), 3000);

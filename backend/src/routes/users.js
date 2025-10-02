@@ -19,7 +19,8 @@ const updateProfileSchema = z.object({
       .optional(),
     email: z.string()
       .email('Invalid email address')
-      .optional()
+      .optional(),
+    profilePicture: z.string().optional()
   })
 });
 
@@ -46,7 +47,7 @@ const searchUsersSchema = z.object({
 router.get('/me', authenticateToken, (req, res, next) => {
   try {
     const user = global.db.prepare(`
-      SELECT id, username, display_name, email, created_at
+      SELECT id, username, display_name, email, created_at, profile_picture
       FROM users WHERE id = ?
     `).get(req.user.userId);
 
@@ -60,7 +61,8 @@ router.get('/me', authenticateToken, (req, res, next) => {
         username: user.username,
         displayName: user.display_name,
         email: user.email,
-        createdAt: user.created_at
+        createdAt: user.created_at,
+        profilePicture: user.profile_picture
       }
     });
 
@@ -75,12 +77,12 @@ router.get('/me', authenticateToken, (req, res, next) => {
  */
 router.put('/me', authenticateToken, validateRequest(updateProfileSchema), async (req, res, next) => {
   try {
-    const { username, displayName, email } = req.body;
+    const { username, displayName, email, profilePicture } = req.body;
     const userId = req.user.userId;
 
     // Get current user data
     const currentUser = global.db.prepare(`
-      SELECT id, username, display_name, email, hashed_password, role
+      SELECT id, username, display_name, email, hashed_password, role, profile_picture
       FROM users WHERE id = ?
     `).get(userId);
 
@@ -121,6 +123,52 @@ router.put('/me', authenticateToken, validateRequest(updateProfileSchema), async
       updateData.display_name = displayName;
     }
 
+    // Handle profile picture update with compression for large images
+    if (profilePicture !== undefined) {
+      if (profilePicture === null || profilePicture === '') {
+        // Remove profile picture
+        updateData.profile_picture = null;
+      } else {
+        try {
+          // Check if the image is base64 encoded
+          const base64Match = profilePicture.match(/^data:image\/(png|jpeg|jpg|gif|webp);base64,(.+)$/);
+          
+          if (base64Match) {
+            const imageType = base64Match[1];
+            const base64Data = base64Match[2];
+            const buffer = Buffer.from(base64Data, 'base64');
+            const sizeInMB = buffer.length / (1024 * 1024);
+
+            // If image is larger than 10MB, scale it down
+            if (sizeInMB > 10) {
+              const sharp = require('sharp');
+              
+              // Resize to max width/height of 800px while maintaining aspect ratio
+              const resizedBuffer = await sharp(buffer)
+                .resize(800, 800, {
+                  fit: 'inside',
+                  withoutEnlargement: true
+                })
+                .jpeg({ quality: 85 }) // Convert to JPEG for better compression
+                .toBuffer();
+              
+              // Convert back to base64
+              const resizedBase64 = `data:image/jpeg;base64,${resizedBuffer.toString('base64')}`;
+              updateData.profile_picture = resizedBase64;
+            } else {
+              // Image is small enough, use as-is
+              updateData.profile_picture = profilePicture;
+            }
+          } else {
+            return res.status(400).json({ error: 'Invalid image format. Please provide a base64-encoded image.' });
+          }
+        } catch (imageError) {
+          console.error('Error processing profile picture:', imageError);
+          return res.status(400).json({ error: 'Failed to process profile picture' });
+        }
+      }
+    }
+
     // Perform update if there are changes
     if (Object.keys(updateData).length > 0) {
       const updateFields = Object.keys(updateData).map(field => `${field} = ?`).join(', ');
@@ -133,7 +181,7 @@ router.put('/me', authenticateToken, validateRequest(updateProfileSchema), async
 
     // Return updated user data
     const updatedUser = global.db.prepare(`
-      SELECT id, username, display_name, email, created_at, role
+      SELECT id, username, display_name, email, created_at, role, profile_picture
       FROM users WHERE id = ?
     `).get(userId);
 
@@ -145,7 +193,8 @@ router.put('/me', authenticateToken, validateRequest(updateProfileSchema), async
         displayName: updatedUser.display_name,
         email: updatedUser.email,
         createdAt: updatedUser.created_at,
-        role: updatedUser.role
+        role: updatedUser.role,
+        profilePicture: updatedUser.profile_picture
       }
     });
 

@@ -911,9 +911,17 @@ const AdminPage = () => {
                         </td>
                         <td className="py-3 px-4">
                           <div className="flex items-center space-x-3">
-                            <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center text-white text-sm font-bold">
-                              {user.display_name?.charAt(0)?.toUpperCase() || 'U'}
-                            </div>
+                            {user.profile_picture || user.profilePicture ? (
+                              <img 
+                                src={user.profile_picture || user.profilePicture} 
+                                alt={user.display_name}
+                                className="w-8 h-8 rounded-full object-cover border-2 border-white shadow-sm"
+                              />
+                            ) : (
+                              <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center text-white text-sm font-bold">
+                                {user.display_name?.charAt(0)?.toUpperCase() || 'U'}
+                              </div>
+                            )}
                             <div>
                               <div className="font-medium text-charcoal-900">{user.display_name}</div>
                               <div className="text-sm text-charcoal-600">@{user.username}</div>

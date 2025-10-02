@@ -104,6 +104,63 @@
 @media (display-mode: standalone) {
   body {
     padding-top: env(safe-area-inset-top);
+  }
+  
+  .safe-area-bottom {
     padding-bottom: env(safe-area-inset-bottom);
+  }
+}
+
+/* Mobile responsiveness utilities */
+@layer utilities {
+  .shadow-retro {
+    box-shadow: 4px 4px 0px 0px rgba(0, 0, 0, 0.1);
+  }
+  
+  .shadow-retro-lg {
+    box-shadow: 6px 6px 0px 0px rgba(0, 0, 0, 0.1);
+  }
+  
+  /* Mobile-optimized touch targets */
+  .touch-target {
+    @apply min-h-[44px] min-w-[44px];
+  }
+  
+  /* Mobile-friendly spacing */
+  .container-mobile {
+    @apply px-4 sm:px-6 lg:px-8;
+  }
+  
+  /* Mobile-responsive text sizes */
+  .text-responsive-3xl {
+    @apply text-2xl sm:text-3xl;
+  }
+  
+  .text-responsive-2xl {
+    @apply text-xl sm:text-2xl;
+  }
+  
+  .text-responsive-xl {
+    @apply text-lg sm:text-xl;
+  }
+  
+  /* Mobile-optimized cards */
+  .card-mobile {
+    @apply rounded-xl sm:rounded-2xl p-4 sm:p-6;
+  }
+  
+  /* Mobile table scroll */
+  .table-mobile-scroll {
+    @apply overflow-x-auto -mx-4 sm:mx-0;
+  }
+  
+  /* Mobile-safe grid */
+  .grid-mobile-safe {
+    @apply grid-cols-1 sm:grid-cols-2 lg:grid-cols-3;
+  }
+  
+  /* Stack on mobile */
+  .stack-mobile {
+    @apply flex-col sm:flex-row;
   }
 }

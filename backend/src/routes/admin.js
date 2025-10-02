@@ -45,6 +45,7 @@ router.get('/users', authenticateToken, requireAdmin, (req, res, next) => {
         email, 
         role, 
         created_at,
+        profile_picture,
         'active' as status
       FROM users 
       ORDER BY created_at DESC
