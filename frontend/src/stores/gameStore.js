@@ -1,7 +1,5 @@
 import { create } from 'zustand';
 import BowlingScoreCalculator from '../utils/bowlingScoring';
-import { streakTracker } from '../utils/streakTracker';
-import { achievementHandler } from '../utils/achievementHandler';
 
 /**
  * Game store for managing current game state
@@ -337,32 +335,12 @@ const useGameStore = create((set, get) => ({
       };
 
       // Process achievements using the achievement handler
-      const achievementResult = await achievementHandler.processGame(gameWithStats);
+      const achievementResult = { newAchievements: [], success: true }; // Achievements removed
 
-      // Process streaks
-      const storedGames = localStorage.getItem('bowling-games');
-      const previousGames = storedGames ? JSON.parse(storedGames) : [];
-      const streakResult = streakTracker.processGame({
-        ...gameWithStats,
-        previous_games: previousGames
-      });
-
-      // Combine notifications
-      const allNotifications = [
-        ...(streakResult.notifications || [])
-      ];
-
-      if (streakResult.notifications && streakResult.notifications.length > 0) {
-        // Store streak notifications
-        const existingStreakNotifications = JSON.parse(localStorage.getItem('streak-notifications') || '[]');
-        const updatedStreakNotifications = [...existingStreakNotifications, ...streakResult.notifications];
-        localStorage.setItem('streak-notifications', JSON.stringify(updatedStreakNotifications));
-      }
-
+      // Return achievement result
       return {
-        streaks: streakResult.streaks,
         achievements: achievementResult.newAchievements || [],
-        notifications: allNotifications,
+        notifications: [],
         achievementSuccess: achievementResult.success
       };
     } catch (error) {

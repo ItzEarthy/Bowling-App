@@ -2,8 +2,6 @@ import React, { useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import useAuthStore from './stores/authStore';
 import ErrorBoundary from './components/ui/ErrorBoundary';
-import { AchievementToastContainer } from './components/ui/AchievementToast';
-import { achievementHandler } from './utils/achievementHandler';
 
 // Layout Components
 import Layout from './components/layout/Layout';
@@ -19,10 +17,8 @@ import GameLogPage from './pages/GameLogPage';
 import FriendsPage from './pages/FriendsPage';
 import ArsenalPage from './pages/ArsenalPage';
 import StatsPage from './pages/StatsPage';
-import AchievementsPage from './pages/AchievementsPage';
 import TrendAnalysisPage from './pages/TrendAnalysisPage';
 import GoalsPage from './pages/GoalsPage';
-import StreaksPage from './pages/StreaksPage';
 import EnhancedFriendsPage from './pages/EnhancedFriendsPage';
 import BallMaintenancePage from './pages/BallMaintenancePage';
 import PinCarryPage from './pages/PinCarryPage';
@@ -51,32 +47,10 @@ function App() {
     initialize();
   }, [initialize]);
 
-  // Initialize achievement handler when user is loaded
-  useEffect(() => {
-    if (user?.id) {
-      achievementHandler.initialize(user.id).then(() => {
-        console.log('Achievement handler initialized for user:', user.id);
-      });
-    }
-  }, [user]);
-
-  // Setup achievement listener to trigger toast notifications
-  useEffect(() => {
-    const removeListener = achievementHandler.addListener((newAchievements) => {
-      // Dispatch custom event for toast container
-      window.dispatchEvent(new CustomEvent('achievementEarned', {
-        detail: { achievements: newAchievements }
-      }));
-    });
-
-    return removeListener;
-  }, []);
-
   return (
     <Router>
       <ErrorBoundary>
         <div className="min-h-screen bg-cream-50">
-          <AchievementToastContainer />
           <Routes>
           {/* Public Routes */}
           <Route 
@@ -111,10 +85,8 @@ function App() {
             <Route path="game-entry" element={<GameEntryPage />} />
             <Route path="game-log" element={<GameLogPage />} />
             <Route path="stats" element={<StatsPage />} />
-            <Route path="achievements" element={<AchievementsPage />} />
             <Route path="trends" element={<TrendAnalysisPage />} />
             <Route path="goals" element={<GoalsPage />} />
-            <Route path="streaks" element={<StreaksPage />} />
             <Route path="friends" element={<EnhancedFriendsPage />} />
             <Route path="ball-maintenance" element={<BallMaintenancePage />} />
             <Route path="pin-carry" element={<PinCarryPage />} />

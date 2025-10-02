@@ -8,6 +8,7 @@ import FinalScoreEntry from '../components/features/FinalScoreEntry';
 import FrameByFrameEntry from '../components/features/FrameByFrameEntry';
 import PinByPinEntry from '../components/features/PinByPinEntry';
 import { api } from '../lib/api';
+import { getLocalISOString } from '../utils/dateUtils';
 
 /**
  * Game Entry Page - Unified interface for all data entry methods
@@ -46,18 +47,19 @@ const GameEntryPage = () => {
       const completeGameData = {
         ...gameData,
         ...gameSetup, // Include ball_id, location, etc from setup
-        created_at: new Date().toISOString(),
+        created_at: gameData.created_at || getLocalISOString(),
         is_complete: true
       };
 
       // Save to backend
       const response = await api.post('/games', completeGameData);
+      const savedGame = response.data.game;
       
       // Navigate to success page or dashboard
       navigate('/dashboard', {
         state: {
           message: 'Game saved successfully!',
-          gameId: response.data.game?.id
+          gameId: savedGame?.id
         }
       });
     } catch (err) {

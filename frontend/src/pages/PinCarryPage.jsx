@@ -3,7 +3,9 @@ import Card, { CardContent, CardHeader, CardTitle } from '../components/ui/Card'
 import Button from '../components/ui/Button';
 import PageHeader from '../components/layout/PageHeader';
 import Spinner from '../components/ui/Spinner';
-import { pinCarryAnalyzer, PIN_PATTERNS, CARRY_PATTERNS } from '../utils/pinCarryAnalysis';
+import { DualPinDiagram } from '../components/ui/PinDiagram';
+import { pinCarryAnalyzer, CARRY_PATTERNS } from '../utils/pinCarryAnalysis';
+import { SPLIT_PATTERNS, getSplitAdvice } from '../utils/splitDetection';
 import { gameAPI } from '../lib/api';
 import useAuthStore from '../stores/authStore';
 
@@ -161,6 +163,23 @@ const PinCarryPage = () => {
         </Card>
       </div>
 
+      {/* Pin Diagram Visualization */}
+      {visualizationData?.pin_diagram_data && (
+        <Card className="p-6">
+          <h3 className="text-lg font-semibold mb-4">Pin Hit & Leave Analysis</h3>
+          <DualPinDiagram
+            firstThrowData={visualizationData.pin_diagram_data.firstThrow}
+            secondThrowData={visualizationData.pin_diagram_data.secondThrow}
+          />
+          <div className="mt-4 p-3 bg-blue-50 rounded-lg">
+            <p className="text-sm text-gray-700">
+              <strong>How to read:</strong> The left diagram shows which pins you hit most often on your first throw (warmer colors = more hits). 
+              The right diagram shows which pins you leave standing most often after your first throw (darker blues = left more often).
+            </p>
+          </div>
+        </Card>
+      )}
+
       {/* Carry Distribution Chart */}
       <Card className="p-6">
         <h3 className="text-lg font-semibold mb-4">Carry Distribution</h3>
@@ -245,74 +264,6 @@ const PinCarryPage = () => {
           </div>
         </Card>
       )}
-    </div>
-  );
-
-  const renderPinLeaves = () => (
-    <div className="space-y-6">
-      {/* Most Common Pin Leaves */}
-      <Card className="p-6">
-        <h3 className="text-lg font-semibold mb-4">Most Common Pin Leaves</h3>
-        {carryAnalysis?.pin_leaves && carryAnalysis.pin_leaves.length > 0 ? (
-          <div className="space-y-3">
-            {carryAnalysis.pin_leaves.map((leave, index) => (
-              <div key={index} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                <div>
-                  <div className="font-medium">{leave.info?.name || leave.pattern}</div>
-                  <div className="text-sm text-gray-600">
-                    {leave.count} times ({leave.percentage.toFixed(1)}%)
-                  </div>
-                  {leave.info?.advice && (
-                    <div className="text-xs text-blue-600 mt-1">{leave.info.advice}</div>
-                  )}
-                </div>
-                <div className={`px-2 py-1 rounded text-xs font-medium ${
-                  leave.info?.difficulty === 'impossible' ? 'bg-red-100 text-red-800' :
-                  leave.info?.difficulty === 'very_hard' ? 'bg-red-100 text-red-800' :
-                  leave.info?.difficulty === 'hard' ? 'bg-orange-100 text-orange-800' :
-                  leave.info?.difficulty === 'medium' ? 'bg-yellow-100 text-yellow-800' :
-                  leave.info?.difficulty === 'easy' ? 'bg-green-100 text-green-800' :
-                  'bg-gray-100 text-gray-800'
-                }`}>
-                  {leave.info?.difficulty || 'Unknown'}
-                </div>
-              </div>
-            ))}
-          </div>
-        ) : (
-          <div className="text-center text-gray-500 py-8">
-            No pin leave data available yet. Play some games to see your patterns!
-          </div>
-        )}
-      </Card>
-
-      {/* Pin Pattern Reference */}
-      <Card className="p-6">
-        <h3 className="text-lg font-semibold mb-4">Pin Pattern Reference</h3>
-        <div className="space-y-4">
-          {Object.entries(PIN_PATTERNS).map(([category, patterns]) => (
-            <div key={category}>
-              <h4 className="font-medium text-gray-700 mb-2 capitalize">
-                {category.replace('_', ' ')}
-              </h4>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-                {Object.entries(patterns).map(([patternKey, pattern]) => (
-                  <div 
-                    key={patternKey}
-                    className="p-2 border rounded cursor-pointer hover:bg-gray-50"
-                    onClick={() => setSelectedPattern(pattern)}
-                  >
-                    <div className="font-medium text-sm">{pattern.name}</div>
-                    <div className="text-xs text-gray-600">
-                      {pattern.conversion_rate}% conversion rate
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          ))}
-        </div>
-      </Card>
     </div>
   );
 
@@ -475,6 +426,117 @@ const PinCarryPage = () => {
     </div>
   );
 
+  const renderSplits = () => (
+    <div className="space-y-6">
+      {/* Introduction */}
+      <Card className="p-6 bg-gradient-to-r from-blue-50 to-purple-50">
+        <h3 className="text-lg font-semibold mb-3">Complete Split Reference Guide</h3>
+        <p className="text-gray-700 mb-2">
+          A comprehensive guide to all major bowling splits, including exact pin numbers, 
+          target pins, approach strategies, and professional tips for conversion.
+        </p>
+        <div className="flex items-center space-x-4 text-sm mt-3">
+          <div className="flex items-center space-x-1">
+            <div className="w-3 h-3 bg-green-500 rounded"></div>
+            <span>Easy (60%+ conversion)</span>
+          </div>
+          <div className="flex items-center space-x-1">
+            <div className="w-3 h-3 bg-yellow-500 rounded"></div>
+            <span>Medium (20-60%)</span>
+          </div>
+          <div className="flex items-center space-x-1">
+            <div className="w-3 h-3 bg-red-500 rounded"></div>
+            <span>Hard (&lt;20%)</span>
+          </div>
+        </div>
+      </Card>
+
+      {/* Split Categories */}
+      <Card className="p-6">
+        <h3 className="text-lg font-semibold mb-4">Common Splits & Conversion Strategies</h3>
+        <div className="space-y-4">
+          {Object.entries(SPLIT_PATTERNS).map(([key, split]) => {
+            const advice = getSplitAdvice(split);
+            const difficultyColor = 
+              split.difficulty === 'easy' || split.difficulty === 'very_easy' ? 'bg-green-100 text-green-800 border-green-200' :
+              split.difficulty === 'medium' ? 'bg-yellow-100 text-yellow-800 border-yellow-200' :
+              split.difficulty === 'hard' ? 'bg-orange-100 text-orange-800 border-orange-200' :
+              'bg-red-100 text-red-800 border-red-200';
+
+            return (
+              <div key={key} className={`p-4 rounded-lg border-2 ${difficultyColor}`}>
+                <div className="flex items-start justify-between mb-3">
+                  <div>
+                    <h4 className="font-bold text-lg">{split.name}</h4>
+                    <p className="text-sm mt-1">{split.description}</p>
+                    <div className="mt-2 flex items-center space-x-3 text-sm">
+                      <span className="font-semibold">Pins: {split.pins.join('-')}</span>
+                      <span>•</span>
+                      <span>Conversion Rate: <strong>{split.conversionRate}%</strong></span>
+                    </div>
+                  </div>
+                  <div className={`px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wide`}>
+                    {split.difficulty.replace('_', ' ')}
+                  </div>
+                </div>
+
+                {advice && (
+                  <div className="mt-3 space-y-2 bg-white bg-opacity-50 p-3 rounded">
+                    <div>
+                      <span className="font-semibold text-sm">🎯 Target Pin:</span>
+                      <span className="ml-2 text-sm">{advice.targetPin}</span>
+                    </div>
+                    <div>
+                      <span className="font-semibold text-sm">📍 Approach:</span>
+                      <p className="text-sm mt-1">{advice.approach}</p>
+                    </div>
+                    <div>
+                      <span className="font-semibold text-sm">💡 Pro Tips:</span>
+                      <ul className="list-disc list-inside text-sm mt-1 space-y-1">
+                        {advice.tips && advice.tips.map((tip, idx) => (
+                          <li key={idx}>{tip}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      </Card>
+
+      {/* General Split Tips */}
+      <Card className="p-6 bg-blue-50">
+        <h3 className="text-lg font-semibold mb-3">General Split Conversion Tips</h3>
+        <div className="space-y-2 text-sm">
+          <p>• <strong>Positioning:</strong> Always adjust your starting position to create the best angle to your target pin.</p>
+          <p>• <strong>Ball Speed:</strong> Generally, use medium to firm ball speed for better pin action and deflection.</p>
+          <p>• <strong>Ball Choice:</strong> Use a plastic/spare ball or dead straight reactive ball for most splits.</p>
+          <p>• <strong>Target:</strong> Always pick a specific target pin and commit to hitting it accurately.</p>
+          <p>• <strong>Practice:</strong> Set up split patterns during practice to build muscle memory.</p>
+          <p>• <strong>Mental Game:</strong> Stay positive - even pros miss difficult splits. Focus on technique, not outcome.</p>
+        </div>
+      </Card>
+
+      {/* Pin Numbering Reference */}
+      <Card className="p-6">
+        <h3 className="text-lg font-semibold mb-3">Pin Numbering Reference</h3>
+        <div className="flex justify-center">
+          <div className="text-center">
+            <pre className="font-mono text-sm">
+              {`       1
+      2   3
+    4   5   6
+  7   8   9   10`}
+            </pre>
+            <p className="text-xs text-gray-600 mt-3">Standard bowling pin arrangement (view from approach)</p>
+          </div>
+        </div>
+      </Card>
+    </div>
+  );
+
   if (loading) {
     return (
       <div className="p-6">
@@ -519,8 +581,8 @@ const PinCarryPage = () => {
               <nav className="-mb-px flex space-x-8">
                 {[
                   { key: 'overview', label: 'Overview', icon: '📊' },
-                  { key: 'pin-leaves', label: 'Pin Leaves', icon: '🎳' },
                   { key: 'carry-patterns', label: 'Carry Patterns', icon: '⚡' },
+                  { key: 'splits', label: 'Split Guide', icon: '📖' },
                   { key: 'trends', label: 'Trends', icon: '📈' }
                 ].map((tab) => (
                   <button
@@ -549,8 +611,8 @@ const PinCarryPage = () => {
 
           {/* Tab Content */}
           {activeTab === 'overview' && renderOverview()}
-          {activeTab === 'pin-leaves' && renderPinLeaves()}
           {activeTab === 'carry-patterns' && renderCarryPatterns()}
+          {activeTab === 'splits' && renderSplits()}
           {activeTab === 'trends' && renderTrends()}
         </>
       )}

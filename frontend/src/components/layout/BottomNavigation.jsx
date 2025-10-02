@@ -1,6 +1,6 @@
 import React from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
-import { Home, BarChart3, Users, Target, Settings, User, Shield, LogOut, TrendingUp, Trophy, LineChart, Flame, Zap, Droplets, Wrench, Activity } from 'lucide-react';
+import { Home, BarChart3, Users, Target, Settings, User, Shield, LogOut, TrendingUp, LineChart, Flame, Zap, Droplets, Wrench, Activity } from 'lucide-react';
 import useAuthStore from '../../stores/authStore';
 
 /**
@@ -32,11 +32,6 @@ const BottomNavigation = () => {
       path: '/stats',
       label: 'Stats',
       icon: TrendingUp
-    },
-    {
-      path: '/achievements',
-      label: 'Awards',
-      icon: Trophy
     },
     {
       path: '/friends',

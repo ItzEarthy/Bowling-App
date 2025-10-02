@@ -7,6 +7,7 @@ import BowlingScorecard from './BowlingScorecard';
 import BowlingScoreCalculator from '../../utils/bowlingScoring';
 import { analyzeSplitFromPins, getSplitAdvice } from '../../utils/splitDetection';
 import { ballAPI } from '../../lib/api';
+import { getLocalISOString, getLocalDateString } from '../../utils/dateUtils';
 
 /**
  * Individual Pin Component for Pin Selection
@@ -90,7 +91,7 @@ const PinByPinEntry = ({ onGameComplete, initialData = {} }) => {
   const [gameComplete, setGameComplete] = useState(false);
   const [showScorecard, setShowScorecard] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [gameDate, setGameDate] = useState(initialData.gameDate || new Date().toISOString().split('T')[0]);
+  const [gameDate, setGameDate] = useState(initialData.gameDate || getLocalDateString());
   const [currentSplit, setCurrentSplit] = useState(null);
   const [showSplitAdvice, setShowSplitAdvice] = useState(false);
   const [availableBalls, setAvailableBalls] = useState([]);
@@ -99,6 +100,18 @@ const PinByPinEntry = ({ onGameComplete, initialData = {} }) => {
 
   useEffect(() => {
     loadAvailableBalls();
+  }, []);
+
+  // Listen for frame changes and dismiss split advice popup
+  useEffect(() => {
+    const handleFrameChange = () => {
+      setShowSplitAdvice(false);
+    };
+
+    window.addEventListener('bowlingFrameChanged', handleFrameChange);
+    return () => {
+      window.removeEventListener('bowlingFrameChanged', handleFrameChange);
+    };
   }, []);
 
   const loadAvailableBalls = async () => {
@@ -348,6 +361,8 @@ const PinByPinEntry = ({ onGameComplete, initialData = {} }) => {
 
     // Determine next throw/frame
     const throws = updatedFrames[frameIndex].throws;
+    const prevFrame = currentFrame;
+    const nextFrameChanged = currentFrame < 10 && (throws[0] === 10 || throws.length === 2);
     
     if (currentFrame < 10) {
       // Frames 1-9
@@ -381,6 +396,13 @@ const PinByPinEntry = ({ onGameComplete, initialData = {} }) => {
       } else {
         setCurrentThrow(Math.min(currentThrow + 1, 3));
       }
+    }
+
+    // Dispatch frame changed event to dismiss achievement toasts
+    if (nextFrameChanged || (currentFrame === 10 && prevFrame !== currentFrame)) {
+      window.dispatchEvent(new CustomEvent('bowlingFrameChanged', { 
+        detail: { frame: currentFrame + (nextFrameChanged ? 1 : 0) } 
+      }));
     }
 
     setSelectedPins([]);
@@ -471,7 +493,13 @@ const PinByPinEntry = ({ onGameComplete, initialData = {} }) => {
         totalScore: totalScore,
         frameThrowPins: frameThrowPins, // Include specific pins hit per throw
         frameBalls: frameBalls, // Include ball selections per throw
-        created_at: new Date(gameDate + 'T' + new Date().toTimeString().split(' ')[0]).toISOString()
+        created_at: (() => {
+          // Combine game date with current time, preserving local timezone
+          const [year, month, day] = gameDate.split('-');
+          const now = new Date();
+          const gameDateTime = new Date(year, month - 1, day, now.getHours(), now.getMinutes(), now.getSeconds());
+          return gameDateTime.toISOString();
+        })()
       };
 
       await onGameComplete(gameData);
@@ -658,27 +686,67 @@ const PinByPinEntry = ({ onGameComplete, initialData = {} }) => {
                 </div>
               )}
 
-              {/* Split Alert - Compact */}
+              {/* Split Alert - Enhanced with Full Guide Info */}
               {currentSplit && showSplitAdvice && (
-                <div className="bg-orange-50 border border-orange-200 rounded-lg p-2 mb-3">
+                <div className="bg-orange-50 border-2 border-orange-200 rounded-lg p-3 mb-3">
                   <div className="flex items-start space-x-2 mb-2">
-                    <AlertTriangle className="w-4 h-4 text-orange-600 flex-shrink-0 mt-0.5" />
+                    <AlertTriangle className="w-5 h-5 text-orange-600 flex-shrink-0 mt-0.5" />
                     <div className="flex-1">
                       <h4 className="font-semibold text-orange-900 text-sm">{currentSplit.name}</h4>
-                      <p className="text-xs text-orange-700">
-                        {currentSplit.difficulty.replace('_', ' ')} 
-                        {currentSplit.conversionRate > 0 && ` • ${currentSplit.conversionRate}% conversion`}
+                      <p className="text-xs text-orange-700 mt-1">
+                        {currentSplit.description}
                       </p>
+                      <div className="mt-2 flex items-center space-x-3 text-xs">
+                        <span className="font-semibold">Pins: {currentSplit.pins.join('-')}</span>
+                        <span>•</span>
+                        <span className={`px-2 py-0.5 rounded text-xs font-bold uppercase ${
+                          currentSplit.difficulty === 'easy' || currentSplit.difficulty === 'very_easy' ? 'bg-green-100 text-green-800' :
+                          currentSplit.difficulty === 'medium' ? 'bg-yellow-100 text-yellow-800' :
+                          currentSplit.difficulty === 'hard' ? 'bg-orange-100 text-orange-800' :
+                          'bg-red-100 text-red-800'
+                        }`}>
+                          {currentSplit.difficulty.replace('_', ' ')}
+                        </span>
+                        {currentSplit.conversionRate > 0 && (
+                          <>
+                            <span>•</span>
+                            <span><strong>{currentSplit.conversionRate}%</strong> conversion rate</span>
+                          </>
+                        )}
+                      </div>
                     </div>
                   </div>
-                  <div className="bg-orange-100 rounded p-2">
-                    <p className="text-xs text-orange-800">
-                      <strong>Tip:</strong> {getSplitAdvice(currentSplit)}
-                    </p>
-                  </div>
+                  
+                  {/* Conversion Strategy */}
+                  {(() => {
+                    const advice = getSplitAdvice(currentSplit);
+                    return (
+                      <div className="mt-3 space-y-2 bg-white bg-opacity-70 p-3 rounded border border-orange-200">
+                        <div>
+                          <span className="font-semibold text-xs text-orange-900">🎯 Target Pin:</span>
+                          <span className="ml-2 text-xs text-gray-800">{advice.targetPin}</span>
+                        </div>
+                        <div>
+                          <span className="font-semibold text-xs text-orange-900">📍 Approach:</span>
+                          <p className="text-xs text-gray-800 mt-1">{advice.approach}</p>
+                        </div>
+                        {advice.tips && advice.tips.length > 0 && (
+                          <div>
+                            <span className="font-semibold text-xs text-orange-900">💡 Pro Tips:</span>
+                            <ul className="list-disc list-inside text-xs text-gray-800 mt-1 space-y-0.5 ml-2">
+                              {advice.tips.map((tip, idx) => (
+                                <li key={idx}>{tip}</li>
+                              ))}
+                            </ul>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })()}
+                  
                   <button
                     onClick={() => setShowSplitAdvice(false)}
-                    className="mt-1 text-xs text-orange-600 hover:text-orange-700"
+                    className="mt-2 text-xs text-orange-600 hover:text-orange-800 font-semibold"
                   >
                     Dismiss
                   </button>
@@ -781,7 +849,7 @@ const PinByPinEntry = ({ onGameComplete, initialData = {} }) => {
                 type="date"
                 value={gameDate}
                 onChange={(e) => setGameDate(e.target.value)}
-                max={new Date().toISOString().split('T')[0]}
+                max={getLocalDateString()}
                 className="flex-1"
               />
             </div>

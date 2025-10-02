@@ -73,8 +73,8 @@ const LoginPage = () => {
     <div className="min-h-screen bg-cream-50 flex items-center justify-center p-4">
       <Card className="w-full max-w-md" variant="elevated">
         <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-16 h-16 bg-teal-100 rounded-full mb-4">
-            <LogIn className="w-8 h-8 text-teal-600" />
+          <div className="inline-flex items-center justify-center mb-4">
+            <img src="/PinStats.png" alt="Pin Stats" className="h-20 w-auto" />
           </div>
           <h1 className="text-3xl font-bold text-charcoal-900 font-heading">
             Welcome Back

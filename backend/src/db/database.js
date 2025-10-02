@@ -210,7 +210,7 @@ class DatabaseManager {
     const defaultSettings = [
       {
         key: 'app_name',
-        value: 'Bowling Tracker Pro',
+        value: 'Pin Stats',
         description: 'Application display name'
       },
       {

@@ -1,4 +1,4 @@
-# 🎳 Bowling Tracker
+# 🎳 Pin Stats
 
 A modern, responsive Progressive Web App (PWA) for tracking bowling scores, analyzing performance, and connecting with friends. Built with React, Node.js, and SQLite - completely self-contained with no external dependencies.
 
