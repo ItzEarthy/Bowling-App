@@ -257,52 +257,16 @@ const EnhancedFriendsPage = () => {
             rank: index + 1
           })));
         } catch (adminError) {
-          // If admin API fails, fall back to mock data
-          console.warn('Admin API not available, using mock global leaderboard');
-          const mockLeaderboard = await generateMockLeaderboard();
-          setLeaderboard(mockLeaderboard);
+          // If admin API fails, show empty leaderboard
+          console.warn('Admin API not available, showing empty leaderboard');
+          setLeaderboard([]);
         }
       }
     } catch (err) {
       console.error('Failed to load leaderboard:', err);
-      // Fallback to mock data
-      const mockLeaderboard = await generateMockLeaderboard();
-      setLeaderboard(mockLeaderboard);
+      // Show empty leaderboard on error
+      setLeaderboard([]);
     }
-  };
-
-  const generateMockLeaderboard = async () => {
-    // Generate mock competitive data
-    const users = [
-      { id: 1, username: 'StrikeMaster', displayName: 'Mike Johnson', avatar: null, profile_picture: null },
-      { id: 2, username: 'SpareQueen', displayName: 'Sarah Wilson', avatar: null, profile_picture: null },
-      { id: 3, username: 'PinDestroyer', displayName: 'Alex Chen', avatar: null, profile_picture: null },
-      { id: 4, username: 'BowlingPro', displayName: 'Emma Davis', avatar: null, profile_picture: null },
-      { id: 5, username: 'TenPinKing', displayName: 'David Lee', avatar: null, profile_picture: null },
-      { id: 6, username: 'GutterGuard', displayName: 'Lisa Park', avatar: null, profile_picture: null },
-      { id: 7, username: 'FrameAce', displayName: 'Tom Brown', avatar: null, profile_picture: null },
-      { id: 8, username: 'SplitChamp', displayName: 'Anna White', avatar: null, profile_picture: null }
-    ];
-
-    return users.map((user, index) => {
-      const baseScore = 200 - (index * 15) + Math.random() * 20;
-      return {
-        ...user,
-        rank: index + 1,
-        average: Math.round(baseScore + Math.random() * 10),
-        highScore: Math.round(baseScore + 30 + Math.random() * 40),
-        gamesPlayed: 50 + Math.floor(Math.random() * 100),
-        recentForm: Math.round(baseScore + (Math.random() - 0.5) * 30),
-        totalStrikes: Math.floor((50 + Math.random() * 100) * (baseScore / 200) * 10),
-        totalSpares: Math.floor((50 + Math.random() * 100) * (baseScore / 200) * 8),
-        achievements: Math.floor(Math.random() * 25) + 5,
-        currentStreak: Math.floor(Math.random() * 10),
-        lastActive: new Date(Date.now() - Math.random() * 7 * 24 * 60 * 60 * 1000).toISOString(),
-        isOnline: Math.random() > 0.7,
-        isFriend: index < 4, // First 4 are friends
-        friendshipStatus: index < 4 ? 'friends' : Math.random() > 0.5 ? 'none' : 'sent'
-      };
-    });
   };
 
   const handleSearch = async (query) => {
@@ -313,12 +277,42 @@ const EnhancedFriendsPage = () => {
 
     try {
       setIsSearching(true);
-      // Mock search - in real app would be API call
-      const mockResults = leaderboard.filter(user => 
-        user.username.toLowerCase().includes(query.toLowerCase()) ||
-        user.displayName.toLowerCase().includes(query.toLowerCase())
-      );
-      setSearchResults(mockResults);
+      
+      // Try to get all users from API and filter
+      try {
+        const usersResponse = await userAPI.getAllUsers();
+        const allUsers = usersResponse.data.users || [];
+        
+        // Filter by search query
+        const filteredUsers = allUsers.filter(user => 
+          user.username.toLowerCase().includes(query.toLowerCase()) ||
+          user.display_name.toLowerCase().includes(query.toLowerCase()) ||
+          user.displayName?.toLowerCase().includes(query.toLowerCase())
+        );
+        
+        // Enhance with friendship status
+        const enhancedResults = filteredUsers.map(user => {
+          const isFriend = friends.some(f => f.id === user.id);
+          const hasSentRequest = requests.some(r => r.receiver_id === user.id);
+          
+          return {
+            ...user,
+            displayName: user.display_name || user.displayName,
+            isFriend: isFriend,
+            friendshipStatus: isFriend ? 'friends' : hasSentRequest ? 'sent' : 'none'
+          };
+        });
+        
+        setSearchResults(enhancedResults);
+      } catch (apiError) {
+        // If API fails, fall back to searching leaderboard
+        console.warn('API search failed, searching leaderboard');
+        const mockResults = leaderboard.filter(user => 
+          user.username.toLowerCase().includes(query.toLowerCase()) ||
+          user.displayName.toLowerCase().includes(query.toLowerCase())
+        );
+        setSearchResults(mockResults);
+      }
     } catch (err) {
       setError('Failed to search users');
     } finally {
@@ -526,21 +520,21 @@ const EnhancedFriendsPage = () => {
       {/* Tab Navigation */}
       <Card className="mb-8">
         <CardContent>
-          <div className="flex space-x-1">
+          <div className="flex space-x-1 overflow-x-auto scrollbar-hide pb-2">
             {tabs.map((tab) => {
               const Icon = tab.icon;
               return (
                 <button
                   key={tab.id}
                   onClick={() => setActiveTab(tab.id)}
-                  className={`flex items-center space-x-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                  className={`flex items-center space-x-2 px-3 sm:px-4 py-2 rounded-lg text-xs sm:text-sm font-medium transition-colors whitespace-nowrap flex-shrink-0 ${
                     activeTab === tab.id
                       ? 'bg-blue-500 text-white'
                       : 'text-charcoal-600 hover:bg-gray-100'
                   }`}
                 >
                   <Icon className="w-4 h-4" />
-                  <span>{tab.label}</span>
+                  <span className="hidden xs:inline sm:inline">{tab.label}</span>
                   {tab.count !== null && (
                     <span className={`px-2 py-1 rounded-full text-xs ${
                       activeTab === tab.id 

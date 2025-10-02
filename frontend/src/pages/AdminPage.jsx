@@ -609,72 +609,72 @@ const AdminPage = () => {
       )}
 
       {/* Tab Navigation */}
-      <div className="flex space-x-1 bg-charcoal-100 p-1 rounded-lg mb-6">
+      <div className="flex space-x-1 bg-charcoal-100 p-1 rounded-lg mb-6 overflow-x-auto scrollbar-hide">
         <button
           onClick={() => setActiveTab('overview')}
-          className={`flex-1 py-2 px-4 rounded-md text-sm font-medium transition-all ${
+          className={`flex-shrink-0 py-2 px-3 sm:px-4 rounded-md text-xs sm:text-sm font-medium transition-all whitespace-nowrap ${
             activeTab === 'overview'
               ? 'bg-white text-charcoal-900 shadow-sm'
               : 'text-charcoal-600 hover:text-charcoal-900'
           }`}
         >
-          <BarChart3 className="w-4 h-4 inline mr-2" />
-          Overview
+          <BarChart3 className="w-4 h-4 inline mr-1 sm:mr-2" />
+          <span className="hidden xs:inline">Overview</span>
         </button>
         <button
           onClick={() => setActiveTab('users')}
-          className={`flex-1 py-2 px-4 rounded-md text-sm font-medium transition-all ${
+          className={`flex-shrink-0 py-2 px-3 sm:px-4 rounded-md text-xs sm:text-sm font-medium transition-all whitespace-nowrap ${
             activeTab === 'users'
               ? 'bg-white text-charcoal-900 shadow-sm'
               : 'text-charcoal-600 hover:text-charcoal-900'
           }`}
         >
-          <Users className="w-4 h-4 inline mr-2" />
-          Users
+          <Users className="w-4 h-4 inline mr-1 sm:mr-2" />
+          <span className="hidden xs:inline">Users</span>
         </button>
         <button
           onClick={() => setActiveTab('profile')}
-          className={`flex-1 py-2 px-4 rounded-md text-sm font-medium transition-all ${
+          className={`flex-shrink-0 py-2 px-3 sm:px-4 rounded-md text-xs sm:text-sm font-medium transition-all whitespace-nowrap ${
             activeTab === 'profile'
               ? 'bg-white text-charcoal-900 shadow-sm'
               : 'text-charcoal-600 hover:text-charcoal-900'
           }`}
         >
-          <User className="w-4 h-4 inline mr-2" />
-          My Profile
+          <User className="w-4 h-4 inline mr-1 sm:mr-2" />
+          <span className="hidden xs:inline">Profile</span>
         </button>
         <button
           onClick={() => setActiveTab('games')}
-          className={`flex-1 py-2 px-4 rounded-md text-sm font-medium transition-all ${
+          className={`flex-shrink-0 py-2 px-3 sm:px-4 rounded-md text-xs sm:text-sm font-medium transition-all whitespace-nowrap ${
             activeTab === 'games'
               ? 'bg-white text-charcoal-900 shadow-sm'
               : 'text-charcoal-600 hover:text-charcoal-900'
           }`}
         >
-          <Target className="w-4 h-4 inline mr-2" />
-          Games
+          <Target className="w-4 h-4 inline mr-1 sm:mr-2" />
+          <span className="hidden xs:inline">Games</span>
         </button>
         <button
           onClick={() => setActiveTab('settings')}
-          className={`flex-1 py-2 px-4 rounded-md text-sm font-medium transition-all ${
+          className={`flex-shrink-0 py-2 px-3 sm:px-4 rounded-md text-xs sm:text-sm font-medium transition-all whitespace-nowrap ${
             activeTab === 'settings'
               ? 'bg-white text-charcoal-900 shadow-sm'
               : 'text-charcoal-600 hover:text-charcoal-900'
           }`}
         >
-          <Settings className="w-4 h-4 inline mr-2" />
-          Settings
+          <Settings className="w-4 h-4 inline mr-1 sm:mr-2" />
+          <span className="hidden xs:inline">Settings</span>
         </button>
         <button
           onClick={() => setActiveTab('logs')}
-          className={`flex-1 py-2 px-4 rounded-md text-sm font-medium transition-all ${
+          className={`flex-shrink-0 py-2 px-3 sm:px-4 rounded-md text-xs sm:text-sm font-medium transition-all whitespace-nowrap ${
             activeTab === 'logs'
               ? 'bg-white text-charcoal-900 shadow-sm'
               : 'text-charcoal-600 hover:text-charcoal-900'
           }`}
         >
-          <FileText className="w-4 h-4 inline mr-2" />
-          Logs
+          <FileText className="w-4 h-4 inline mr-1 sm:mr-2" />
+          <span className="hidden xs:inline">Logs</span>
         </button>
       </div>
 

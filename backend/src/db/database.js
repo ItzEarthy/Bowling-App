@@ -10,10 +10,24 @@ const fs = require('fs');
 class DatabaseManager {
   constructor() {
     const dbPath = process.env.DB_PATH || path.join(__dirname, '../../data/bowling.db');
-    this.db = new Database(dbPath);
+    this.db = new Database(dbPath, { 
+      verbose: process.env.NODE_ENV === 'development' ? console.log : null,
+      timeout: 10000 // 10 second timeout for busy database
+    });
     
     // Enable foreign key constraints
     this.db.pragma('foreign_keys = ON');
+    
+    // Enable WAL mode for better concurrency (fixes timeout issues)
+    this.db.pragma('journal_mode = WAL');
+    
+    // Set busy timeout to handle concurrent access
+    this.db.pragma('busy_timeout = 10000');
+    
+    // Optimize performance
+    this.db.pragma('synchronous = NORMAL');
+    this.db.pragma('cache_size = -64000'); // 64MB cache
+    this.db.pragma('temp_store = MEMORY');
     
     this.initSchema();
     this.runMigrations();

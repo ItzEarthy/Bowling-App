@@ -47,7 +47,7 @@ const Modal = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center">
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center pb-28 sm:pb-0">
       {/* Backdrop */}
       <div 
         className="fixed inset-0 bg-black bg-opacity-50 transition-opacity duration-300"
@@ -57,7 +57,7 @@ const Modal = ({
       {/* Modal */}
       <div className={`
         relative bg-white rounded-t-3xl sm:rounded-3xl shadow-retro-lg w-full ${sizes[size]} 
-        mx-0 sm:mx-4 max-h-[90vh] sm:max-h-[85vh] overflow-hidden
+        mx-0 sm:mx-4 max-h-[calc(100vh-140px)] sm:max-h-[85vh] overflow-hidden
         animate-fade-in transform transition-all duration-300
       `}>
         {/* Header */}
@@ -81,7 +81,7 @@ const Modal = ({
         )}
         
         {/* Content */}
-        <div className="p-4 sm:p-6 max-h-[calc(90vh-200px)] overflow-y-auto">
+        <div className="p-4 sm:p-6 overflow-y-auto" style={{ maxHeight: 'calc(100vh - 280px)' }}>
           {children}
         </div>
         
