@@ -25,7 +25,8 @@ services:
       - JWT_SECRET=your-super-secret-jwt-key-change-in-production
       - DB_PATH=/app/data/bowling.db
     volumes:
-      - ./backend:/app
+      # Do not bind-mount the host backend directory into the container in production
+      # (it will overwrite the files created during image build, including package.json).
       - /app/node_modules
       - bowling_data:/app/data
     depends_on:
