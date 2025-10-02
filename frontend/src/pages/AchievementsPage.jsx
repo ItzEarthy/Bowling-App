@@ -14,17 +14,17 @@ import {
   getRarityColor,
   getCategoryColor 
 } from '../data/achievements';
-import { AchievementEngine } from '../utils/achievementEngine';
-import { gameAPI, userAPI } from '../lib/api';
+import { achievementHandler } from '../utils/achievementHandler';
+import { gameAPI } from '../lib/api';
+import useAuthStore from '../stores/authStore';
 
 /**
  * Achievements Page Component
  * Displays all achievements with progress tracking and categories
  */
 const AchievementsPage = () => {
+  const { user } = useAuthStore();
   const [achievements, setAchievements] = useState({});
-  const [userAchievements, setUserAchievements] = useState([]);
-  const [achievementEngine, setAchievementEngine] = useState(null);
   const [selectedCategory, setSelectedCategory] = useState('all');
   const [selectedRarity, setSelectedRarity] = useState('all');
   const [selectedStatus, setSelectedStatus] = useState('all');
@@ -35,37 +35,45 @@ const AchievementsPage = () => {
 
   useEffect(() => {
     loadAchievementData();
-  }, []);
+
+    // Listen for achievement updates
+    const handleAchievementUpdate = () => {
+      loadAchievementData();
+    };
+
+    window.addEventListener('achievementEarned', handleAchievementUpdate);
+    return () => window.removeEventListener('achievementEarned', handleAchievementUpdate);
+  }, [user]);
 
   const loadAchievementData = async () => {
     try {
       setIsLoading(true);
-      
-      // Load user achievements and stats
-      const [achievementsResponse, gamesResponse] = await Promise.all([
-        userAPI.getAchievements().catch(() => ({ data: { achievements: [] } })),
-        gameAPI.getGames(1, 1000).catch(() => ({ data: { games: [] } }))
-      ]);
 
-      const userAchievements = achievementsResponse.data.achievements || [];
+      // Ensure achievement handler is initialized
+      if (user?.id) {
+        await achievementHandler.initialize(user.id);
+      }
+
+      // Load games and process them to ensure stats are up to date
+      const gamesResponse = await gameAPI.getGames(1, 1000).catch(() => ({ data: { games: [] } }));
       const games = gamesResponse.data.games || [];
 
-      // Initialize achievement engine
-      const engine = new AchievementEngine();
-      
-      // Calculate user stats from games
-      const userStats = calculateUserStats(games);
-      const streaks = calculateStreaks(games);
-      
-      engine.setUserData(userAchievements, userStats, streaks);
-      
+      // Process all games through achievement handler if needed
+      if (games.length > 0) {
+        for (const game of games) {
+          // Only process complete games
+          if (game.is_complete) {
+            await achievementHandler.processGame(game);
+          }
+        }
+      }
+
       // Get achievements by category with progress
-      const categorizedAchievements = engine.getAchievementsByCategory();
+      const categorizedAchievements = achievementHandler.getAchievementsByCategory();
+      const achievementStats = achievementHandler.getStats();
       
       setAchievements(categorizedAchievements);
-      setUserAchievements(userAchievements);
-      setAchievementEngine(engine);
-      setStats(engine.getAchievementSummary());
+      setStats(achievementStats);
 
     } catch (error) {
       console.error('Failed to load achievement data:', error);
@@ -74,34 +82,6 @@ const AchievementsPage = () => {
     }
   };
 
-  const calculateUserStats = (games) => {
-    return games.reduce((stats, game) => {
-      stats.gamesPlayed = (stats.gamesPlayed || 0) + 1;
-      stats.totalScore = (stats.totalScore || 0) + (game.total_score || 0);
-      stats.totalStrikes = (stats.totalStrikes || 0) + (game.strikes || 0);
-      stats.totalSpares = (stats.totalSpares || 0) + (game.spares || 0);
-      
-      if (!stats.highScore || game.total_score > stats.highScore) {
-        stats.highScore = game.total_score;
-      }
-      
-      if (game.total_score === 300) {
-        stats.perfectGames = (stats.perfectGames || 0) + 1;
-      }
-      
-      return stats;
-    }, {});
-  };
-
-  const calculateStreaks = (games) => {
-    // Calculate various streaks from game history
-    return {
-      strikeStreak: 0,
-      spareStreak: 0,
-      improvingGameStreak: 0,
-      dailyStreak: 0
-    };
-  };
 
   const openAchievementModal = (achievement) => {
     setSelectedAchievement(achievement);

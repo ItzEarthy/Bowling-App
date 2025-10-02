@@ -2,6 +2,8 @@ import React, { useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import useAuthStore from './stores/authStore';
 import ErrorBoundary from './components/ui/ErrorBoundary';
+import { AchievementToastContainer } from './components/ui/AchievementToast';
+import { achievementHandler } from './utils/achievementHandler';
 
 // Layout Components
 import Layout from './components/layout/Layout';
@@ -42,16 +44,39 @@ const PublicRoute = ({ children }) => {
 
 function App() {
   const initialize = useAuthStore((state) => state.initialize);
+  const user = useAuthStore((state) => state.user);
 
   // Initialize auth state from localStorage on app start
   useEffect(() => {
     initialize();
   }, [initialize]);
 
+  // Initialize achievement handler when user is loaded
+  useEffect(() => {
+    if (user?.id) {
+      achievementHandler.initialize(user.id).then(() => {
+        console.log('Achievement handler initialized for user:', user.id);
+      });
+    }
+  }, [user]);
+
+  // Setup achievement listener to trigger toast notifications
+  useEffect(() => {
+    const removeListener = achievementHandler.addListener((newAchievements) => {
+      // Dispatch custom event for toast container
+      window.dispatchEvent(new CustomEvent('achievementEarned', {
+        detail: { achievements: newAchievements }
+      }));
+    });
+
+    return removeListener;
+  }, []);
+
   return (
     <Router>
       <ErrorBoundary>
         <div className="min-h-screen bg-cream-50">
+          <AchievementToastContainer />
           <Routes>
           {/* Public Routes */}
           <Route 

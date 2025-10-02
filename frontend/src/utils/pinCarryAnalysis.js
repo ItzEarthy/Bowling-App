@@ -93,6 +93,89 @@ export class PinCarryAnalyzer {
     return this.carryData[userId];
   }
 
+  // Record first ball data
+  recordFirstBall(userId, ballData) {
+    const userData = this.initializeCarryTracking(userId);
+    
+    userData.total_first_balls++;
+
+    // Track strike
+    if (ballData.isStrike) {
+      userData.total_strikes++;
+    }
+
+    // Update carry percentage
+    userData.carry_percentage = (userData.total_strikes / userData.total_first_balls) * 100;
+
+    // Analyze first ball carry
+    const carryInfo = this.analyzeFirstBallCarry(ballData.pinsKnocked, {
+      pins_hit: ballData.pinsHit,
+      remaining_pins: ballData.remainingPins
+    });
+
+    // Track carry patterns
+    if (carryInfo.pattern) {
+      userData.carry_patterns[carryInfo.pattern] = 
+        (userData.carry_patterns[carryInfo.pattern] || 0) + 1;
+    }
+
+    this.saveCarryData();
+    
+    return carryInfo;
+  }
+
+  // Record second ball data
+  recordSecondBall(userId, ballData) {
+    const userData = this.initializeCarryTracking(userId);
+
+    // Track spare or open
+    if (ballData.isSpare) {
+      userData.total_spares++;
+      // Track the leave pattern that was converted
+      const leavePattern = this.identifyLeavePatternFromPins(ballData.leavePattern);
+      if (leavePattern) {
+        userData.pin_leave_frequency[leavePattern] = 
+          (userData.pin_leave_frequency[leavePattern] || 0) + 1;
+      }
+    } else {
+      userData.total_opens++;
+      // Track missed spare pattern
+      const leavePattern = this.identifyLeavePatternFromPins(ballData.leavePattern);
+      if (leavePattern) {
+        const missedPattern = `missed_${leavePattern}`;
+        userData.pin_leave_frequency[missedPattern] = 
+          (userData.pin_leave_frequency[missedPattern] || 0) + 1;
+      }
+    }
+
+    this.saveCarryData();
+  }
+
+  // Identify leave pattern from actual pin numbers
+  identifyLeavePatternFromPins(pinsHit) {
+    if (!pinsHit || pinsHit.length === 0) return null;
+
+    const remainingPins = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10].filter(p => !pinsHit.includes(p));
+    
+    if (remainingPins.length === 0) return null;
+    if (remainingPins.length === 1) {
+      return remainingPins[0].toString();
+    }
+    
+    // Sort pins for consistent pattern matching
+    const sortedPins = remainingPins.sort((a, b) => a - b).join('-');
+    
+    // Check if it matches known patterns
+    for (const category of Object.values(this.pinPatterns)) {
+      if (category[sortedPins]) {
+        return sortedPins;
+      }
+    }
+    
+    // Return the pin pattern even if not in our database
+    return sortedPins;
+  }
+
   // Analyze a single frame for pin carry
   analyzeFrame(userId, frameData) {
     const userData = this.initializeCarryTracking(userId);

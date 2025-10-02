@@ -126,6 +126,19 @@ class DatabaseManager {
       )
     `);
 
+    // User achievements table
+    this.db.exec(`
+      CREATE TABLE IF NOT EXISTS user_achievements (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id INTEGER NOT NULL,
+        achievement_id TEXT NOT NULL,
+        date_earned TEXT DEFAULT CURRENT_TIMESTAMP,
+        progress INTEGER DEFAULT 100,
+        UNIQUE(user_id, achievement_id),
+        FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE
+      )
+    `);
+
     // Create indexes for better performance
     this.createIndexes();
   }
@@ -147,7 +160,9 @@ class DatabaseManager {
       'CREATE INDEX IF NOT EXISTS idx_friends_status ON friends(status)',
       'CREATE INDEX IF NOT EXISTS idx_admin_settings_key ON admin_settings(setting_key)',
       'CREATE INDEX IF NOT EXISTS idx_system_logs_user_id ON system_logs(user_id)',
-      'CREATE INDEX IF NOT EXISTS idx_system_logs_created_at ON system_logs(created_at)'
+      'CREATE INDEX IF NOT EXISTS idx_system_logs_created_at ON system_logs(created_at)',
+      'CREATE INDEX IF NOT EXISTS idx_user_achievements_user_id ON user_achievements(user_id)',
+      'CREATE INDEX IF NOT EXISTS idx_user_achievements_achievement_id ON user_achievements(achievement_id)'
     ];
 
     indexes.forEach(indexSQL => {

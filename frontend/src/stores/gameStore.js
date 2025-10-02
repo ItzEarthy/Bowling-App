@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import BowlingScoreCalculator from '../utils/bowlingScoring';
 import { streakTracker } from '../utils/streakTracker';
-import { AchievementEngine } from '../utils/achievementEngine';
+import { achievementHandler } from '../utils/achievementHandler';
 
 /**
  * Game store for managing current game state
@@ -327,51 +327,43 @@ const useGameStore = create((set, get) => ({
     if (!game || !game.is_complete) return null;
 
     try {
-      // Load previous games for context
-      const storedGames = localStorage.getItem('bowling-games');
-      const previousGames = storedGames ? JSON.parse(storedGames) : [];
+      // Calculate game stats
+      const stats = get().getGameStats();
+      const gameWithStats = {
+        ...game,
+        strikes: stats.strikes,
+        spares: stats.spares,
+        opens: stats.opens
+      };
+
+      // Process achievements using the achievement handler
+      const achievementResult = await achievementHandler.processGame(gameWithStats);
 
       // Process streaks
+      const storedGames = localStorage.getItem('bowling-games');
+      const previousGames = storedGames ? JSON.parse(storedGames) : [];
       const streakResult = streakTracker.processGame({
-        ...game,
+        ...gameWithStats,
         previous_games: previousGames
       });
 
-      // Process achievements
-      const achievementEngine = new AchievementEngine();
-      const user = JSON.parse(localStorage.getItem('auth-user') || '{}');
-      achievementEngine.setUserData(user, [...previousGames, game]);
-      const achievementResult = achievementEngine.processGame(game);
-
-      // Store notifications
+      // Combine notifications
       const allNotifications = [
-        ...(streakResult.notifications || []),
-        ...(achievementResult.newAchievements || []).map(achievement => ({
-          id: Date.now() + Math.random(),
-          type: 'achievement',
-          message: `🏆 Achievement Unlocked: ${achievement.title}`,
-          achievement,
-          timestamp: new Date().toISOString()
-        }))
+        ...(streakResult.notifications || [])
       ];
 
-      if (allNotifications.length > 0) {
+      if (streakResult.notifications && streakResult.notifications.length > 0) {
         // Store streak notifications
         const existingStreakNotifications = JSON.parse(localStorage.getItem('streak-notifications') || '[]');
         const updatedStreakNotifications = [...existingStreakNotifications, ...streakResult.notifications];
         localStorage.setItem('streak-notifications', JSON.stringify(updatedStreakNotifications));
-
-        // Store achievement notifications
-        const existingAchievementNotifications = JSON.parse(localStorage.getItem('achievement-notifications') || '[]');
-        const achievementNotifications = allNotifications.filter(n => n.type === 'achievement');
-        const updatedAchievementNotifications = [...existingAchievementNotifications, ...achievementNotifications];
-        localStorage.setItem('achievement-notifications', JSON.stringify(updatedAchievementNotifications));
       }
 
       return {
         streaks: streakResult.streaks,
-        achievements: achievementResult.newAchievements,
-        notifications: allNotifications
+        achievements: achievementResult.newAchievements || [],
+        notifications: allNotifications,
+        achievementSuccess: achievementResult.success
       };
     } catch (error) {
       console.error('Failed to process completed game:', error);

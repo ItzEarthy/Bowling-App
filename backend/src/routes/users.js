@@ -297,13 +297,68 @@ router.get('/search', authenticateToken, validateRequest(searchUsersSchema), (re
 /**
  * GET /api/users/me/achievements
  * Get current user's achievements
- * For now, returns empty array until achievement system is implemented
  */
 router.get('/me/achievements', authenticateToken, (req, res, next) => {
   try {
-    // Placeholder - return empty achievements until backend system is implemented
+    const userId = req.user.userId;
+    
+    // Get all user achievements
+    const achievements = global.db.prepare(`
+      SELECT achievement_id, date_earned, progress
+      FROM user_achievements
+      WHERE user_id = ?
+      ORDER BY date_earned DESC
+    `).all(userId);
+
     res.json({
-      achievements: []
+      achievements: achievements.map(a => ({
+        achievement_id: a.achievement_id,
+        date_earned: a.date_earned,
+        progress: a.progress
+      }))
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+/**
+ * POST /api/users/me/achievements
+ * Save a new achievement for the current user
+ */
+router.post('/me/achievements', authenticateToken, (req, res, next) => {
+  try {
+    const userId = req.user.userId;
+    const { achievement_id, date_earned } = req.body;
+
+    if (!achievement_id) {
+      return res.status(400).json({ error: 'achievement_id is required' });
+    }
+
+    // Check if achievement already exists
+    const existing = global.db.prepare(`
+      SELECT id FROM user_achievements
+      WHERE user_id = ? AND achievement_id = ?
+    `).get(userId, achievement_id);
+
+    if (existing) {
+      return res.status(400).json({ error: 'Achievement already earned' });
+    }
+
+    // Insert new achievement
+    const result = global.db.prepare(`
+      INSERT INTO user_achievements (user_id, achievement_id, date_earned, progress)
+      VALUES (?, ?, ?, 100)
+    `).run(userId, achievement_id, date_earned || new Date().toISOString());
+
+    res.json({
+      message: 'Achievement saved successfully',
+      achievement: {
+        id: result.lastInsertRowid,
+        achievement_id,
+        date_earned: date_earned || new Date().toISOString(),
+        progress: 100
+      }
     });
   } catch (error) {
     next(error);
