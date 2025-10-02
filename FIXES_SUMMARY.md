@@ -330,3 +330,98 @@ if (error.response?.status === 401 ||
 -  No redirect loops
 -  Cleaner user experience when session expires
 
+
+---
+
+## Issue 5: Update System Not Working
+
+### Problem
+- The auto-update system wasn't working at all
+- Custom registerSW.js was conflicting with vite-plugin-pwa
+- Service worker registration was failing silently
+- Updates from Portainer deployments weren't being detected
+
+### Root Cause
+**Two conflicting systems:**
+1. **vite-plugin-pwa** with `registerType: 'autoUpdate'` - automatically generates and registers SW
+2. **Custom registerSW.js** - trying to manually register `/sw.js`  
+
+The custom registration was trying to register a file that didn't exist (`/sw.js`) because vite-plugin-pwa generates its own service worker file with a different name/structure.
+
+### Solution Applied
+
+#### 1. Fixed vite.config.js
+**File:** `frontend/vite.config.js`
+
+Added proper configuration for vite-plugin-pwa:
+```javascript
+VitePWA({
+  registerType: 'autoUpdate',  // Automatic registration & updates
+  includeAssets: ['PinStats.png'],
+  injectRegister: 'auto',      // Let plugin handle registration
+  workbox: {
+    globPatterns: ['**/*.{js,css,html,ico,png,svg}'],
+    cleanupOutdatedCaches: true,
+    skipWaiting: true,          // Activate new SW immediately
+    clientsClaim: true,         // Take control immediately
+    navigateFallback: null      // Don't cache navigation
+  }
+})
+```n
+#### 2. Changed registerSW.js Strategy
+**File:** `frontend/src/registerSW.js`
+
+Changed from trying to register SW manually to **enhancing** the vite-plugin-pwa registration:
+
+**Before (Broken):**
+```javascript
+navigator.serviceWorker.register('/sw.js')  // File doesn't exist!
+```n
+**After (Working):**
+```javascript
+// Get the registration created by vite-plugin-pwa
+const registration = await navigator.serviceWorker.getRegistration();
+
+// Enhance it with 30-second update checks
+setInterval(() => {
+  registration.update();
+}, 30000);
+```n
+#### 3. Updated main.jsx
+**File:** `frontend/src/main.jsx`
+
+Changed from `registerSW()` to `setupUpdateChecker()`:
+```javascript
+import { setupUpdateChecker } from './registerSW'
+
+// Vite PWA plugin registers SW automatically
+// We just enhance it with aggressive update checking
+setupUpdateChecker()
+```n
+### How It Works Now
+
+1. **Build Time:**
+   - vite-plugin-pwa generates service worker during build
+   - Service worker includes precache manifest with hashed filenames
+   - Plugin injects registration code into built HTML
+
+2. **Runtime:**
+   - Browser automatically loads and registers SW (via plugin)
+   - `setupUpdateChecker()` finds the registration
+   - Starts 30-second interval checking for updates
+   - When update detected  shows notification  auto-reload
+
+3. **Portainer Deploy:**
+   - You deploy new version via Portainer
+   - New build has different file hashes
+   - Within 30 seconds, clients detect new SW
+   - Auto-update happens seamlessly
+
+### Result
+-  Service worker properly registered by vite-plugin-pwa
+-  30-second update checks working
+-  Updates detected automatically
+-  Auto-reload with notification
+-  `skipWaiting` and `clientsClaim` ensure instant updates
+-  No conflicts between registration systems
+

@@ -1,24 +1,36 @@
-﻿// Service Worker Registration with Aggressive Auto-Update
+﻿// Enhanced Service Worker update checking
+// This works WITH vite-plugin-pwa's auto-registration
+// to provide more aggressive update detection for Portainer deployments
 
-export function registerSW() {
+export function setupUpdateChecker() {
   if ('serviceWorker' in navigator) {
-    window.addEventListener('load', () => {
-      navigator.serviceWorker
-        .register('/sw.js', { scope: '/' })
-        .then((registration) => {
-          console.log('✅ Service Worker registered successfully');
+    // Wait for page load
+    window.addEventListener('load', async () => {
+      try {
+        // Get the registration created by vite-plugin-pwa
+        const registration = await navigator.serviceWorker.getRegistration();
+        
+        if (!registration) {
+          console.log('⚠️ No service worker registration found');
+          return;
+        }
 
-          // Check for updates every 30 seconds (more aggressive)
-          setInterval(() => {
-            console.log('🔄 Checking for updates...');
-            registration.update();
-          }, 30000);
+        console.log('✅ Service Worker found, setting up update checker');
 
-          // Listen for updates
-          registration.addEventListener('updatefound', () => {
-            const newWorker = registration.installing;
-            console.log('🆕 New version found, installing...');
+        // Check for updates every 30 seconds
+        setInterval(() => {
+          console.log('🔄 Checking for updates...');
+          registration.update().catch(err => {
+            console.warn('Update check failed:', err);
+          });
+        }, 30000);
 
+        // Listen for updates
+        registration.addEventListener('updatefound', () => {
+          const newWorker = registration.installing;
+          console.log('🆕 New version found, installing...');
+
+          if (newWorker) {
             newWorker.addEventListener('statechange', () => {
               if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
                 console.log('✨ New version installed! Auto-reloading in 3 seconds...');
@@ -33,18 +45,21 @@ export function registerSW() {
                 }, 3000);
               }
             });
-          });
-        })
-        .catch((error) => {
-          console.error('❌ Service Worker registration failed:', error);
+          }
         });
 
-      // Handle controller change (new SW taking over)
-      navigator.serviceWorker.addEventListener('controllerchange', () => {
-        console.log('🔄 Service Worker updated, reloading page...');
-        window.location.reload();
-      });
+        // Handle controller change (when skipWaiting is used)
+        navigator.serviceWorker.addEventListener('controllerchange', () => {
+          console.log('🔄 Service Worker controller changed');
+          // Don't reload here as it might cause double reload
+        });
+
+      } catch (error) {
+        console.error('❌ Error setting up update checker:', error);
+      }
     });
+  } else {
+    console.log('ℹ️ Service Workers not supported in this browser');
   }
 }
 
@@ -102,9 +117,4 @@ export async function checkForUpdates() {
       await registration.update();
     }
   }
-}
-
-// Check for updates immediately on load
-if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
-  navigator.serviceWorker.controller.postMessage({ type: 'CHECK_UPDATE' });
 }

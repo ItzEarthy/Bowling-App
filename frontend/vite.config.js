@@ -8,6 +8,30 @@ export default defineConfig({
     VitePWA({
       registerType: 'autoUpdate',
       includeAssets: ['PinStats.png'],
+      injectRegister: 'auto',
+      workbox: {
+        globPatterns: ['**/*.{js,css,html,ico,png,svg}'],
+        cleanupOutdatedCaches: true,
+        skipWaiting: true,
+        clientsClaim: true,
+        // More aggressive update checking
+        navigateFallback: null,
+        runtimeCaching: [
+          {
+            // Cache API requests with NetworkFirst strategy
+            urlPattern: /^https?:.*\/api\/.*/,
+            handler: 'NetworkFirst',
+            options: {
+              cacheName: 'api-cache',
+              expiration: {
+                maxEntries: 100,
+                maxAgeSeconds: 300 // 5 minutes
+              },
+              networkTimeoutSeconds: 10
+            }
+          }
+        ]
+      },
       manifest: {
         name: 'Pin Stats',
         short_name: 'PinStats',
