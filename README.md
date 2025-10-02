@@ -191,8 +191,58 @@ PORT=5000
 
 #### Frontend (.env)
 ```bash
-VITE_API_URL=http://localhost:5000/api
+VITE_API_BASE_URL=http://localhost:5000/api
 ```
+
+### Deployment / Cloudflare tunnel notes
+
+- Frontend should talk to the backend using a configurable base URL. Set `VITE_API_BASE_URL` in the frontend environment to an absolute URL (including scheme) when you proxy or tunnel the app (for example: `https://api.example.com/api`). If omitted, the frontend will use a same-origin `/api` path which is usually the correct choice when serving frontend and backend under the same host or through a reverse-proxy/tunnel.
+
+- Backend CORS can be configured with `CORS_ORIGINS` (comma-separated) or `CORS_ORIGIN`. Example:
+
+```bash
+CORS_ORIGINS=https://bowl.example.com,https://dashboard.example.com
+# or allow any origin (careful in production):
+CORS_ORIGINS=*
+```
+
+### Debugging a 403 on /manifest.json or other static assets
+
+If you see browser errors like "Failed to load resource: the server responded with a status of 403" for `/manifest.json` or requests timing out through your Cloudflare tunnel, try the following checks:
+
+1. Check the container logs for the frontend and any proxy (Cloudflared, Traefik, nginx) to see why the request was rejected.
+
+2. From your local machine or inside the host/container, curl the manifest with the Host header matching your public hostname to reproduce the request as the browser does:
+
+```powershell
+# replace bowl.example.com with your tunnel hostname
+curl -v -H "Host: bowl.example.com" https://bowl.example.com/manifest.json
+```
+
+3. If curl returns 403 but the file exists in the container's `frontend/dist` or `public` folder, verify your reverse-proxy is forwarding the request to the correct service and not blocking static files by path.
+
+4. Confirm that any security middleware (CSP, auth middleware, custom route guards) isn't intercepting requests for the manifest or static assets. In this repo, `backend/src/app.js` configures helmet's CSP — ensure your proxy and hostnames are covered by CSP if you host assets elsewhere.
+
+5. Browser caching and service worker interference: unregister the service worker from the Application tab in DevTools and reload (or open an incognito window) to ensure old service worker behavior isn't causing 403s.
+
+6. Timeouts (Axios): if frontend requests to the API time out (ECONNABORTED), make sure the frontend is calling the correct base URL (see `VITE_API_BASE_URL`) and that Cloudflare tunnel or reverse-proxy routes requests to the backend port. Prefer using same-origin `/api` path and let the proxy handle routing.
+
+7. If you're using Cloudflare Access or other auth on the tunnel, ensure that public static assets are allowed or that the tunnel is configured to bypass access checks for those paths.
+
+8. Useful quick checks:
+
+```powershell
+# Check that frontend container serves index.html
+curl -v https://bowl.example.com/
+
+# Check manifest (includes Host header if needed)
+curl -v -H "Host: bowl.example.com" https://bowl.example.com/manifest.json
+
+# Check backend health endpoint (adjust hostname/path if proxied)
+curl -v https://bowl.example.com/api/health
+```
+
+If you want, share the Cloudflare tunnel/reverse-proxy configuration (without secrets) and I can suggest specific tweaks.
 
 ### Docker Environment
 The Docker Compose configuration handles environment variables automatically for development. For production, update the `docker-compose.yml` with your specific values.

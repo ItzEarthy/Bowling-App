@@ -1,8 +1,25 @@
 import axios from 'axios';
 
 // Create axios instance with base configuration
+// Prefer an explicit environment-provided API base URL (Vite: VITE_API_BASE_URL).
+// Fallback to a relative `/api` so requests go through the same origin (works with tunnels/proxies).
+const getBaseURL = () => {
+  // Vite exposes env vars prefixed with VITE_ via import.meta.env
+  if (typeof import.meta !== 'undefined' && import.meta.env && import.meta.env.VITE_API_BASE_URL) {
+    return import.meta.env.VITE_API_BASE_URL;
+  }
+
+  // If running in a browser, prefer same-origin relative API path.
+  if (typeof window !== 'undefined') {
+    return `${window.location.protocol}//${window.location.host}/api`;
+  }
+
+  // Default for server-side or dev tooling
+  return 'http://localhost:8032/api';
+};
+
 const api = axios.create({
-  baseURL: (typeof window !== 'undefined' ? `${window.location.protocol}//${window.location.hostname}:8032/api` : 'http://localhost:8032/api'),
+  baseURL: getBaseURL(),
   timeout: 10000,
   headers: {
     'Content-Type': 'application/json',

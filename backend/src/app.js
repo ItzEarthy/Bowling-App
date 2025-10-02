@@ -31,11 +31,38 @@ app.use(helmet({
 }));
 
 // CORS configuration
-const corsOrigin = process.env.CORS_ORIGIN || process.env.FRONTEND_URL || 'http://localhost:8031';
-app.use(cors({
-  origin: corsOrigin === '*' ? true : corsOrigin,
-  credentials: true
-}));
+// Allow configuring multiple allowed origins via CORS_ORIGINS (comma-separated) or a single CORS_ORIGIN.
+// If not provided, allow same-origin requests by default (useful when frontend is proxied through the same host).
+const rawCorsOrigins = process.env.CORS_ORIGINS || process.env.CORS_ORIGIN || process.env.FRONTEND_URL || '';
+let allowedOrigins = null;
+if (rawCorsOrigins) {
+  // Support comma-separated list
+  allowedOrigins = rawCorsOrigins.split(',').map(s => s.trim()).filter(Boolean);
+}
+
+const corsOptions = {
+  origin: (origin, callback) => {
+    // Allow requests with no origin (e.g., server-to-server, curl, or same-origin)
+    if (!origin) return callback(null, true);
+
+    // If allowedOrigins not configured, allow same-origin only
+    if (!allowedOrigins) {
+      return callback(null, false);
+    }
+
+    // If wildcard present, allow any origin
+    if (allowedOrigins.includes('*')) return callback(null, true);
+
+    // Allow if origin matches one of the configured origins
+    if (allowedOrigins.includes(origin)) return callback(null, true);
+
+    // Not allowed
+    return callback(new Error('Not allowed by CORS'), false);
+  },
+  credentials: true,
+};
+
+app.use(cors(corsOptions));
 
 // Body parsing middleware
 app.use(express.json({ limit: '10mb' }));
