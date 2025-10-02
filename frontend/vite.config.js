@@ -8,6 +8,40 @@ export default defineConfig({
     VitePWA({
       registerType: 'autoUpdate',
       includeAssets: ['favicon.ico', 'apple-touch-icon.png', 'masked-icon.svg', 'PinStats.png', '_redirects'],
+      manifest: {
+        name: 'Pin Stats',
+        short_name: 'PinStats',
+        description: 'Track your bowling scores and analyze your game',
+        theme_color: '#14B8A6',
+        background_color: '#FDFBF5',
+        display: 'standalone',
+        orientation: 'portrait',
+        scope: '/',
+        start_url: '/',
+        icons: [
+          {
+            src: '/PinStats.png',
+            sizes: '192x192',
+            type: 'image/png',
+            purpose: 'any'
+          },
+          {
+            src: '/PinStats.png',
+            sizes: '512x512',
+            type: 'image/png',
+            purpose: 'any'
+          },
+          {
+            src: '/PinStats.png',
+            sizes: '512x512',
+            type: 'image/png',
+            purpose: 'maskable'
+          }
+        ],
+        categories: ['sports', 'lifestyle', 'social'],
+        lang: 'en',
+        dir: 'ltr'
+      },
       workbox: {
         globPatterns: ['**/*.{js,css,html,ico,png,svg}'],
         runtimeCaching: [
