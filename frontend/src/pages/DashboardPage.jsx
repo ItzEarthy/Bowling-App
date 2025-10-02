@@ -133,7 +133,7 @@ const DashboardPage = () => {
   return (
     <div>
       <PageHeader 
-        title={`Welcomes back, ${user?.displayName || user?.username}`}
+        title={`Welcome back, ${user?.displayName || user?.username}`}
         subtitle="Ready to improve your game?"
         action={
           <Button onClick={handleStartNewGame} variant="primary" size="lg">
