@@ -1,22 +1,20 @@
-FROM node:18-alpine
-
+# Stage 1: Build with Vite
+FROM node:18 AS builder
 WORKDIR /app
-
-# Copy package files
-COPY package*.json ./
-
-# Install dependencies
-RUN npm ci
-
-# Copy source code
 COPY . .
-
-# Build the app
+RUN npm install
 RUN npm run build
 
-# Use serve to serve the built app
-RUN npm install -g serve
+# Stage 2: Serve with nginx
+FROM nginx:alpine
 
-EXPOSE 3000
+# Copy frontend files to nginx
+COPY --from=builder /app/dist /usr/share/nginx/html
 
-CMD ["serve", "-s", "dist", "-l", "3000"]
+COPY nginx.conf /etc/nginx/conf.d/default.conf
+
+# Fix permissions
+RUN chmod -R 755 /usr/share/nginx/html
+
+EXPOSE 80
+CMD ["nginx", "-g", "daemon off;"]

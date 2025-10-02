@@ -1,3 +1,4 @@
+const express = require('express');
 const app = require('./app');
 const DatabaseManager = require('./db/database');
 
@@ -9,8 +10,12 @@ global.db = dbManager.getDatabase();
 
 const PORT = process.env.PORT || 5000;
 
-const server = app.listen(PORT, () => {
-  console.log(`🎳 Bowling Tracker API Server running on port ${PORT}`);
+// Create main app and mount routes at /api
+const mainApp = express();
+mainApp.use('/api', app);
+
+const server = mainApp.listen(PORT, '0.0.0.0', () => {
+  console.log(`🎳 Bowling Tracker API Server running on 0.0.0.0:${PORT}`);
   console.log(`📊 Database initialized at: ${process.env.DB_PATH || 'data/bowling.db'}`);
   console.log(`🌍 Environment: ${process.env.NODE_ENV || 'development'}`);
 });

@@ -1,50 +1,23 @@
 import axios from 'axios';
 
 /**
- * Determine the API base URL based on environment
- * 
- * Priority:
- * 1. VITE_API_BASE_URL environment variable (for Cloudflare Pages, Netlify, etc.)
- * 2. Production: Use /api (assumes reverse proxy or Cloudflare Worker handles routing)
- * 3. Development: Use localhost:8032/api
+ * API client for Bowling App
+ * Uses relative /api path which is:
+ * - Proxied by Vite dev server to localhost:5000 in development
+ * - Proxied by nginx to backend:5000 in production
  */
-const getApiBaseUrl = () => {
-  // Check for environment variable first (highest priority)
-  if (import.meta.env.VITE_API_BASE_URL) {
-    return import.meta.env.VITE_API_BASE_URL;
-  }
-  
-  // Server-side rendering fallback
-  if (typeof window === 'undefined') {
-    return 'http://localhost:8032/api';
-  }
-  
-  // Production: Use relative path /api
-  // This works with:
-  // - Reverse proxy (Nginx/Traefik) routing /api to backend
-  // - Cloudflare Workers proxying /api requests
-  // - _redirects file handling /api routing
-  if (window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1') {
-    return '/api';
-  }
-  
-  // Development: Use localhost with backend port
-  return `${window.location.protocol}//${window.location.hostname}:8032/api`;
-};
 
 // Create axios instance with base configuration
 const api = axios.create({
-  baseURL: getApiBaseUrl(),
-  timeout: 10000,
+  baseURL: '/api',
+  timeout: 30000,
   headers: {
     'Content-Type': 'application/json',
   },
 });
 
-// Log the API base URL in development for debugging
-if (import.meta.env.DEV) {
-  console.log('API Base URL:', api.defaults.baseURL);
-}
+// Log the API base URL for debugging
+console.log('API Base URL:', api.defaults.baseURL);
 
 // Request interceptor to add auth token
 api.interceptors.request.use(

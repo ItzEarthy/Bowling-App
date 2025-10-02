@@ -1,46 +1,19 @@
-version: '3.8'
-
 services:
-  frontend:
-    build:
-      context: ./frontend
-      dockerfile: Dockerfile
+  backend:
+    build: ./backend
     ports:
-      - "8031:3000"
+      - "5000:5000"
+    environment:
+      - JWT_SECRET=your-secret-jwt-key-change-in-production
+      - DB_PATH=/app/data/bowling.db
+    volumes:
+      - ./backend/data:/app/data
+    restart: unless-stopped
+
+  frontend:
+    build: ./frontend
+    ports:
+      - "8031:80"
     depends_on:
       - backend
-    volumes:
-      - /app/node_modules
-
-  backend:
-    build:
-      context: ./backend
-      dockerfile: Dockerfile
-    ports:
-      - "8032:5000"
-    environment:
-      - NODE_ENV=development
-      - JWT_SECRET=your-super-secret-jwt-key-change-in-production
-      - DB_PATH=/app/data/bowling.db
-      - CORS_ORIGIN=*
-    volumes:
-      # Do not bind-mount the host backend directory into the container in production
-      # (it will overwrite the files created during image build, including package.json).
-      - /app/node_modules
-      - bowling_data:/app/data
-    depends_on:
-      - db-init
-
-  db-init:
-    build:
-      context: ./backend
-      dockerfile: Dockerfile
-    command: ["node", "src/db/init.js"]
-    environment:
-      - DB_PATH=/app/data/bowling.db
-    volumes:
-      - bowling_data:/app/data
-
-volumes:
-  bowling_data:
-    driver: local
+    restart: unless-stopped

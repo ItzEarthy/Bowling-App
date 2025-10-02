@@ -62,13 +62,14 @@ export default defineConfig({
       }
     })
   ],
+  base: './',
   server: {
-    host: true,
+    host: '0.0.0.0',
     port: 8031,
     // Proxy API requests during development
     proxy: {
       '/api': {
-        target: 'http://localhost:8032',
+        target: 'http://localhost:5000',
         changeOrigin: true,
         secure: false
       }
