@@ -14,7 +14,7 @@ const Layout = ({ children }) => {
   const hideNavigation = location.pathname === '/game' || location.pathname.startsWith('/game/');
 
   return (
-    <div className="min-h-screen bg-cream-50 pb-20 sm:pb-24">
+    <div className="min-h-screen bg-cream-50 pb-28 sm:pb-32">
       {/* Main Content */}
       <main className="container mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-6 max-w-7xl">
         {/* If Layout was rendered with explicit children (e.g. <Layout><GamePage/></Layout>), render them.

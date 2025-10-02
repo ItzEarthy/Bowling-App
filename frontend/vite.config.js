@@ -7,7 +7,7 @@ export default defineConfig({
     react(),
     VitePWA({
       registerType: 'autoUpdate',
-      includeAssets: ['PinStats.png', '_redirects'],
+      includeAssets: ['PinStats.png'],
       manifest: {
         name: 'Pin Stats',
         short_name: 'PinStats',

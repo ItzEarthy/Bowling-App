@@ -55,23 +55,23 @@ const BottomNavigation = () => {
   ];
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 bg-white border-t border-cream-200 shadow-retro-lg z-50 safe-area-bottom">
+    <nav className="fixed bottom-0 left-0 right-0 bg-white border-t border-cream-200 shadow-retro-lg z-50 pb-safe">
       <div className="container mx-auto px-2 sm:px-4">
-        <div className="flex justify-around items-center py-2 sm:py-3">
+        <div className="flex justify-around items-center py-3 sm:py-4">
           {navItems.map(({ path, label, icon: Icon }) => (
             <NavLink
               key={path}
               to={path}
               className={({ isActive }) =>
-                `flex flex-col items-center py-2 px-2 sm:px-3 rounded-xl transition-all duration-200 min-w-[60px] touch-target ${
+                `flex flex-col items-center py-3 px-3 sm:px-4 rounded-xl transition-all duration-200 min-w-[72px] touch-target ${
                   isActive
                     ? 'text-teal-600 bg-teal-50'
                     : 'text-charcoal-500 hover:text-charcoal-700 hover:bg-cream-50'
                 }`
               }
             >
-              <Icon size={20} className="sm:w-6 sm:h-6" />
-              <span className="text-xs font-medium mt-1 hidden xs:block sm:block">{label}</span>
+              <Icon size={28} className="sm:w-9 sm:h-9" />
+              <span className="text-sm font-medium mt-1.5">{label}</span>
             </NavLink>
           ))}
         </div>
