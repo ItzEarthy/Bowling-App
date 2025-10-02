@@ -265,3 +265,68 @@ Added bottom padding to the modal container and adjusted content height:
 -  Scrollable if modal is tall
 -  Works on notched devices
 
+
+---
+
+## Issue 4: 403 Error When Switching In/Out of App
+
+### Problem
+- Users get 403 'Invalid or expired token' errors when switching back to the app
+- Caused by visibility change detection triggering service worker updates
+- Service worker updates caused API calls that failed with expired JWT tokens
+
+### Root Cause
+**registerSW.js** had a visibility change listener:
+```javascript
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible') {
+    registration.update(); // This triggered API calls
+  }
+});
+```n
+When users switched back to the app, it triggered update checks which made API calls. If the JWT token was expired, backend returned 403 and interrupted the user experience.
+
+### Solution Applied
+
+#### 1. Removed Visibility Change Detection
+**File:** `frontend/src/registerSW.js`
+- Removed the `visibilitychange` event listener
+- Kept the 30-second interval checks (less intrusive)
+- Service worker updates now only happen:
+  - Every 30 seconds (background)
+  - On initial page load
+  - When user navigates between pages
+
+#### 2. Improved Error Handling
+**File:** `frontend/src/lib/api.js`
+- Enhanced response interceptor to handle both 401 and 403 (expired token) errors
+- Added check for 'expired token' message in 403 responses
+- Added protection to prevent redirect loop (don't redirect if already on login/register)
+- Added console warning for debugging
+
+**Before:**
+```javascript
+if (error.response?.status === 401) {
+  localStorage.removeItem('authToken');
+  window.location.href = '/login';
+}
+```n
+**After:**
+```javascript
+if (error.response?.status === 401 || 
+    (error.response?.status === 403 && error.response?.data?.error?.includes('expired token'))) {
+  console.warn('Authentication failed - clearing session and redirecting to login');
+  localStorage.removeItem('authToken');
+  localStorage.removeItem('user');
+  if (!window.location.pathname.includes('/login') && !window.location.pathname.includes('/register')) {
+    window.location.href = '/login';
+  }
+}
+```n
+### Result
+-  No more 403 errors when switching in/out of the app
+-  Service worker still checks for updates every 30 seconds
+-  Better handling of expired tokens
+-  No redirect loops
+-  Cleaner user experience when session expires
+

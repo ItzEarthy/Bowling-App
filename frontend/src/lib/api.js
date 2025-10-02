@@ -37,11 +37,17 @@ api.interceptors.request.use(
 api.interceptors.response.use(
   (response) => response,
   (error) => {
-    // Handle authentication errors
-    if (error.response?.status === 401) {
+    // Handle authentication errors (401 Unauthorized and 403 Forbidden for expired tokens)
+    if (error.response?.status === 401 || 
+        (error.response?.status === 403 && error.response?.data?.error?.includes('expired token'))) {
+      console.warn('Authentication failed - clearing session and redirecting to login');
       localStorage.removeItem('authToken');
       localStorage.removeItem('user');
-      window.location.href = '/login';
+      
+      // Only redirect if not already on login/register page
+      if (!window.location.pathname.includes('/login') && !window.location.pathname.includes('/register')) {
+        window.location.href = '/login';
+      }
     }
     
     // Handle network errors

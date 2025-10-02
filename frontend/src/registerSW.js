@@ -14,14 +14,6 @@ export function registerSW() {
             registration.update();
           }, 30000);
 
-          // Also check on page visibility change (when user returns to tab)
-          document.addEventListener('visibilitychange', () => {
-            if (document.visibilityState === 'visible') {
-              console.log('👀 Page visible, checking for updates...');
-              registration.update();
-            }
-          });
-
           // Listen for updates
           registration.addEventListener('updatefound', () => {
             const newWorker = registration.installing;
