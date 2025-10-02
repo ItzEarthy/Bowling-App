@@ -8,7 +8,8 @@ export default defineConfig({
     VitePWA({
       registerType: 'autoUpdate',
       includeAssets: ['PinStats.png', 'pwa-192x192.jpg', 'pwa-192x1921.png', 'pwa-512x512.png'],
-      injectRegister: 'auto',
+      injectRegister: false,  // Don't inject - we'll handle registration ourselves
+      filename: 'sw.js',
       manifest: {
         name: 'Pin Stats',
         short_name: 'PinStats',
@@ -112,7 +113,7 @@ export default defineConfig({
       }
     })
   ],
-  base: './',
+  base: '/',
   server: {
     host: '0.0.0.0',
     port: 8031,
