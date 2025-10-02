@@ -80,6 +80,19 @@ router.post('/users', authenticateToken, requireAdmin, validateRequest(createUse
   try {
     const { username, displayName, email, password, role } = req.body;
 
+    // Check if trying to create admin when admins already exist
+    if (role === 'admin') {
+      const existingAdmin = global.db.prepare(`
+        SELECT id FROM users WHERE role = 'admin' LIMIT 1
+      `).get();
+
+      if (existingAdmin) {
+        return res.status(403).json({ 
+          error: 'Cannot create admin account. An admin already exists in the system.' 
+        });
+      }
+    }
+
     // Check if user already exists
     const existingUser = global.db.prepare(`
       SELECT id FROM users WHERE email = ? OR username = ?
