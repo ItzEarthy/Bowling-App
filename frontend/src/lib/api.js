@@ -1,8 +1,24 @@
 import axios from 'axios';
 
+// Determine the API base URL based on environment
+const getApiBaseUrl = () => {
+  if (typeof window === 'undefined') {
+    return 'http://localhost:8032/api';
+  }
+  
+  // In production (custom domain), use relative path /api
+  // This assumes your reverse proxy routes /api to the backend
+  if (window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1') {
+    return '/api';
+  }
+  
+  // In development, use localhost with port
+  return `${window.location.protocol}//${window.location.hostname}:8032/api`;
+};
+
 // Create axios instance with base configuration
 const api = axios.create({
-  baseURL: (typeof window !== 'undefined' ? `${window.location.protocol}//${window.location.hostname}:8032/api` : 'http://localhost:8032/api'),
+  baseURL: getApiBaseUrl(),
   timeout: 10000,
   headers: {
     'Content-Type': 'application/json',
