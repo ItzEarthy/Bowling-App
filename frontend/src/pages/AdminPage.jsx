@@ -608,8 +608,8 @@ const AdminPage = () => {
         </div>
       )}
 
-      {/* Tab Navigation - Responsive, No Scrolling, Wraps to New Line */}
-      <nav className="w-full mb-6 bg-charcoal-100 rounded-lg">
+      {/* Tab Navigation - Responsive, No Scrolling, Wraps to New Line (full-bleed) */}
+      <nav className="w-full mb-6 bg-charcoal-100 rounded-lg -mx-4 sm:-mx-6 lg:-mx-8 px-4 sm:px-6 lg:px-8">
         <div className="flex flex-wrap gap-1 p-1 min-w-0">
           <button
             onClick={() => setActiveTab('overview')}

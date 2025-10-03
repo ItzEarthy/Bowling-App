@@ -89,11 +89,41 @@ const ProfilePage = () => {
         setError('Please select a valid image file');
         return;
       }
-      setProfilePicture(file);
-      // Read as base64
+      // Compress large images client-side to avoid sending huge base64 JSON payloads
       const reader = new FileReader();
-      reader.onload = (e) => {
-        setProfilePicturePreview(e.target.result); // base64 string
+      reader.onload = async (e) => {
+        try {
+          const img = new Image();
+          img.src = e.target.result;
+          await new Promise((res, rej) => { img.onload = res; img.onerror = rej; });
+
+          const MAX_DIM = 1200; // keep a reasonable max dimension
+          const canvas = document.createElement('canvas');
+          let { width, height } = img;
+          if (width > MAX_DIM || height > MAX_DIM) {
+            const ratio = width / height;
+            if (ratio > 1) {
+              width = MAX_DIM;
+              height = Math.round(MAX_DIM / ratio);
+            } else {
+              height = MAX_DIM;
+              width = Math.round(MAX_DIM * ratio);
+            }
+          }
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext('2d');
+          ctx.drawImage(img, 0, 0, width, height);
+
+          // Export compressed JPEG at 0.85 quality
+          const compressedDataUrl = canvas.toDataURL('image/jpeg', 0.85);
+          setProfilePicture(file);
+          setProfilePicturePreview(compressedDataUrl);
+        } catch (err) {
+          console.warn('Image processing failed, falling back to raw file:', err);
+          setProfilePicture(file);
+          setProfilePicturePreview(e.target.result);
+        }
       };
       reader.readAsDataURL(file);
       setError(null);
@@ -271,8 +301,8 @@ const ProfilePage = () => {
         </div>
       )}
 
-      {/* Tab Navigation */}
-      <div className="flex space-x-1 bg-charcoal-100 p-1 rounded-lg mb-6">
+  {/* Tab Navigation - full-bleed */}
+  <div className="flex space-x-1 bg-charcoal-100 p-1 rounded-lg mb-6 -mx-4 sm:-mx-6 lg:-mx-8 px-4 sm:px-6 lg:px-8">
         <button
           onClick={() => setActiveTab('profile')}
           className={`flex-1 py-2 px-4 rounded-md text-sm font-medium transition-all ${
