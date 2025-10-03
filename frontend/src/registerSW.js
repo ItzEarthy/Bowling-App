@@ -13,13 +13,26 @@ export function setupUpdateChecker() {
         
         console.log('✅ Service Worker registered successfully');
 
-        // Check for updates every 30 seconds
-        setInterval(() => {
+        // Check for updates more frequently and on visibility change
+        const checkForUpdates = () => {
           console.log('🔄 Checking for updates...');
           registration.update().catch(err => {
             console.warn('Update check failed:', err);
           });
-        }, 30000);
+        };
+
+        // Check for updates every 30 seconds
+        setInterval(checkForUpdates, 30000);
+
+        // Check for updates when tab becomes visible
+        document.addEventListener('visibilitychange', () => {
+          if (!document.hidden) {
+            checkForUpdates();
+          }
+        });
+
+        // Check for updates on page focus
+        window.addEventListener('focus', checkForUpdates);
 
         // Listen for updates
         registration.addEventListener('updatefound', () => {
@@ -28,17 +41,20 @@ export function setupUpdateChecker() {
 
           if (newWorker) {
             newWorker.addEventListener('statechange', () => {
-              if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
-                console.log('✨ New version installed! Auto-reloading in 3 seconds...');
-                
-                // Show notification to user
-                showUpdateNotification();
-                
-                // Auto-reload after 3 seconds
-                setTimeout(() => {
-                  console.log('🔄 Reloading to apply update...');
-                  window.location.reload();
-                }, 3000);
+              if (newWorker.state === 'installed') {
+                if (navigator.serviceWorker.controller) {
+                  // New content is available, show notification and reload
+                  console.log('✨ New version installed! Reloading automatically...');
+                  showUpdateNotification();
+                  
+                  // Force the waiting service worker to become active
+                  if (newWorker.state === 'installed') {
+                    newWorker.postMessage({ type: 'SKIP_WAITING' });
+                  }
+                } else {
+                  // First time installation
+                  console.log('✅ App is ready for offline use');
+                }
               }
             });
           }
@@ -46,8 +62,17 @@ export function setupUpdateChecker() {
 
         // Handle controller change (when skipWaiting is used)
         navigator.serviceWorker.addEventListener('controllerchange', () => {
-          console.log('🔄 Service Worker controller changed');
-          // Don't reload here as it might cause double reload
+          console.log('🔄 Service Worker controller changed - reloading page');
+          // Reload when new service worker takes control
+          window.location.reload();
+        });
+
+        // Handle messages from service worker
+        navigator.serviceWorker.addEventListener('message', (event) => {
+          if (event.data && event.data.type === 'SW_UPDATED') {
+            console.log('🔄 Service Worker updated, reloading...');
+            window.location.reload();
+          }
         });
 
       } catch (error) {
@@ -78,7 +103,7 @@ function showUpdateNotification() {
     font-weight: 500;
     animation: slideDown 0.3s ease-out;
   `;
-  notification.textContent = '🎉 New version available! Updating...';
+  notification.textContent = '🎉 App updated! Reloading...';
   
   // Add animation
   const style = document.createElement('style');
@@ -91,10 +116,10 @@ function showUpdateNotification() {
   document.head.appendChild(style);
   document.body.appendChild(notification);
   
-  // Remove after 3 seconds (before reload)
+  // Remove after 2 seconds (before reload)
   setTimeout(() => {
     notification.remove();
-  }, 2500);
+  }, 2000);
 }
 
 export async function clearAllCaches() {

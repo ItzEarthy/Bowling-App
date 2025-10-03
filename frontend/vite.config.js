@@ -92,6 +92,7 @@ export default defineConfig({
         skipWaiting: true,
         clientsClaim: true,
         navigateFallback: null,
+        // Additional runtime caching strategies
         runtimeCaching: [
           {
             // Cache API requests with NetworkFirst strategy
@@ -105,8 +106,23 @@ export default defineConfig({
               },
               networkTimeoutSeconds: 10
             }
+          },
+          {
+            // Cache images with CacheFirst strategy
+            urlPattern: /\.(?:png|jpg|jpeg|svg|gif|webp)$/,
+            handler: 'CacheFirst',
+            options: {
+              cacheName: 'images-cache',
+              expiration: {
+                maxEntries: 60,
+                maxAgeSeconds: 86400 // 1 day
+              }
+            }
           }
-        ]
+        ],
+        // Custom service worker to handle update messages
+        swDest: 'dist/sw.js',
+        importScripts: undefined
       },
       devOptions: {
         enabled: false

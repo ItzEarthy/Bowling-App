@@ -36,17 +36,49 @@ api.interceptors.request.use(
 // Response interceptor for error handling
 api.interceptors.response.use(
   (response) => response,
-  (error) => {
+  async (error) => {
     // Handle authentication errors (401 Unauthorized and 403 Forbidden for expired tokens)
     if (error.response?.status === 401 || 
         (error.response?.status === 403 && error.response?.data?.error?.includes('expired token'))) {
-      console.warn('Authentication failed - clearing session and redirecting to login');
-      localStorage.removeItem('authToken');
-      localStorage.removeItem('user');
+      console.warn('Authentication failed - attempting token refresh');
       
-      // Only redirect if not already on login/register page
-      if (!window.location.pathname.includes('/login') && !window.location.pathname.includes('/register')) {
-        window.location.href = '/login';
+      // Try to refresh the token before redirecting to login
+      const token = localStorage.getItem('authToken');
+      if (token) {
+        try {
+          const refreshResponse = await axios.post('/api/auth/refresh', {}, {
+            headers: { Authorization: `Bearer ${token}` }
+          });
+          
+          const { user, token: newToken } = refreshResponse.data;
+          
+          // Update localStorage with new data
+          localStorage.setItem('authToken', newToken);
+          localStorage.setItem('user', JSON.stringify(user));
+          
+          // Retry the original request with new token
+          const originalRequest = error.config;
+          originalRequest.headers.Authorization = `Bearer ${newToken}`;
+          
+          console.log('Token refreshed successfully, retrying request');
+          return axios(originalRequest);
+          
+        } catch (refreshError) {
+          console.warn('Token refresh failed, clearing session and redirecting to login');
+          localStorage.removeItem('authToken');
+          localStorage.removeItem('user');
+          
+          // Only redirect if not already on login/register page
+          if (!window.location.pathname.includes('/login') && !window.location.pathname.includes('/register')) {
+            window.location.href = '/login';
+          }
+        }
+      } else {
+        console.warn('No token found, redirecting to login');
+        // Only redirect if not already on login/register page
+        if (!window.location.pathname.includes('/login') && !window.location.pathname.includes('/register')) {
+          window.location.href = '/login';
+        }
       }
     }
     
@@ -64,6 +96,7 @@ api.interceptors.response.use(
 export const authAPI = {
   login: (credentials) => api.post('/auth/login', credentials),
   register: (userData) => api.post('/auth/register', userData),
+  refresh: () => api.post('/auth/refresh'),
 };
 
 // User API calls

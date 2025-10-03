@@ -2,7 +2,7 @@ import { create } from 'zustand';
 import BowlingScoreCalculator from '../utils/bowlingScoring';
 
 /**
- * Game store for managing current game state
+ * Game store for managing current game state with auto-save functionality
  */
 const useGameStore = create((set, get) => ({
   // State
@@ -12,6 +12,114 @@ const useGameStore = create((set, get) => ({
   isLoading: false,
   error: null,
   gameComplete: false,
+  lastAutoSave: null,
+
+  // Auto-save functionality
+  saveGameState: () => {
+    const state = get();
+    if (state.currentGame) {
+      const gameStateToSave = {
+        currentGame: state.currentGame,
+        currentFrame: state.currentFrame,
+        currentThrow: state.currentThrow,
+        gameComplete: state.gameComplete,
+        timestamp: Date.now(),
+        gameId: state.currentGame.id || 'temp-' + Date.now()
+      };
+      
+      try {
+        localStorage.setItem('bowlingGameState', JSON.stringify(gameStateToSave));
+        localStorage.setItem('lastGameSave', Date.now().toString());
+        console.log('Game state auto-saved at', new Date().toLocaleTimeString());
+        
+        set({ lastAutoSave: Date.now() });
+      } catch (error) {
+        console.warn('Failed to save game state:', error);
+      }
+    }
+  },
+
+  // Load saved game state
+  loadGameState: () => {
+    try {
+      const savedState = localStorage.getItem('bowlingGameState');
+      if (savedState) {
+        const gameState = JSON.parse(savedState);
+        const timeSinceLastSave = Date.now() - gameState.timestamp;
+        
+        // Only restore if save is less than 24 hours old
+        if (timeSinceLastSave < 86400000) { // 24 hours in milliseconds
+          set({
+            currentGame: gameState.currentGame,
+            currentFrame: gameState.currentFrame,
+            currentThrow: gameState.currentThrow,
+            gameComplete: gameState.gameComplete,
+            lastAutoSave: gameState.timestamp
+          });
+          
+          console.log('Game state restored from auto-save');
+          return true;
+        } else {
+          // Clear old save
+          get().clearSavedState();
+        }
+      }
+    } catch (error) {
+      console.warn('Failed to load game state:', error);
+      get().clearSavedState();
+    }
+    return false;
+  },
+
+  // Clear saved state
+  clearSavedState: () => {
+    try {
+      localStorage.removeItem('bowlingGameState');
+      localStorage.removeItem('lastGameSave');
+      set({ lastAutoSave: null });
+    } catch (error) {
+      console.warn('Failed to clear saved state:', error);
+    }
+  },
+
+  // Check if there's a saved game that can be restored
+  hasSavedGame: () => {
+    try {
+      const savedState = localStorage.getItem('bowlingGameState');
+      if (savedState) {
+        const gameState = JSON.parse(savedState);
+        const timeSinceLastSave = Date.now() - gameState.timestamp;
+        return timeSinceLastSave < 86400000; // Less than 24 hours
+      }
+    } catch (error) {
+      console.warn('Error checking for saved game:', error);
+    }
+    return false;
+  },
+
+  // Get saved game info for display
+  getSavedGameInfo: () => {
+    try {
+      const savedState = localStorage.getItem('bowlingGameState');
+      if (savedState) {
+        const gameState = JSON.parse(savedState);
+        const timeSinceLastSave = Date.now() - gameState.timestamp;
+        
+        if (timeSinceLastSave < 86400000) {
+          return {
+            timestamp: gameState.timestamp,
+            frame: gameState.currentFrame,
+            score: gameState.currentGame?.total_score || 0,
+            gameComplete: gameState.gameComplete,
+            timeSince: timeSinceLastSave
+          };
+        }
+      }
+    } catch (error) {
+      console.warn('Error getting saved game info:', error);
+    }
+    return null;
+  },
 
   // Initialize new game
   initializeGame: (gameData = {}) => {
@@ -34,11 +142,17 @@ const useGameStore = create((set, get) => ({
       gameComplete: false,
       error: null 
     });
+
+    // Auto-save the initial state
+    setTimeout(() => get().saveGameState(), 100);
   },
 
   // Set current game
   setCurrentGame: (game) => {
     set({ currentGame: game, error: null });
+    
+    // Auto-save when game is set
+    setTimeout(() => get().saveGameState(), 100);
   },
 
   // Add throw to current frame
@@ -92,6 +206,9 @@ const useGameStore = create((set, get) => ({
       currentThrow: nextThrow,
       gameComplete
     });
+
+    // Auto-save after each throw
+    setTimeout(() => get().saveGameState(), 100);
   },
 
   // Update frame in current game
@@ -115,6 +232,9 @@ const useGameStore = create((set, get) => ({
         total_score: totalScore
       }
     });
+
+    // Auto-save after frame update
+    setTimeout(() => get().saveGameState(), 100);
   },
 
   // Set current frame and throw
@@ -183,6 +303,9 @@ const useGameStore = create((set, get) => ({
       gameComplete: false,
       error: null 
     });
+
+    // Clear saved state when game is cleared
+    get().clearSavedState();
   },
 
   // Set loading state
@@ -255,6 +378,9 @@ const useGameStore = create((set, get) => ({
     // Process for streaks and achievements
     get().processCompletedGame(newGame);
 
+    // Auto-save completed game
+    setTimeout(() => get().saveGameState(), 100);
+
     return newGame;
   },
 
@@ -288,6 +414,9 @@ const useGameStore = create((set, get) => ({
     // Process for streaks and achievements
     get().processCompletedGame(newGame);
 
+    // Auto-save completed game
+    setTimeout(() => get().saveGameState(), 100);
+
     return newGame;
   },
 
@@ -315,6 +444,9 @@ const useGameStore = create((set, get) => ({
 
     // Process for streaks and achievements
     get().processCompletedGame(newGame);
+
+    // Auto-save completed game
+    setTimeout(() => get().saveGameState(), 100);
 
     return newGame;
   },

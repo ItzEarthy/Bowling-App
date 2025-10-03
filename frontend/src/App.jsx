@@ -1,10 +1,14 @@
 import React, { useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import useAuthStore from './stores/authStore';
+import useGameStore from './stores/gameStore';
+import appLifecycleManager from './services/appLifecycle';
+import { setupUpdateChecker } from './registerSW';
 import ErrorBoundary from './components/ui/ErrorBoundary';
 
 // Layout Components
 import Layout from './components/layout/Layout';
+import GameRestorationModal from './components/features/GameRestorationModal';
 
 // Pages
 import LoginPage from './pages/LoginPage';
@@ -41,16 +45,36 @@ const PublicRoute = ({ children }) => {
 function App() {
   const initialize = useAuthStore((state) => state.initialize);
   const user = useAuthStore((state) => state.user);
+  const loadGameState = useGameStore((state) => state.loadGameState);
 
   // Initialize auth state from localStorage on app start
   useEffect(() => {
     initialize();
-  }, [initialize]);
+    
+    // Initialize app lifecycle manager for auto-save
+    appLifecycleManager.initialize();
+    
+    // Setup service worker for updates
+    setupUpdateChecker();
+    
+    // Check for saved game state when app loads
+    setTimeout(() => {
+      loadGameState();
+    }, 1000); // Delay to ensure auth is initialized
+    
+    // Cleanup on unmount
+    return () => {
+      appLifecycleManager.cleanup();
+    };
+  }, [initialize, loadGameState]);
 
   return (
     <Router>
       <ErrorBoundary>
         <div className="min-h-screen bg-cream-50">
+          {/* Game Restoration Modal */}
+          <GameRestorationModal />
+          
           <Routes>
           {/* Public Routes */}
           <Route 

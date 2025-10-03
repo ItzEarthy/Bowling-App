@@ -21,13 +21,15 @@ const GamePage = () => {
     gameComplete,
     isLoading,
     error,
+    lastAutoSave,
     initializeGame,
     addThrow,
     getNextThrowInfo,
     getGameStats,
     clearCurrentGame,
     setLoading,
-    setError
+    setError,
+    saveGameState
   } = useGameStore();
 
   const [showPinModal, setShowPinModal] = useState(false);
@@ -101,6 +103,18 @@ const GamePage = () => {
   const nextThrowInfo = getNextThrowInfo();
   const gameStats = getGameStats();
 
+  // Format last auto-save time
+  const formatLastSave = (timestamp) => {
+    if (!timestamp) return null;
+    const now = Date.now();
+    const diff = now - timestamp;
+    const seconds = Math.floor(diff / 1000);
+    
+    if (seconds < 60) return 'Saved just now';
+    if (seconds < 3600) return `Saved ${Math.floor(seconds / 60)}m ago`;
+    return `Saved ${Math.floor(seconds / 3600)}h ago`;
+  };
+
   if (isLoading) {
     return (
       <div>
@@ -139,6 +153,11 @@ const GamePage = () => {
       <PageHeader 
         title="Bowling Game"
         subtitle={gameComplete ? "Game Complete!" : `Frame ${currentFrame} - Throw ${currentThrow}`}
+        action={lastAutoSave && !gameComplete && (
+          <div className="text-xs text-mint-green-600 bg-mint-green-50 px-2 py-1 rounded-md">
+            📱 {formatLastSave(lastAutoSave)}
+          </div>
+        )}
       />
       
       {/* Main Scorecard */}
