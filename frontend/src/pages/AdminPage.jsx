@@ -608,75 +608,77 @@ const AdminPage = () => {
         </div>
       )}
 
-      {/* Tab Navigation */}
-      <div className="flex space-x-1 bg-charcoal-100 p-1 rounded-lg mb-6 overflow-x-auto scrollbar-hide">
-        <button
-          onClick={() => setActiveTab('overview')}
-          className={`flex-shrink-0 py-2 px-3 sm:px-4 rounded-md text-xs sm:text-sm font-medium transition-all whitespace-nowrap ${
-            activeTab === 'overview'
-              ? 'bg-white text-charcoal-900 shadow-sm'
-              : 'text-charcoal-600 hover:text-charcoal-900'
-          }`}
-        >
-          <BarChart3 className="w-4 h-4 inline mr-1 sm:mr-2" />
-          <span className="hidden xs:inline">Overview</span>
-        </button>
-        <button
-          onClick={() => setActiveTab('users')}
-          className={`flex-shrink-0 py-2 px-3 sm:px-4 rounded-md text-xs sm:text-sm font-medium transition-all whitespace-nowrap ${
-            activeTab === 'users'
-              ? 'bg-white text-charcoal-900 shadow-sm'
-              : 'text-charcoal-600 hover:text-charcoal-900'
-          }`}
-        >
-          <Users className="w-4 h-4 inline mr-1 sm:mr-2" />
-          <span className="hidden xs:inline">Users</span>
-        </button>
-        <button
-          onClick={() => setActiveTab('profile')}
-          className={`flex-shrink-0 py-2 px-3 sm:px-4 rounded-md text-xs sm:text-sm font-medium transition-all whitespace-nowrap ${
-            activeTab === 'profile'
-              ? 'bg-white text-charcoal-900 shadow-sm'
-              : 'text-charcoal-600 hover:text-charcoal-900'
-          }`}
-        >
-          <User className="w-4 h-4 inline mr-1 sm:mr-2" />
-          <span className="hidden xs:inline">Profile</span>
-        </button>
-        <button
-          onClick={() => setActiveTab('games')}
-          className={`flex-shrink-0 py-2 px-3 sm:px-4 rounded-md text-xs sm:text-sm font-medium transition-all whitespace-nowrap ${
-            activeTab === 'games'
-              ? 'bg-white text-charcoal-900 shadow-sm'
-              : 'text-charcoal-600 hover:text-charcoal-900'
-          }`}
-        >
-          <Target className="w-4 h-4 inline mr-1 sm:mr-2" />
-          <span className="hidden xs:inline">Games</span>
-        </button>
-        <button
-          onClick={() => setActiveTab('settings')}
-          className={`flex-shrink-0 py-2 px-3 sm:px-4 rounded-md text-xs sm:text-sm font-medium transition-all whitespace-nowrap ${
-            activeTab === 'settings'
-              ? 'bg-white text-charcoal-900 shadow-sm'
-              : 'text-charcoal-600 hover:text-charcoal-900'
-          }`}
-        >
-          <Settings className="w-4 h-4 inline mr-1 sm:mr-2" />
-          <span className="hidden xs:inline">Settings</span>
-        </button>
-        <button
-          onClick={() => setActiveTab('logs')}
-          className={`flex-shrink-0 py-2 px-3 sm:px-4 rounded-md text-xs sm:text-sm font-medium transition-all whitespace-nowrap ${
-            activeTab === 'logs'
-              ? 'bg-white text-charcoal-900 shadow-sm'
-              : 'text-charcoal-600 hover:text-charcoal-900'
-          }`}
-        >
-          <FileText className="w-4 h-4 inline mr-1 sm:mr-2" />
-          <span className="hidden xs:inline">Logs</span>
-        </button>
-      </div>
+      {/* Tab Navigation - Responsive, No Scrolling, Wraps to New Line */}
+      <nav className="w-full mb-6 bg-charcoal-100 rounded-lg">
+        <div className="flex flex-wrap gap-1 p-1 min-w-0">
+          <button
+            onClick={() => setActiveTab('overview')}
+            className={`flex-shrink-0 py-2 px-3 sm:px-4 rounded-md text-xs sm:text-sm font-medium transition-all whitespace-nowrap ${
+              activeTab === 'overview'
+                ? 'bg-white text-charcoal-900 shadow-sm'
+                : 'text-charcoal-600 hover:text-charcoal-900'
+            }`}
+          >
+            <BarChart3 className="w-4 h-4 inline mr-1 sm:mr-2" />
+            <span className="hidden xs:inline">Overview</span>
+          </button>
+          <button
+            onClick={() => setActiveTab('users')}
+            className={`flex-shrink-0 py-2 px-3 sm:px-4 rounded-md text-xs sm:text-sm font-medium transition-all whitespace-nowrap ${
+              activeTab === 'users'
+                ? 'bg-white text-charcoal-900 shadow-sm'
+                : 'text-charcoal-600 hover:text-charcoal-900'
+            }`}
+          >
+            <Users className="w-4 h-4 inline mr-1 sm:mr-2" />
+            <span className="hidden xs:inline">Users</span>
+          </button>
+          <button
+            onClick={() => setActiveTab('profile')}
+            className={`flex-shrink-0 py-2 px-3 sm:px-4 rounded-md text-xs sm:text-sm font-medium transition-all whitespace-nowrap ${
+              activeTab === 'profile'
+                ? 'bg-white text-charcoal-900 shadow-sm'
+                : 'text-charcoal-600 hover:text-charcoal-900'
+            }`}
+          >
+            <User className="w-4 h-4 inline mr-1 sm:mr-2" />
+            <span className="hidden xs:inline">Profile</span>
+          </button>
+          <button
+            onClick={() => setActiveTab('games')}
+            className={`flex-shrink-0 py-2 px-3 sm:px-4 rounded-md text-xs sm:text-sm font-medium transition-all whitespace-nowrap ${
+              activeTab === 'games'
+                ? 'bg-white text-charcoal-900 shadow-sm'
+                : 'text-charcoal-600 hover:text-charcoal-900'
+            }`}
+          >
+            <Target className="w-4 h-4 inline mr-1 sm:mr-2" />
+            <span className="hidden xs:inline">Games</span>
+          </button>
+          <button
+            onClick={() => setActiveTab('settings')}
+            className={`flex-shrink-0 py-2 px-3 sm:px-4 rounded-md text-xs sm:text-sm font-medium transition-all whitespace-nowrap ${
+              activeTab === 'settings'
+                ? 'bg-white text-charcoal-900 shadow-sm'
+                : 'text-charcoal-600 hover:text-charcoal-900'
+            }`}
+          >
+            <Settings className="w-4 h-4 inline mr-1 sm:mr-2" />
+            <span className="hidden xs:inline">Settings</span>
+          </button>
+          <button
+            onClick={() => setActiveTab('logs')}
+            className={`flex-shrink-0 py-2 px-3 sm:px-4 rounded-md text-xs sm:text-sm font-medium transition-all whitespace-nowrap ${
+              activeTab === 'logs'
+                ? 'bg-white text-charcoal-900 shadow-sm'
+                : 'text-charcoal-600 hover:text-charcoal-900'
+            }`}
+          >
+            <FileText className="w-4 h-4 inline mr-1 sm:mr-2" />
+            <span className="hidden xs:inline">Logs</span>
+          </button>
+        </div>
+      </nav>
 
       {/* Overview Tab */}
       {activeTab === 'overview' && (

@@ -89,21 +89,20 @@ const ProfilePage = () => {
         setError('Please select a valid image file');
         return;
       }
-      
-      // Note: We don't validate file size on client side anymore
-      // since backend will handle compression for files >10MB
-      
       setProfilePicture(file);
-      
-      // Create preview URL
+      // Read as base64
       const reader = new FileReader();
       reader.onload = (e) => {
-        setProfilePicturePreview(e.target.result);
+        setProfilePicturePreview(e.target.result); // base64 string
       };
       reader.readAsDataURL(file);
-      
       setError(null);
     }
+  };
+
+  const handleRemoveProfilePicture = () => {
+    setProfilePicture(null);
+    setProfilePicturePreview(null);
   };
 
   const handleProfilePictureClick = () => {
@@ -156,20 +155,39 @@ const ProfilePage = () => {
     setIsSaving(true);
     setError(null);
     try {
+      let profilePictureField;
+      if (profilePicture === null && profilePicturePreview === null) {
+        // User removed their picture
+        profilePictureField = null;
+      } else if (profilePicture && profilePicturePreview) {
+        // New image selected
+        profilePictureField = profilePicturePreview;
+      } else {
+        // No change to picture
+        profilePictureField = undefined;
+      }
+
       const response = await userAPI.updateProfile({
         username: profileData.username,
         displayName: profileData.displayName,
         email: profileData.email,
-        profilePicture: profilePicture ? profilePicturePreview : undefined
+        profilePicture: profilePictureField
       });
 
       // Update the auth store with new user data
       updateUser(response.data.user);
       setSuccess('Profile updated successfully!');
-      
+
       // Clear the file input state after successful save
       setProfilePicture(null);
-      
+
+      // If backend returns updated picture, update preview
+      if (response.data.user.profilePicture || response.data.user.profile_picture) {
+        setProfilePicturePreview(response.data.user.profilePicture || response.data.user.profile_picture);
+      } else {
+        setProfilePicturePreview(null);
+      }
+
       // Clear success message after 3 seconds
       setTimeout(() => setSuccess(null), 3000);
     } catch (err) {
@@ -327,13 +345,24 @@ const ProfilePage = () => {
                     {profileData.displayName.charAt(0).toUpperCase() || 'U'}
                   </div>
                 )}
-                <button 
-                  onClick={handleProfilePictureClick}
-                  className="absolute -bottom-2 -right-2 bg-white border-2 border-charcoal-200 rounded-full p-2 hover:bg-charcoal-50 transition-colors"
-                  title="Change profile picture"
-                >
-                  <Camera className="w-4 h-4 text-charcoal-600" />
-                </button>
+                <div className="absolute -bottom-2 -right-2 flex gap-1">
+                  <button 
+                    onClick={handleProfilePictureClick}
+                    className="bg-white border-2 border-charcoal-200 rounded-full p-2 hover:bg-charcoal-50 transition-colors"
+                    title="Change profile picture"
+                  >
+                    <Camera className="w-4 h-4 text-charcoal-600" />
+                  </button>
+                  {profilePicturePreview && (
+                    <button
+                      onClick={handleRemoveProfilePicture}
+                      className="bg-white border-2 border-red-200 rounded-full p-2 hover:bg-red-50 transition-colors"
+                      title="Remove profile picture"
+                    >
+                      <Trash2 className="w-4 h-4 text-red-600" />
+                    </button>
+                  )}
+                </div>
                 {/* Hidden file input */}
                 <input
                   id="profile-picture-input"
