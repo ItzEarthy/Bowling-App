@@ -10,6 +10,8 @@ export default defineConfig({
       includeAssets: ['PinStats.png', 'pwa-192x192.jpg', 'pwa-192x1921.png', 'pwa-512x512.png'],
       injectRegister: false,  // Don't inject - we'll handle registration ourselves
       filename: 'sw.js',
+      strategies: 'generateSW',
+      mode: 'production',
       manifest: {
         name: 'Pin Stats',
         short_name: 'PinStats',
@@ -84,7 +86,8 @@ export default defineConfig({
         ],
         categories: ['sports', 'lifestyle', 'social'],
         lang: 'en',
-        dir: 'ltr'
+        dir: 'ltr',
+        prefer_related_applications: false
       },
       workbox: {
         globPatterns: ['**/*.{js,css,html,ico,png,svg,jpg,webmanifest}'],

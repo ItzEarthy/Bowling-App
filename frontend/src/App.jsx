@@ -3,7 +3,7 @@ import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-d
 import useAuthStore from './stores/authStore';
 import useGameStore from './stores/gameStore';
 import appLifecycleManager from './services/appLifecycle';
-import { setupUpdateChecker } from './registerSW';
+import { setupUpdateCheckerWithRetry } from './services/serviceWorkerManager';
 import ErrorBoundary from './components/ui/ErrorBoundary';
 
 // Layout Components
@@ -54,12 +54,20 @@ function App() {
     // Initialize app lifecycle manager for auto-save
     appLifecycleManager.initialize();
     
-    // Setup service worker for updates
-    setupUpdateChecker();
+    // Setup service worker for updates with error handling
+    try {
+      setupUpdateCheckerWithRetry();
+    } catch (error) {
+      console.warn('Service worker setup failed:', error);
+    }
     
     // Check for saved game state when app loads
     setTimeout(() => {
-      loadGameState();
+      try {
+        loadGameState();
+      } catch (error) {
+        console.warn('Game state restoration failed:', error);
+      }
     }, 1000); // Delay to ensure auth is initialized
     
     // Cleanup on unmount
