@@ -185,24 +185,25 @@ const ProfilePage = () => {
     setIsSaving(true);
     setError(null);
     try {
-      let profilePictureField;
-      if (profilePicture === null && profilePicturePreview === null) {
-        // User removed their picture
-        profilePictureField = null;
-      } else if (profilePicture && profilePicturePreview) {
-        // New image selected
-        profilePictureField = profilePicturePreview;
-      } else {
-        // No change to picture
-        profilePictureField = undefined;
-      }
-
-      const response = await userAPI.updateProfile({
+      const payload = {
         username: profileData.username,
         displayName: profileData.displayName,
-        email: profileData.email,
-        profilePicture: profilePictureField
-      });
+        email: profileData.email
+      };
+
+      // Handle profile picture changes
+      if (profilePicture === null && profilePicturePreview === null) {
+        // User explicitly removed their picture
+        payload.profilePicture = null;
+      } else if (profilePicture && profilePicturePreview) {
+        // User selected a new image
+        payload.profilePicture = profilePicturePreview;
+      }
+      // If neither condition is true, don't include profilePicture field (no change)
+
+      console.log('Sending profile update payload:', { ...payload, profilePicture: payload.profilePicture ? '[base64 data]' : payload.profilePicture });
+
+      const response = await userAPI.updateProfile(payload);
 
       // Update the auth store with new user data
       updateUser(response.data.user);
@@ -301,8 +302,8 @@ const ProfilePage = () => {
         </div>
       )}
 
-  {/* Tab Navigation - full-bleed */}
-  <div className="flex space-x-1 bg-charcoal-100 p-1 rounded-lg mb-6 -mx-4 sm:-mx-6 lg:-mx-8 px-4 sm:px-6 lg:px-8">
+      {/* Tab Navigation - responsive, evenly distributed */}
+      <div className="flex space-x-1 bg-charcoal-100 p-1 rounded-lg mb-6">
         <button
           onClick={() => setActiveTab('profile')}
           className={`flex-1 py-2 px-4 rounded-md text-sm font-medium transition-all ${
@@ -336,9 +337,7 @@ const ProfilePage = () => {
           <Settings className="w-4 h-4 inline mr-2" />
           Account
         </button>
-      </div>
-
-      {/* Error/Success Messages */}
+      </div>      {/* Error/Success Messages */}
       {error && (
         <div className="bg-red-50 border border-red-200 rounded-xl p-4 mb-6">
           <p className="text-red-600 text-sm">{error}</p>

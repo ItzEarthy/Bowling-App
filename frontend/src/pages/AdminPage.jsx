@@ -608,12 +608,12 @@ const AdminPage = () => {
         </div>
       )}
 
-      {/* Tab Navigation - Responsive, No Scrolling, Wraps to New Line (full-bleed) */}
-      <nav className="w-full mb-6 bg-charcoal-100 rounded-lg -mx-4 sm:-mx-6 lg:-mx-8 px-4 sm:px-6 lg:px-8">
-        <div className="flex flex-wrap gap-1 p-1 min-w-0">
+      {/* Tab Navigation - Full width within container */}
+      <nav className="w-full mb-6 bg-charcoal-100 rounded-lg">
+        <div className="flex flex-wrap gap-1 p-1 w-full">
           <button
             onClick={() => setActiveTab('overview')}
-            className={`flex-shrink-0 py-2 px-3 sm:px-4 rounded-md text-xs sm:text-sm font-medium transition-all whitespace-nowrap ${
+            className={`flex-1 min-w-fit py-2 px-3 sm:px-4 rounded-md text-xs sm:text-sm font-medium transition-all whitespace-nowrap ${
               activeTab === 'overview'
                 ? 'bg-white text-charcoal-900 shadow-sm'
                 : 'text-charcoal-600 hover:text-charcoal-900'
@@ -624,7 +624,7 @@ const AdminPage = () => {
           </button>
           <button
             onClick={() => setActiveTab('users')}
-            className={`flex-shrink-0 py-2 px-3 sm:px-4 rounded-md text-xs sm:text-sm font-medium transition-all whitespace-nowrap ${
+            className={`flex-1 min-w-fit py-2 px-3 sm:px-4 rounded-md text-xs sm:text-sm font-medium transition-all whitespace-nowrap ${
               activeTab === 'users'
                 ? 'bg-white text-charcoal-900 shadow-sm'
                 : 'text-charcoal-600 hover:text-charcoal-900'
@@ -635,7 +635,7 @@ const AdminPage = () => {
           </button>
           <button
             onClick={() => setActiveTab('profile')}
-            className={`flex-shrink-0 py-2 px-3 sm:px-4 rounded-md text-xs sm:text-sm font-medium transition-all whitespace-nowrap ${
+            className={`flex-1 min-w-fit py-2 px-3 sm:px-4 rounded-md text-xs sm:text-sm font-medium transition-all whitespace-nowrap ${
               activeTab === 'profile'
                 ? 'bg-white text-charcoal-900 shadow-sm'
                 : 'text-charcoal-600 hover:text-charcoal-900'
@@ -646,7 +646,7 @@ const AdminPage = () => {
           </button>
           <button
             onClick={() => setActiveTab('games')}
-            className={`flex-shrink-0 py-2 px-3 sm:px-4 rounded-md text-xs sm:text-sm font-medium transition-all whitespace-nowrap ${
+            className={`flex-1 min-w-fit py-2 px-3 sm:px-4 rounded-md text-xs sm:text-sm font-medium transition-all whitespace-nowrap ${
               activeTab === 'games'
                 ? 'bg-white text-charcoal-900 shadow-sm'
                 : 'text-charcoal-600 hover:text-charcoal-900'
@@ -657,7 +657,7 @@ const AdminPage = () => {
           </button>
           <button
             onClick={() => setActiveTab('settings')}
-            className={`flex-shrink-0 py-2 px-3 sm:px-4 rounded-md text-xs sm:text-sm font-medium transition-all whitespace-nowrap ${
+            className={`flex-1 min-w-fit py-2 px-3 sm:px-4 rounded-md text-xs sm:text-sm font-medium transition-all whitespace-nowrap ${
               activeTab === 'settings'
                 ? 'bg-white text-charcoal-900 shadow-sm'
                 : 'text-charcoal-600 hover:text-charcoal-900'
@@ -668,7 +668,7 @@ const AdminPage = () => {
           </button>
           <button
             onClick={() => setActiveTab('logs')}
-            className={`flex-shrink-0 py-2 px-3 sm:px-4 rounded-md text-xs sm:text-sm font-medium transition-all whitespace-nowrap ${
+            className={`flex-1 min-w-fit py-2 px-3 sm:px-4 rounded-md text-xs sm:text-sm font-medium transition-all whitespace-nowrap ${
               activeTab === 'logs'
                 ? 'bg-white text-charcoal-900 shadow-sm'
                 : 'text-charcoal-600 hover:text-charcoal-900'
