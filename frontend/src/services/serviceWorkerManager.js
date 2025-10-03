@@ -2,7 +2,7 @@
  * Enhanced Service Worker Registration with better error handling
  */
 
-import { setupUpdateChecker as originalSetupUpdateChecker } from './registerSW';
+import { setupUpdateChecker as originalSetupUpdateChecker } from '../registerSW';
 import ServiceWorkerDebugger from '../utils/serviceWorkerDebugger';
 
 // Service Worker Error Recovery System
