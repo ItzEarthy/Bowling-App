@@ -20,7 +20,7 @@ const updateProfileSchema = z.object({
     email: z.string()
       .email('Invalid email address')
       .optional(),
-    profilePicture: z.string().optional()
+    profilePicture: z.string().nullable().optional()
   })
 });
 
