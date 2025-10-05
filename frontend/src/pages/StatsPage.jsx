@@ -24,6 +24,7 @@ import Card, { CardContent, CardHeader, CardTitle } from '../components/ui/Card'
 import Button from '../components/ui/Button';
 import Spinner from '../components/ui/Spinner';
 import { gameAPI, ballAPI } from '../lib/api';
+import { extractScore, roundedAverage, averageScore, completedGamesFilter, standardDeviation } from '../utils/statsHelpers';
 
 /**
  * Comprehensive Statistics Page
@@ -87,8 +88,8 @@ const StatsPage = () => {
   };
 
   const calculateComprehensiveStats = (games, allGames) => {
-    const completedGames = games.filter(game => game.is_complete);
-    const allCompletedGames = allGames.filter(game => game.is_complete);
+  const completedGames = completedGamesFilter(games);
+  const allCompletedGames = completedGamesFilter(allGames);
     
     if (completedGames.length === 0) {
       setStats({
@@ -101,11 +102,12 @@ const StatsPage = () => {
       return;
     }
 
-    const scores = completedGames.map(game => game.total_score || game.score);
-    const totalPins = scores.reduce((sum, score) => sum + score, 0);
-    const averageScore = Math.round(totalPins / completedGames.length);
-    const highScore = Math.max(...scores);
-    const lowScore = Math.min(...scores);
+  const scores = completedGames.map(game => extractScore(game));
+  const totalPins = scores.reduce((sum, score) => sum + score, 0);
+  const avgValue = averageScore(completedGames);
+  const averageScore = Math.round(avgValue);
+  const highScore = scores.length > 0 ? Math.max(...scores) : 0;
+  const lowScore = scores.length > 0 ? Math.min(...scores) : 0;
 
     // Calculate strikes and spares from frame data or entry mode data
     let totalStrikes = 0;
@@ -142,18 +144,15 @@ const StatsPage = () => {
     const openFramePercentage = frameAnalysisGamesCount > 0 ? 
       Math.max(0, 100 - strikePercentage - sparePercentage) : 0;
 
-    // Consistency calculation (lower standard deviation = higher consistency)
-    const variance = scores.reduce((sum, score) => sum + Math.pow(score - averageScore, 2), 0) / scores.length;
-    const standardDeviation = Math.sqrt(variance);
-    const consistency = Math.max(0, Math.min(100, 100 - (standardDeviation / 2)));
+  // Consistency calculation (lower standard deviation = higher consistency)
+  const stdDev = standardDeviation(completedGames);
+  const consistency = Math.max(0, Math.min(100, 100 - (stdDev / 2)));
 
     // Improvement trend
     const recentGames = completedGames.slice(0, Math.min(5, completedGames.length));
     const olderGames = completedGames.slice(5, Math.min(10, completedGames.length));
-    const recentAvg = recentGames.length > 0 ? 
-      Math.round(recentGames.reduce((sum, game) => sum + (game.total_score || game.score), 0) / recentGames.length) : 0;
-    const olderAvg = olderGames.length > 0 ? 
-      Math.round(olderGames.reduce((sum, game) => sum + (game.total_score || game.score), 0) / olderGames.length) : 0;
+    const recentAvg = roundedAverage(recentGames);
+    const olderAvg = roundedAverage(olderGames);
     const improvementTrend = recentAvg - olderAvg;
 
     // Score distribution
@@ -178,8 +177,7 @@ const StatsPage = () => {
         return gameDate >= weekStart && gameDate < weekEnd;
       });
       
-      const weekAverage = weekGames.length > 0 ?
-        Math.round(weekGames.reduce((sum, game) => sum + (game.total_score || game.score), 0) / weekGames.length) : 0;
+      const weekAverage = roundedAverage(weekGames);
       
       weeklyPerformance.unshift({
         week: `Week ${8 - i}`,
@@ -203,8 +201,7 @@ const StatsPage = () => {
         return gameDate >= monthStart && gameDate <= monthEnd;
       });
       
-      const monthAverage = monthGames.length > 0 ?
-        Math.round(monthGames.reduce((sum, game) => sum + (game.total_score || game.score), 0) / monthGames.length) : 0;
+      const monthAverage = roundedAverage(monthGames);
       
       monthlyPerformance.unshift({
         month: monthStart.toLocaleDateString('en-US', { month: 'short' }),

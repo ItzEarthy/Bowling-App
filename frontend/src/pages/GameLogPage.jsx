@@ -8,6 +8,7 @@ import Input from '../components/ui/Input';
 import Modal from '../components/ui/Modal';
 import { LoadingCard } from '../components/ui/Spinner';
 import { gameAPI, ballAPI } from '../lib/api';
+import { extractScore, averageScore, roundedAverage, completedGamesFilter, standardDeviation } from '../utils/statsHelpers';
 
 /**
  * Game Log Page Component
@@ -91,7 +92,7 @@ const GameLogPage = () => {
   };
 
   const calculateStats = (gamesList) => {
-    const completedGames = gamesList.filter(game => game.is_complete);
+  const completedGames = completedGamesFilter(gamesList);
     
     if (completedGames.length === 0) {
       setStats({
@@ -108,24 +109,23 @@ const GameLogPage = () => {
       return;
     }
 
-    const scores = completedGames.map(game => game.total_score || game.score);
-    const totalPins = scores.reduce((sum, score) => sum + score, 0);
-    const averageScore = Math.round(totalPins / completedGames.length);
-    const highScore = Math.max(...scores);
-    const lowScore = Math.min(...scores);
+  const scores = completedGames.map(game => extractScore(game));
+  const totalPins = scores.reduce((sum, score) => sum + score, 0);
+  const avgValue = averageScore(completedGames);
+  const averageScore = Math.round(avgValue);
+  const highScore = scores.length > 0 ? Math.max(...scores) : 0;
+  const lowScore = scores.length > 0 ? Math.min(...scores) : 0;
 
     // Calculate recent trend (last 5 games vs previous 5 games)
     const recentGames = completedGames.slice(0, 5);
     const previousGames = completedGames.slice(5, 10);
-    const recentAverage = recentGames.length > 0 ? 
-      Math.round(recentGames.reduce((sum, game) => sum + (game.total_score || game.score), 0) / recentGames.length) : 0;
-    const previousAverage = previousGames.length > 0 ? 
-      Math.round(previousGames.reduce((sum, game) => sum + (game.total_score || game.score), 0) / previousGames.length) : 0;
+    const recentAverage = roundedAverage(recentGames);
+    const previousAverage = roundedAverage(previousGames);
     const improvementTrend = recentAverage - previousAverage;
 
     // Calculate consistency (standard deviation)
-    const variance = scores.reduce((sum, score) => sum + Math.pow(score - averageScore, 2), 0) / scores.length;
-    const consistency = Math.round(100 - Math.sqrt(variance));
+  const stdDev = standardDeviation(completedGames);
+  const consistency = Math.max(0, Math.min(100, Math.round(100 - stdDev)));
 
     // Categorize games by score ranges
     const gamesByScore = {
