@@ -8,7 +8,6 @@ import Input from '../components/ui/Input';
 import Modal from '../components/ui/Modal';
 import { LoadingCard } from '../components/ui/Spinner';
 import { gameAPI, ballAPI } from '../lib/api';
-import { extractScore, averageScore, roundedAverage, completedGamesFilter, standardDeviation } from '../utils/statsHelpers';
 
 /**
  * Game Log Page Component
@@ -64,27 +63,14 @@ const GameLogPage = () => {
         ballAPI.getBalls()
       ]);
       
-      console.log('Games response:', gamesResponse);
-      console.log('Balls response:', ballsResponse);
-      
-      // Defensive checks for response structure
-      if (!gamesResponse?.data) {
-        throw new Error('Invalid games response structure');
-      }
-      if (!ballsResponse?.data) {
-        throw new Error('Invalid balls response structure');
-      }
-      
-      setGames(gamesResponse.data.games || []);
-      setBalls(ballsResponse.data.balls || []);
-      setHasMore(gamesResponse.data.pagination?.page < gamesResponse.data.pagination?.totalPages);
+      setGames(gamesResponse.data.games);
+      setBalls(ballsResponse.data.balls);
+      setHasMore(gamesResponse.data.pagination.page < gamesResponse.data.pagination.totalPages);
       
       // Calculate comprehensive stats
-      calculateStats(gamesResponse.data.games || []);
+      calculateStats(gamesResponse.data.games);
     } catch (err) {
-      console.error('Failed to load game data:', err);
-      const errorMsg = err.response?.data?.error || err.message || 'Unknown error';
-      setError(`Failed to load game data: ${errorMsg}`);
+      setError('Failed to load game data');
     } finally {
       setIsLoading(false);
     }
@@ -100,14 +86,12 @@ const GameLogPage = () => {
       }
       setHasMore(response.data.pagination.page < response.data.pagination.totalPages);
     } catch (err) {
-      console.error('Failed to load games:', err);
-      const errorMsg = err.response?.data?.error || err.message || 'Unknown error';
-      setError(`Failed to load games: ${errorMsg}`);
+      setError('Failed to load games');
     }
   };
 
   const calculateStats = (gamesList) => {
-  const completedGames = completedGamesFilter(gamesList);
+    const completedGames = gamesList.filter(game => game.is_complete);
     
     if (completedGames.length === 0) {
       setStats({
@@ -124,23 +108,24 @@ const GameLogPage = () => {
       return;
     }
 
-  const scores = completedGames.map(game => extractScore(game));
-  const totalPins = scores.reduce((sum, score) => sum + score, 0);
-  const avgValue = averageScore(completedGames);
-  const averageScore = Math.round(avgValue);
-  const highScore = scores.length > 0 ? Math.max(...scores) : 0;
-  const lowScore = scores.length > 0 ? Math.min(...scores) : 0;
+    const scores = completedGames.map(game => game.total_score || game.score);
+    const totalPins = scores.reduce((sum, score) => sum + score, 0);
+    const averageScore = Math.round(totalPins / completedGames.length);
+    const highScore = Math.max(...scores);
+    const lowScore = Math.min(...scores);
 
     // Calculate recent trend (last 5 games vs previous 5 games)
     const recentGames = completedGames.slice(0, 5);
     const previousGames = completedGames.slice(5, 10);
-    const recentAverage = roundedAverage(recentGames);
-    const previousAverage = roundedAverage(previousGames);
+    const recentAverage = recentGames.length > 0 ? 
+      Math.round(recentGames.reduce((sum, game) => sum + (game.total_score || game.score), 0) / recentGames.length) : 0;
+    const previousAverage = previousGames.length > 0 ? 
+      Math.round(previousGames.reduce((sum, game) => sum + (game.total_score || game.score), 0) / previousGames.length) : 0;
     const improvementTrend = recentAverage - previousAverage;
 
     // Calculate consistency (standard deviation)
-  const stdDev = standardDeviation(completedGames);
-  const consistency = Math.max(0, Math.min(100, Math.round(100 - stdDev)));
+    const variance = scores.reduce((sum, score) => sum + Math.pow(score - averageScore, 2), 0) / scores.length;
+    const consistency = Math.round(100 - Math.sqrt(variance));
 
     // Categorize games by score ranges
     const gamesByScore = {

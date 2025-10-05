@@ -4,10 +4,7 @@ import PageHeader from '../components/layout/PageHeader';
 import Card, { CardContent, CardHeader, CardTitle } from '../components/ui/Card';
 import Button from '../components/ui/Button';
 import Spinner from '../components/ui/Spinner';
-import SimpleLineChart from '../components/ui/SimpleLineChart';
-import SimpleBarChart from '../components/ui/SimpleBarChart';
 import { gameAPI, ballAPI } from '../lib/api';
-import { extractScore, roundedAverage, averageScore, completedGamesFilter } from '../utils/statsHelpers';
 
 /**
  * Trend Analysis Dashboard
@@ -83,7 +80,7 @@ const TrendAnalysisPage = () => {
     // Calculate various trend statistics
     const stats = {
       totalGames: filtered.length,
-      averageScore: averageScore(filtered),
+      averageScore: filtered.reduce((sum, game) => sum + (game.total_score || 0), 0) / filtered.length,
       highScore: Math.max(...filtered.map(game => game.total_score || 0)),
       lowScore: Math.min(...filtered.map(game => game.total_score || 0)),
       totalStrikes: filtered.reduce((sum, game) => sum + (game.strikes || 0), 0),
@@ -458,78 +455,21 @@ const TrendAnalysisPage = () => {
             </Card>
           </div>
 
-          {/* Performance Chart */}
+          {/* Performance Chart Placeholder */}
           <Card className="mb-8">
             <CardHeader>
               <CardTitle>Performance Over Time</CardTitle>
             </CardHeader>
             <CardContent>
-              <SimpleLineChart
-                data={filteredData.map((game, index) => ({
-                  date: new Date(game.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
-                  score: selectedMetric === 'score' ? game.total_score :
-                         selectedMetric === 'strikes' ? game.strikes :
-                         selectedMetric === 'spares' ? game.spares :
-                         game.total_score,
-                  index
-                }))}
-                xKey="date"
-                yKey="score"
-                label={selectedMetric === 'score' ? 'Score' :
-                       selectedMetric === 'strikes' ? 'Strikes' :
-                       selectedMetric === 'spares' ? 'Spares' : 'Score'}
-                color="#3B82F6"
-                width={800}
-                height={300}
-              />
+              <div className="h-64 bg-gray-50 rounded-lg flex items-center justify-center">
+                <div className="text-center">
+                  <LineChart className="w-16 h-16 text-gray-400 mx-auto mb-4" />
+                  <p className="text-gray-600">Interactive chart would be rendered here</p>
+                  <p className="text-sm text-gray-500">Showing {selectedMetric} trends for {timeframe}</p>
+                </div>
+              </div>
             </CardContent>
           </Card>
-
-          {/* Weekly Breakdown */}
-          {trendStats.weeklyBreakdown && trendStats.weeklyBreakdown.length > 0 && (
-            <Card className="mb-8">
-              <CardHeader>
-                <CardTitle>Weekly Performance</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <SimpleBarChart
-                  data={trendStats.weeklyBreakdown.map(week => ({
-                    week: new Date(week.week).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
-                    average: Math.round(week.average)
-                  }))}
-                  xKey="week"
-                  yKey="average"
-                  label="Average Score"
-                  color="#10B981"
-                  width={800}
-                  height={280}
-                />
-              </CardContent>
-            </Card>
-          )}
-
-          {/* Monthly Breakdown */}
-          {trendStats.monthlyBreakdown && trendStats.monthlyBreakdown.length > 0 && (
-            <Card className="mb-8">
-              <CardHeader>
-                <CardTitle>Monthly Performance</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <SimpleBarChart
-                  data={trendStats.monthlyBreakdown.map(month => ({
-                    month: new Date(month.month + '-01').toLocaleDateString('en-US', { month: 'short', year: '2-digit' }),
-                    average: Math.round(month.average)
-                  }))}
-                  xKey="month"
-                  yKey="average"
-                  label="Average Score"
-                  color="#8B5CF6"
-                  width={800}
-                  height={280}
-                />
-              </CardContent>
-            </Card>
-          )}
 
           {/* Ball Performance Analysis */}
           {trendStats.ballPerformance.length > 0 && (

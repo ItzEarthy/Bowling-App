@@ -1,12 +1,142 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
+import { VitePWA } from 'vite-plugin-pwa'
 
 export default defineConfig({
-  plugins: [react()],
+  plugins: [
+    react(),
+    VitePWA({
+      registerType: 'autoUpdate',
+      includeAssets: ['PinStats.png', 'pwa-192x192.jpg', 'pwa-192x1921.png', 'pwa-512x512.png'],
+      injectRegister: false,  // Don't inject - we'll handle registration ourselves
+      filename: 'sw.js',
+      strategies: 'generateSW',
+      mode: 'production',
+      manifest: {
+        name: 'Pin Stats',
+        short_name: 'PinStats',
+        description: 'Track your bowling scores and analyze your game',
+        theme_color: '#14B8A6',
+        background_color: '#FDFBF5',
+        display: 'standalone',
+        orientation: 'portrait',
+        scope: '/',
+        start_url: '/',
+        icons: [
+          {
+            src: '/PinStats.png',
+            sizes: '72x72',
+            type: 'image/png',
+            purpose: 'any'
+          },
+          {
+            src: '/PinStats.png',
+            sizes: '96x96',
+            type: 'image/png',
+            purpose: 'any'
+          },
+          {
+            src: '/PinStats.png',
+            sizes: '128x128',
+            type: 'image/png',
+            purpose: 'any'
+          },
+          {
+            src: '/PinStats.png',
+            sizes: '144x144',
+            type: 'image/png',
+            purpose: 'any'
+          },
+          {
+            src: '/PinStats.png',
+            sizes: '152x152',
+            type: 'image/png',
+            purpose: 'any'
+          },
+          {
+            src: '/PinStats.png',
+            sizes: '192x192',
+            type: 'image/png',
+            purpose: 'any'
+          },
+          {
+            src: '/PinStats.png',
+            sizes: '384x384',
+            type: 'image/png',
+            purpose: 'any'
+          },
+          {
+            src: '/PinStats.png',
+            sizes: '512x512',
+            type: 'image/png',
+            purpose: 'any'
+          },
+          {
+            src: '/PinStats.png',
+            sizes: '192x192',
+            type: 'image/png',
+            purpose: 'maskable'
+          },
+          {
+            src: '/PinStats.png',
+            sizes: '512x512',
+            type: 'image/png',
+            purpose: 'maskable'
+          }
+        ],
+        categories: ['sports', 'lifestyle', 'social'],
+        lang: 'en',
+        dir: 'ltr',
+        prefer_related_applications: false
+      },
+      workbox: {
+        globPatterns: ['**/*.{js,css,html,ico,png,svg,jpg,webmanifest}'],
+        cleanupOutdatedCaches: true,
+        skipWaiting: true,
+        clientsClaim: true,
+        navigateFallback: null,
+        // Additional runtime caching strategies
+        runtimeCaching: [
+          {
+            // Cache API requests with NetworkFirst strategy
+            urlPattern: /^https?:.*\/api\/.*/,
+            handler: 'NetworkFirst',
+            options: {
+              cacheName: 'api-cache',
+              expiration: {
+                maxEntries: 100,
+                maxAgeSeconds: 300 // 5 minutes
+              },
+              networkTimeoutSeconds: 10
+            }
+          },
+          {
+            // Cache images with CacheFirst strategy
+            urlPattern: /\.(?:png|jpg|jpeg|svg|gif|webp)$/,
+            handler: 'CacheFirst',
+            options: {
+              cacheName: 'images-cache',
+              expiration: {
+                maxEntries: 60,
+                maxAgeSeconds: 86400 // 1 day
+              }
+            }
+          }
+        ],
+        // Custom service worker to handle update messages
+        swDest: 'dist/sw.js',
+        importScripts: undefined
+      },
+      devOptions: {
+        enabled: false
+      }
+    })
+  ],
   base: '/',
   server: {
     host: '0.0.0.0',
     port: 8031,
+    // Proxy API requests during development
     proxy: {
       '/api': {
         target: 'http://localhost:5000',
@@ -18,6 +148,7 @@ export default defineConfig({
   build: {
     outDir: 'dist',
     sourcemap: false,
+    // Optimize build for production
     rollupOptions: {
       output: {
         manualChunks: {

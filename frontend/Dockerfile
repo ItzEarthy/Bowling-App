@@ -15,14 +15,15 @@ COPY --from=builder /app/dist /usr/share/nginx/html
 # Copy nginx configuration
 COPY nginx.conf /etc/nginx/conf.d/default.conf
 
-# Ensure all files have proper permissions
+# Ensure all files have proper permissions (including manifest.webmanifest)
 RUN chmod -R 755 /usr/share/nginx/html && \
     chown -R nginx:nginx /usr/share/nginx/html
 
-# Verify critical PWA files exist (silent check)
-RUN test -f /usr/share/nginx/html/manifest.json && \
+# Verify critical PWA files exist
+RUN ls -la /usr/share/nginx/html/ && \
+    test -f /usr/share/nginx/html/manifest.webmanifest && \
     test -f /usr/share/nginx/html/sw.js && \
-    echo "✅ PWA files verified successfully"
+    echo "✅ PWA files verified"
 
 EXPOSE 80
 CMD ["nginx", "-g", "daemon off;"]

@@ -14,22 +14,25 @@ export function setupUpdateChecker() {
         
         console.log('✅ Service Worker registered successfully');
 
-        // Define the update check function
-        const checkForUpdates = () => {
-          console.log('🔄 Checking for updates...');
-          if (registration) {
-            registration.update().catch(err => {
-              console.log('ℹ️ Update check completed:', err.message || 'No updates');
-            });
-          }
-        };
-
         // Initial update check after registration
         setTimeout(() => {
           checkForUpdates();
         }, 2000); // Wait 2 seconds after registration
 
-        // Check for updates every 5 minutes
+        // Check for updates more frequently and on visibility change
+        const checkForUpdates = () => {
+          console.log('🔄 Checking for updates...');
+          registration.update().catch(err => {
+            // Handle 403 errors gracefully (usually means no update available or caching issue)
+            if (err.message && err.message.includes('403')) {
+              console.log('ℹ️ No updates available (403 - normal for unchanged content)');
+            } else {
+              console.warn('Update check failed:', err);
+            }
+          });
+        };
+
+        // Check for updates every 5 minutes instead of 30 seconds to reduce server load
         setInterval(checkForUpdates, 300000); // 5 minutes
 
         // Check for updates when tab becomes visible
@@ -56,7 +59,9 @@ export function setupUpdateChecker() {
                   showUpdateNotification();
                   
                   // Force the waiting service worker to become active
-                  newWorker.postMessage({ type: 'SKIP_WAITING' });
+                  if (newWorker.state === 'installed') {
+                    newWorker.postMessage({ type: 'SKIP_WAITING' });
+                  }
                 } else {
                   // First time installation
                   console.log('✅ App is ready for offline use');
