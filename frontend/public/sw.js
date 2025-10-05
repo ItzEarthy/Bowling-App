@@ -38,15 +38,36 @@ self.addEventListener('activate', (event) => {
 
 // Fetch event - serve from cache when offline, otherwise fetch from network
 self.addEventListener('fetch', (event) => {
+  const { request } = event;
+  const url = new URL(request.url);
+
+  // NEVER cache API requests - always fetch fresh data
+  if (url.pathname.startsWith('/api/')) {
+    event.respondWith(
+      fetch(request).catch(() => {
+        // If API request fails while offline, return a meaningful error
+        return new Response(
+          JSON.stringify({ error: 'Offline - API not available' }),
+          {
+            status: 503,
+            headers: { 'Content-Type': 'application/json' }
+          }
+        );
+      })
+    );
+    return;
+  }
+
+  // For non-API requests, use cache-first strategy
   event.respondWith(
-    caches.match(event.request)
+    caches.match(request)
       .then((response) => {
         // Cache hit - return response
         if (response) {
           return response;
         }
 
-        return fetch(event.request).then(
+        return fetch(request).then(
           (response) => {
             // Check if valid response
             if (!response || response.status !== 200 || response.type !== 'basic') {
@@ -58,7 +79,7 @@ self.addEventListener('fetch', (event) => {
 
             caches.open(CACHE_NAME)
               .then((cache) => {
-                cache.put(event.request, responseToCache);
+                cache.put(request, responseToCache);
               });
 
             return response;

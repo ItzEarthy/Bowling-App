@@ -19,11 +19,10 @@ COPY nginx.conf /etc/nginx/conf.d/default.conf
 RUN chmod -R 755 /usr/share/nginx/html && \
     chown -R nginx:nginx /usr/share/nginx/html
 
-# Verify critical PWA files exist
-RUN ls -la /usr/share/nginx/html/ && \
-    test -f /usr/share/nginx/html/manifest.json && \
+# Verify critical PWA files exist (silent check)
+RUN test -f /usr/share/nginx/html/manifest.json && \
     test -f /usr/share/nginx/html/sw.js && \
-    echo "✅ PWA files verified"
+    echo "✅ PWA files verified successfully"
 
 EXPOSE 80
 CMD ["nginx", "-g", "daemon off;"]
