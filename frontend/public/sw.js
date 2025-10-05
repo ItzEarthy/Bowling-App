@@ -1,5 +1,5 @@
 // Simple Service Worker for PWA
-const CACHE_NAME = 'pin-stats-v2'; // Updated version to trigger cache refresh
+const CACHE_NAME = 'pin-stats-v3'; // Updated version to trigger cache refresh
 const urlsToCache = [
   '/',
   '/index.html',
