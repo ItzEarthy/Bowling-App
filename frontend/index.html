@@ -11,10 +11,75 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <meta name="apple-mobile-web-app-title" content="Pin Stats" />
     <link rel="apple-touch-icon" href="/PinStats.png" />
+      <!-- Runtime-generated manifest blob to avoid blocked static manifest files -->
+      <script>
+        (function() {
+          try {
+            const manifest = {
+              name: 'Pin Stats',
+              short_name: 'PinStats',
+              description: 'Track your bowling scores and analyze your game',
+              start_url: '/',
+              display: 'standalone',
+              background_color: '#FDFBF5',
+              theme_color: '#14B8A6',
+              orientation: 'portrait',
+              scope: '/',
+              icons: [
+                { src: '/PinStats.png', sizes: '192x192', type: 'image/png', purpose: 'any' },
+                { src: '/PinStats.png', sizes: '512x512', type: 'image/png', purpose: 'any' },
+                { src: '/PinStats.png', sizes: '512x512', type: 'image/png', purpose: 'maskable' }
+              ]
+            };
+
+            const blob = new Blob([JSON.stringify(manifest)], { type: 'application/manifest+json' });
+            const blobUrl = URL.createObjectURL(blob);
+
+            // If there's already a manifest link, update it to point to the blob to avoid fetching blocked file
+            const updateExisting = () => {
+              const existing = document.querySelector('link[rel="manifest"]');
+              if (existing) {
+                existing.href = blobUrl;
+                return true;
+              }
+              return false;
+            };
+
+            if (!updateExisting()) {
+              // Create a manifest link early so browsers that parse it later will use the blob
+              const link = document.createElement('link');
+              link.rel = 'manifest';
+              link.href = blobUrl;
+              document.head.appendChild(link);
+
+              // Observe DOM for any later-injected manifest link (e.g., VitePWA) and remove it
+              const mo = new MutationObserver((mutations) => {
+                for (const m of mutations) {
+                  for (const node of m.addedNodes) {
+                    if (node.nodeType === 1 && node.tagName.toLowerCase() === 'link' && node.rel === 'manifest') {
+                      try {
+                        // Remove the injected static manifest link to prevent network fetch of blocked file
+                        node.parentNode && node.parentNode.removeChild(node);
+                      } catch (e) {
+                        console.warn('Failed to remove injected manifest link', e);
+                      }
+                    }
+                  }
+                }
+              });
+              mo.observe(document.head, { childList: true });
+              // Stop observing after 5s
+              setTimeout(() => mo.disconnect(), 5000);
+            }
+          } catch (e) {
+            console.warn('Failed to inject runtime manifest', e);
+          }
+        })();
+      </script>
     <link rel="apple-touch-icon" sizes="180x180" href="/PinStats.png" />
     <link rel="apple-touch-icon" sizes="192x192" href="/PinStats.png" />
     <link rel="apple-touch-icon" sizes="512x512" href="/PinStats.png" />
-    <link rel="manifest" href="/manifest.webmanifest" />
+  <!-- Runtime manifest injected above; no static manifest link to avoid blocked asset -->
     
     <!-- Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
