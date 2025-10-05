@@ -64,14 +64,27 @@ const GameLogPage = () => {
         ballAPI.getBalls()
       ]);
       
-      setGames(gamesResponse.data.games);
-      setBalls(ballsResponse.data.balls);
-      setHasMore(gamesResponse.data.pagination.page < gamesResponse.data.pagination.totalPages);
+      console.log('Games response:', gamesResponse);
+      console.log('Balls response:', ballsResponse);
+      
+      // Defensive checks for response structure
+      if (!gamesResponse?.data) {
+        throw new Error('Invalid games response structure');
+      }
+      if (!ballsResponse?.data) {
+        throw new Error('Invalid balls response structure');
+      }
+      
+      setGames(gamesResponse.data.games || []);
+      setBalls(ballsResponse.data.balls || []);
+      setHasMore(gamesResponse.data.pagination?.page < gamesResponse.data.pagination?.totalPages);
       
       // Calculate comprehensive stats
-      calculateStats(gamesResponse.data.games);
+      calculateStats(gamesResponse.data.games || []);
     } catch (err) {
-      setError('Failed to load game data');
+      console.error('Failed to load game data:', err);
+      const errorMsg = err.response?.data?.error || err.message || 'Unknown error';
+      setError(`Failed to load game data: ${errorMsg}`);
     } finally {
       setIsLoading(false);
     }
@@ -87,7 +100,9 @@ const GameLogPage = () => {
       }
       setHasMore(response.data.pagination.page < response.data.pagination.totalPages);
     } catch (err) {
-      setError('Failed to load games');
+      console.error('Failed to load games:', err);
+      const errorMsg = err.response?.data?.error || err.message || 'Unknown error';
+      setError(`Failed to load games: ${errorMsg}`);
     }
   };
 

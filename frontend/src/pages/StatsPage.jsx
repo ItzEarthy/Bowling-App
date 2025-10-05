@@ -51,9 +51,20 @@ const StatsPage = () => {
         ballAPI.getBalls()
       ]);
       
-      const allGames = gamesResponse.data.games;
+      console.log('Stats page - Games response:', gamesResponse);
+      console.log('Stats page - Balls response:', ballsResponse);
+      
+      // Defensive checks for response structure
+      if (!gamesResponse?.data) {
+        throw new Error('Invalid games response structure');
+      }
+      if (!ballsResponse?.data) {
+        throw new Error('Invalid balls response structure');
+      }
+      
+      const allGames = gamesResponse.data.games || [];
       setGames(allGames);
-      setBalls(ballsResponse.data.balls);
+      setBalls(ballsResponse.data.balls || []);
       
       // Filter games based on timeframe
       const filteredGames = filterGamesByTimeframe(allGames, timeframe);
@@ -61,7 +72,9 @@ const StatsPage = () => {
       // Calculate comprehensive statistics
       calculateComprehensiveStats(filteredGames, allGames);
     } catch (err) {
-      setError('Failed to load statistics data');
+      console.error('Failed to load statistics data:', err);
+      const errorMsg = err.response?.data?.error || err.message || 'Unknown error';
+      setError(`Failed to load statistics data: ${errorMsg}`);
     } finally {
       setIsLoading(false);
     }
