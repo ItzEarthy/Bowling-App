@@ -3,6 +3,7 @@ import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-d
 import useAuthStore from './stores/authStore';
 import useGameStore from './stores/gameStore';
 import appLifecycleManager from './services/appLifecycle';
+import { setupUpdateChecker } from './registerSW';
 import ErrorBoundary from './components/ui/ErrorBoundary';
 
 // Layout Components
@@ -53,18 +54,8 @@ function App() {
     // Initialize app lifecycle manager for auto-save
     appLifecycleManager.initialize();
     
-    // Simple service worker registration
-    if ('serviceWorker' in navigator) {
-      window.addEventListener('load', () => {
-        navigator.serviceWorker.register('/sw.js')
-          .then((registration) => {
-            console.log('✅ Service Worker registered successfully:', registration);
-          })
-          .catch((error) => {
-            console.warn('❌ Service Worker registration failed:', error);
-          });
-      });
-    }
+    // Setup service worker with update checking
+    setupUpdateChecker();
     
     // Check for saved game state when app loads
     setTimeout(() => {
