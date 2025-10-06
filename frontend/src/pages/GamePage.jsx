@@ -75,14 +75,22 @@ const GamePage = () => {
 
     setIsSaving(true);
     try {
+      // Build payload that matches backend validation schema
       const gameData = {
-        frames: currentGame.frames.map(frame => ({
-          frame_number: frame.frame_number,
-          throws_data: JSON.stringify(frame.throws || []),
-          cumulative_score: frame.cumulative_score
-        })),
-        total_score: currentGame.total_score,
-        is_complete: true
+        entryMode: currentGame?.entry_mode || 'pin_by_pin',
+        totalScore: typeof currentGame?.total_score === 'number' ? currentGame.total_score : Number(currentGame?.total_score || 0),
+        strikes: Number(currentGame?.strikes || 0),
+        spares: Number(currentGame?.spares || 0),
+        notes: currentGame?.notes || null,
+        is_complete: true,
+        created_at: currentGame?.created_at || new Date().toISOString(),
+        // frames expected to include throws as an array (not stringified)
+        frames: (currentGame?.frames || []).map(frame => ({
+          frame_number: Number(frame.frame_number),
+          throws: frame.throws || frame.throws_data || [],
+          cumulative_score: Number(frame.cumulative_score || 0),
+          is_complete: Boolean(frame.is_complete)
+        }))
       };
 
       const response = await api.post('/games', gameData);
@@ -90,7 +98,9 @@ const GamePage = () => {
       // Navigate to game log or dashboard after saving
       navigate('/dashboard');
     } catch (err) {
-      setError('Failed to save game: ' + err.message);
+      // Prefer backend-provided message when available
+      const backendMsg = err.response?.data?.error || err.response?.data?.message;
+      setError('Failed to save game: ' + (backendMsg || err.message));
     } finally {
       setIsSaving(false);
     }
