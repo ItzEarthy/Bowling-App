@@ -113,6 +113,13 @@ const GameSetupPage = () => {
       };
       
       // Navigate to the game entry page with setup data
+      // Initialize the game in store so it's saved immediately
+      try {
+        initializeGame({ ...gameSetup });
+      } catch (initErr) {
+        console.warn('Failed to initialize game in store:', initErr);
+      }
+
       navigate('/game-entry', { 
         state: { gameSetup } 
       });
@@ -128,7 +135,13 @@ const GameSetupPage = () => {
     const gameSetup = {
       created_at: new Date().toISOString()
     };
-    
+    // Initialize empty game immediately
+    try {
+      initializeGame({ created_at: gameSetup.created_at });
+    } catch (err) {
+      console.warn('Quick start initialize failed:', err);
+    }
+
     navigate('/game-entry', { 
       state: { gameSetup } 
     });

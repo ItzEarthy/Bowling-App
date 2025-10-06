@@ -23,6 +23,7 @@ const GameEntryPage = () => {
   const [selectedMode, setSelectedMode] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState(null);
+  const { currentGame, initializeGame } = useGameStore();
 
   const handleModeSelect = (mode) => {
     setSelectedMode(mode);
@@ -37,6 +38,17 @@ const GameEntryPage = () => {
   const handleBackToSetup = () => {
     navigate('/game-setup');
   };
+
+  // Ensure a started game from setup is initialized in the store (auto-saved)
+  React.useEffect(() => {
+    if (!currentGame && gameSetup && Object.keys(gameSetup).length > 0) {
+      try {
+        initializeGame({ ...gameSetup });
+      } catch (err) {
+        console.warn('Failed to initialize game from GameEntryPage:', err);
+      }
+    }
+  }, [currentGame, gameSetup, initializeGame]);
 
   const handleGameComplete = async (gameData) => {
     setIsLoading(true);

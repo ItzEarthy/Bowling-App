@@ -13,23 +13,20 @@ import { getLocalISOString, getLocalDateString } from '../../utils/dateUtils';
  * Individual Pin Component for Pin Selection (circular, true-to-life)
  */
 const Pin = ({ pinNumber, isKnockedDown, isDisabled = false }) => {
-  // Visual-only pin; sizing/positioning is handled by PinDeck
+  // SVG bowling pin visual. The wrapper controls sizing; this is pointer-events-none
+  const fill = isKnockedDown ? '#DC2626' : '#FFFFFF';
+  const stroke = isKnockedDown ? '#B91C1C' : '#374151';
+
   return (
-    <div
-      className={`pin-circle flex items-center justify-center select-none pointer-events-none
-        ${isKnockedDown ? 'bg-vintage-red-500 border-vintage-red-600 text-white' : 'bg-white border-charcoal-300 text-charcoal-900'}
-        font-bold text-[0.8rem] md:text-xs shadow-md`
-      }
-      style={{
-        width: '100%',
-        height: '100%',
-        borderRadius: '50%',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center'
-      }}
-    >
-      {pinNumber}
+    <div className="pointer-events-none select-none flex items-center justify-center" style={{ width: '100%', height: '100%' }}>
+      <svg viewBox="0 0 100 200" preserveAspectRatio="xMidYMid meet" className="w-full h-full">
+        {/* Simple stylized pin shape */}
+        <path d="M50 6 C66 6 78 18 78 32 C78 42 70 48 64 64 C58 80 60 92 60 104 C60 118 50 126 50 126 C50 126 40 118 40 104 C40 92 42 80 36 64 C30 48 22 42 22 32 C22 18 34 6 50 6 Z" fill={fill} stroke={stroke} strokeWidth="2" />
+        {/* Neck and base accent */}
+        <ellipse cx="50" cy="152" rx="22" ry="8" fill={fill} stroke={stroke} strokeWidth="1" opacity="0.9" />
+        {/* Number badge */}
+        <text x="50%" y="60%" dominantBaseline="middle" textAnchor="middle" fontSize="30" fontWeight="700" fill={isKnockedDown ? '#fff' : '#111827'}>{pinNumber}</text>
+      </svg>
     </div>
   );
 };
@@ -42,11 +39,12 @@ const PinDeck = ({
   availablePins = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
   onPinClick
 }) => {
-  // Scaling factor: 1 inch ≈ 2.2vw (deck width 40.75in ≈ 90vw)
-  const scale = 2.2; // vw per inch
-  const pinDiameter = 4.75 * scale; // in vw
-  const halfPin = pinDiameter / 2;
-  // Pin positions (in inches, relative to deck)
+  // Use real-world inches but map them to percentages so pins scale to container width/height
+  const deckInchesWidth = 40.75;
+  const deckInchesHeight = 35.875;
+  const pinDiameterInches = 4.75;
+
+  // Pin positions (in inches, center coordinates measured from left/top of deck)
   const pinPositions = {
     1:  { top: 0, left: 18 },
     2:  { top: 10.39, left: 12 },
@@ -59,31 +57,32 @@ const PinDeck = ({
     9:  { top: 31.17, left: 24 },
     10: { top: 31.17, left: 36 },
   };
-  // Deck dimensions
-  const deckWidth = 40.75 * scale; // in vw
-  const deckHeight = 35.875 * scale; // in vw
 
   return (
     <div
-      className="pin-deck"
+      className="pin-deck relative mx-auto"
       style={{
         position: 'relative',
-        width: `${deckWidth}vw`,
-        height: `${deckHeight}vw`,
-        margin: 'auto',
+        width: '100%',
+        maxWidth: 520,
+        aspectRatio: `${deckInchesWidth} / ${deckInchesHeight}`,
+        margin: '0 auto',
         background: 'transparent',
-        maxWidth: 800,
-        maxHeight: 700,
-        minWidth: 320,
-        minHeight: 250,
+        minWidth: 260
       }}
     >
       {Object.entries(pinPositions).map(([pinNumber, pos]) => {
         const isKnocked = knockedDownPins.includes(Number(pinNumber));
         const isAvailable = availablePins.includes(Number(pinNumber));
-        // center the pin by offsetting half the pin diameter
-        const left = pos.left * scale - halfPin;
-        const top = pos.top * scale - halfPin;
+
+        // Compute center position as percentages of the deck so visuals scale with container
+        const leftPercent = (pos.left / deckInchesWidth) * 100;
+        // Invert vertical axis so pin 1 is at the bottom
+        const topPercent = ((deckInchesHeight - pos.top) / deckInchesHeight) * 100;
+
+        // Size pin as percent of deck width to keep consistent circular/oval sizing
+        const pinSizePercent = (pinDiameterInches / deckInchesWidth) * 100;
+
         return (
           <button
             key={pinNumber}
@@ -91,21 +90,20 @@ const PinDeck = ({
             disabled={!isAvailable}
             aria-pressed={isKnocked}
             aria-label={`Pin ${pinNumber}`}
-            className={`absolute overflow-hidden transition-transform duration-150 rounded-full border-2 p-0 shadow-md focus:outline-none ${isKnocked ? 'scale-[0.95] opacity-80' : ''}`}
+            className={`absolute transition-transform duration-150 p-0 shadow-md focus:outline-none flex items-center justify-center ${isKnocked ? 'opacity-60' : 'opacity-100'}`}
             style={{
-              left: `calc(${left}vw)`,
-              top: `calc(${top}vw)`,
-              width: `${pinDiameter}vw`,
-              height: `${pinDiameter}vw`,
+              left: `${leftPercent}%`,
+              top: `${topPercent}%`,
+              transform: 'translate(-50%, -50%)',
+              width: `${pinSizePercent}%`,
+              height: `${pinSizePercent}%`,
               minWidth: 28,
-              minHeight: 28,
-              maxWidth: 64,
-              maxHeight: 64,
-              zIndex: isKnocked ? 1 : 3,
-              borderRadius: '50%',
-              padding: 0,
+              minHeight: 40,
+              maxWidth: 88,
+              maxHeight: 120,
+              zIndex: isKnocked ? 1 : 4,
               background: 'transparent',
-              borderColor: isKnocked ? undefined : undefined
+              border: 'none'
             }}
           >
             <Pin pinNumber={Number(pinNumber)} isKnockedDown={isKnocked} isDisabled={!isAvailable} />
@@ -130,6 +128,7 @@ const PinByPinEntry = ({ onGameComplete, initialData = {} }) => {
   const [currentThrow, setCurrentThrow] = useState(1);
   const [selectedPins, setSelectedPins] = useState([]);
   const [frameThrowPins, setFrameThrowPins] = useState({}); // Store which specific pins were hit for each throw
+  const [editingThrowSelectorOpen, setEditingThrowSelectorOpen] = useState(false);
   const [gameComplete, setGameComplete] = useState(false);
   const [showScorecard, setShowScorecard] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -297,6 +296,23 @@ const PinByPinEntry = ({ onGameComplete, initialData = {} }) => {
     }
     
     return selectedPins;
+  };
+
+  // helper to load pins for a given throw if saved
+  const loadPinsForThrow = (frameNum, throwNum) => {
+    const key = `${frameNum}-${throwNum}`;
+    const saved = frameThrowPins[key];
+    if (saved) {
+      setSelectedPins(saved);
+    } else {
+      setSelectedPins([]);
+    }
+  };
+
+  const handleChooseThrow = (throwNum) => {
+    setCurrentThrow(throwNum);
+    loadPinsForThrow(currentFrame, throwNum);
+    setEditingThrowSelectorOpen(false);
   };
 
   // Check if game is complete
@@ -489,6 +505,8 @@ const PinByPinEntry = ({ onGameComplete, initialData = {} }) => {
     
     // Clear selected pins when switching frames
     setSelectedPins([]);
+    // Open throw selector so user can pick which throw to edit
+    setEditingThrowSelectorOpen(true);
   };
 
   const handleQuickSelect = (type) => {
@@ -705,6 +723,28 @@ const PinByPinEntry = ({ onGameComplete, initialData = {} }) => {
           {/* Pin Selection - Compact */}
           <Card>
             <CardContent className="p-3">
+              {/* Throw selector (shows when user clicks a frame) */}
+              {editingThrowSelectorOpen && (
+                <div className="absolute top-2 right-2 z-30 bg-white/95 dark:bg-gray-800/95 p-2 rounded shadow-md">
+                  <div className="text-sm font-semibold mb-1">Edit Throw</div>
+                  <div className="flex gap-1">
+                    {/* For frames 1-9 there are up to 2 throws, frame 10 may have 3 */}
+                    {[1, 2, 3].map((t) => {
+                      if (t === 3 && currentFrame !== 10) return null;
+                      return (
+                        <button
+                          key={t}
+                          onClick={() => handleChooseThrow(t)}
+                          className={`px-2 py-1 text-xs rounded border ${currentThrow === t ? 'bg-blue-600 text-white' : 'bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-200'}`}>
+                          {t}
+                        </button>
+                      );
+                    })}
+                    <button onClick={() => setEditingThrowSelectorOpen(false)} className="px-2 py-1 text-xs rounded border bg-red-100">Cancel</button>
+                  </div>
+                </div>
+              )}
+
               <PinDeck 
                 knockedDownPins={getKnockedDownPins()}
                 availablePins={getAvailablePins()}
