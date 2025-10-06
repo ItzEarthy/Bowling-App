@@ -51,45 +51,79 @@ const Pin = ({
 };
 
 /**
- * Pin Deck Layout Component (true-to-life triangle, overlapping rows)
+ * Pin Deck Layout Component (true-to-life triangle, absolute positioning)
  */
-const PinDeck = ({ 
-  knockedDownPins = [], 
+const PinDeck = ({
+  knockedDownPins = [],
   availablePins = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
-  onPinClick 
+  onPinClick
 }) => {
-  // True-to-life bowling pin arrangement (triangle, 4-3-2-1)
-  const pinRows = [
-    [7, 8, 9, 10], // Back row
-    [4, 5, 6],     // Third row  
-    [2, 3],        // Second row
-    [1]            // Front row (headpin)
-  ];
-
-  // Overlap amount (negative margin) for row stacking
-  const rowOverlap = -20; // px
+  // Scaling factor: 1 inch ≈ 2.2vw (deck width 40.75in ≈ 90vw)
+  const scale = 2.2; // vw per inch
+  const pinDiameter = 4.75 * scale; // in vw
+  // Pin positions (in inches, relative to deck)
+  const pinPositions = {
+    1:  { top: 0, left: 18 },
+    2:  { top: 10.39, left: 12 },
+    3:  { top: 10.39, left: 24 },
+    4:  { top: 20.78, left: 6 },
+    5:  { top: 20.78, left: 18 },
+    6:  { top: 20.78, left: 30 },
+    7:  { top: 31.17, left: 0 },
+    8:  { top: 31.17, left: 12 },
+    9:  { top: 31.17, left: 24 },
+    10: { top: 31.17, left: 36 },
+  };
+  // Deck dimensions
+  const deckWidth = 40.75 * scale; // in vw
+  const deckHeight = 35.875 * scale; // in vw
 
   return (
-    <div className="flex flex-col items-center py-2 md:py-4" style={{ position: 'relative', width: 'min-content', margin: '0 auto' }}>
-      {pinRows.map((row, rowIndex) => (
-        <div
-          key={rowIndex}
-          className="pin-row flex justify-center"
+    <div
+      className="pin-deck"
+      style={{
+        position: 'relative',
+        width: `${deckWidth}vw`,
+        height: `${deckHeight}vw`,
+        margin: 'auto',
+        background: 'transparent',
+        maxWidth: 800,
+        maxHeight: 700,
+        minWidth: 320,
+        minHeight: 250,
+      }}
+    >
+      {Object.entries(pinPositions).map(([pinNumber, pos]) => (
+        <button
+          key={pinNumber}
+          className={`pin-circle flex items-center justify-center transition-all duration-200 border-2
+            ${knockedDownPins.includes(Number(pinNumber))
+              ? 'bg-vintage-red-500 border-vintage-red-600 text-white'
+              : !availablePins.includes(Number(pinNumber))
+              ? 'bg-gray-300 border-gray-400 text-gray-500 cursor-not-allowed'
+              : 'bg-white border-charcoal-300 text-charcoal-900 hover:bg-charcoal-50'}
+            ${availablePins.includes(Number(pinNumber)) && !knockedDownPins.includes(Number(pinNumber)) ? 'cursor-pointer hover:scale-105' : ''}
+            font-bold text-xs shadow-md`
+          }
           style={{
-            marginBottom: rowIndex < pinRows.length - 1 ? `${rowOverlap}px` : 0,
-            zIndex: pinRows.length - rowIndex
+            position: 'absolute',
+            width: `${pinDiameter}vw`,
+            height: `${pinDiameter}vw`,
+            left: `calc(${pos.left * scale}vw)`,
+            top: `calc(${pos.top * scale}vw)`,
+            borderRadius: '50%',
+            margin: 0,
+            zIndex: 2,
+            minWidth: 32,
+            minHeight: 32,
+            maxWidth: 60,
+            maxHeight: 60,
           }}
+          onClick={() => availablePins.includes(Number(pinNumber)) && onPinClick && onPinClick(Number(pinNumber))}
+          disabled={!availablePins.includes(Number(pinNumber))}
         >
-          {row.map(pinNumber => (
-            <Pin
-              key={pinNumber}
-              pinNumber={pinNumber}
-              isKnockedDown={knockedDownPins.includes(pinNumber)}
-              isDisabled={!availablePins.includes(pinNumber)}
-              onClick={onPinClick}
-            />
-          ))}
-        </div>
+          {pinNumber}
+        </button>
       ))}
     </div>
   );
