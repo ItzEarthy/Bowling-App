@@ -10,7 +10,7 @@ import { ballAPI } from '../../lib/api';
 import { getLocalISOString, getLocalDateString } from '../../utils/dateUtils';
 
 /**
- * Individual Pin Component for Pin Selection
+ * Individual Pin Component for Pin Selection (circular, true-to-life)
  */
 const Pin = ({ 
   pinNumber, 
@@ -21,7 +21,9 @@ const Pin = ({
   return (
     <button
       className={`
-        w-5 h-8 md:w-6 md:h-10 rounded-t-full rounded-b-sm transition-all duration-200 border-2
+        pin-circle
+        flex items-center justify-center
+        transition-all duration-200 border-2
         ${isKnockedDown 
           ? 'bg-vintage-red-500 border-vintage-red-600 text-white' 
           : isDisabled
@@ -31,6 +33,15 @@ const Pin = ({
         ${!isDisabled && !isKnockedDown ? 'cursor-pointer hover:scale-105' : ''}
         font-bold text-xs shadow-md
       `}
+      style={{
+        width: '15vw',
+        height: '15vw',
+        maxWidth: 60,
+        maxHeight: 60,
+        borderRadius: '50%',
+        margin: 5,
+        zIndex: 2
+      }}
       onClick={() => !isDisabled && onClick && onClick(pinNumber)}
       disabled={isDisabled}
     >
@@ -40,14 +51,14 @@ const Pin = ({
 };
 
 /**
- * Pin Deck Layout Component
+ * Pin Deck Layout Component (true-to-life triangle, overlapping rows)
  */
 const PinDeck = ({ 
   knockedDownPins = [], 
   availablePins = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
   onPinClick 
 }) => {
-  // Traditional bowling pin arrangement (4-3-2-1 triangle)
+  // True-to-life bowling pin arrangement (triangle, 4-3-2-1)
   const pinRows = [
     [7, 8, 9, 10], // Back row
     [4, 5, 6],     // Third row  
@@ -55,10 +66,20 @@ const PinDeck = ({
     [1]            // Front row (headpin)
   ];
 
+  // Overlap amount (negative margin) for row stacking
+  const rowOverlap = -20; // px
+
   return (
-    <div className="flex flex-col items-center space-y-1 md:space-y-2 py-2 md:py-4">
+    <div className="flex flex-col items-center py-2 md:py-4" style={{ position: 'relative', width: 'min-content', margin: '0 auto' }}>
       {pinRows.map((row, rowIndex) => (
-        <div key={rowIndex} className="flex space-x-1">
+        <div
+          key={rowIndex}
+          className="pin-row flex justify-center"
+          style={{
+            marginBottom: rowIndex < pinRows.length - 1 ? `${rowOverlap}px` : 0,
+            zIndex: pinRows.length - rowIndex
+          }}
+        >
           {row.map(pinNumber => (
             <Pin
               key={pinNumber}
