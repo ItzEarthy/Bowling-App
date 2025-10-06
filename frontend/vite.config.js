@@ -7,125 +7,72 @@ export default defineConfig({
     react(),
     VitePWA({
       registerType: 'autoUpdate',
-      includeAssets: ['PinStats.png', 'pwa-192x192.jpg', 'pwa-192x1921.png', 'pwa-512x512.png'],
-      injectRegister: false,  // Don't inject - we'll handle registration ourselves
+      includeAssets: ['PinStats.png'],
+      injectRegister: 'auto',  // Let vite-plugin-pwa handle registration automatically
       filename: 'sw.js',
       strategies: 'generateSW',
-      mode: 'production',
-      manifest: {
-        name: 'Pin Stats',
-        short_name: 'PinStats',
-        description: 'Track your bowling scores and analyze your game',
-        theme_color: '#14B8A6',
-        background_color: '#FDFBF5',
-        display: 'standalone',
-        orientation: 'portrait',
-        scope: '/',
-        start_url: '/',
-        icons: [
-          {
-            src: '/PinStats.png',
-            sizes: '72x72',
-            type: 'image/png',
-            purpose: 'any'
-          },
-          {
-            src: '/PinStats.png',
-            sizes: '96x96',
-            type: 'image/png',
-            purpose: 'any'
-          },
-          {
-            src: '/PinStats.png',
-            sizes: '128x128',
-            type: 'image/png',
-            purpose: 'any'
-          },
-          {
-            src: '/PinStats.png',
-            sizes: '144x144',
-            type: 'image/png',
-            purpose: 'any'
-          },
-          {
-            src: '/PinStats.png',
-            sizes: '152x152',
-            type: 'image/png',
-            purpose: 'any'
-          },
-          {
-            src: '/PinStats.png',
-            sizes: '192x192',
-            type: 'image/png',
-            purpose: 'any'
-          },
-          {
-            src: '/PinStats.png',
-            sizes: '384x384',
-            type: 'image/png',
-            purpose: 'any'
-          },
-          {
-            src: '/PinStats.png',
-            sizes: '512x512',
-            type: 'image/png',
-            purpose: 'any'
-          },
-          {
-            src: '/PinStats.png',
-            sizes: '192x192',
-            type: 'image/png',
-            purpose: 'maskable'
-          },
-          {
-            src: '/PinStats.png',
-            sizes: '512x512',
-            type: 'image/png',
-            purpose: 'maskable'
-          }
-        ],
-        categories: ['sports', 'lifestyle', 'social'],
-        lang: 'en',
-        dir: 'ltr',
-        prefer_related_applications: false
-      },
       workbox: {
         globPatterns: ['**/*.{js,css,html,ico,png,svg,jpg,webmanifest}'],
         cleanupOutdatedCaches: true,
         skipWaiting: true,
         clientsClaim: true,
-        navigateFallback: null,
-        // Additional runtime caching strategies
+        navigateFallback: '/index.html',
+        navigateFallbackDenylist: [/^\/_/, /\/[^/?]+\.[^/]+$/],
         runtimeCaching: [
           {
-            // Cache API requests with NetworkFirst strategy
             urlPattern: /^https?:.*\/api\/.*/,
             handler: 'NetworkFirst',
             options: {
               cacheName: 'api-cache',
               expiration: {
                 maxEntries: 100,
-                maxAgeSeconds: 300 // 5 minutes
+                maxAgeSeconds: 300
               },
               networkTimeoutSeconds: 10
             }
           },
           {
-            // Cache images with CacheFirst strategy
             urlPattern: /\.(?:png|jpg|jpeg|svg|gif|webp)$/,
             handler: 'CacheFirst',
             options: {
               cacheName: 'images-cache',
               expiration: {
                 maxEntries: 60,
-                maxAgeSeconds: 86400 // 1 day
+                maxAgeSeconds: 86400
               }
             }
           }
-        ],
-        // Custom service worker to handle update messages
-        swDest: 'dist/sw.js',
-        importScripts: undefined
+        ]
+      },
+      manifest: {
+        name: 'Pin Stats - Bowling Score Tracker',
+        short_name: 'Pin Stats',
+        description: 'Track your bowling scores and analyze your game performance',
+        theme_color: '#14B8A6',
+        background_color: '#FDFBF5',
+        display: 'standalone',
+        orientation: 'portrait-primary',
+        scope: '/',
+        start_url: '/',
+        id: '/',
+        categories: ['sports', 'lifestyle', 'games'],
+        lang: 'en',
+        dir: 'ltr',
+        prefer_related_applications: false,
+        icons: [
+          {
+            src: '/PinStats.png',
+            sizes: '192x192',
+            type: 'image/png',
+            purpose: 'any maskable'
+          },
+          {
+            src: '/PinStats.png',
+            sizes: '512x512',
+            type: 'image/png',
+            purpose: 'any maskable'
+          }
+        ]
       },
       devOptions: {
         enabled: false

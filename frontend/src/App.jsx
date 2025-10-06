@@ -3,7 +3,6 @@ import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-d
 import useAuthStore from './stores/authStore';
 import useGameStore from './stores/gameStore';
 import appLifecycleManager from './services/appLifecycle';
-import { setupUpdateCheckerWithRetry } from './services/serviceWorkerManager';
 import ErrorBoundary from './components/ui/ErrorBoundary';
 
 // Layout Components
@@ -54,12 +53,7 @@ function App() {
     // Initialize app lifecycle manager for auto-save
     appLifecycleManager.initialize();
     
-    // Setup service worker for updates with error handling
-    try {
-      setupUpdateCheckerWithRetry();
-    } catch (error) {
-      console.warn('Service worker setup failed:', error);
-    }
+    // Service worker is now handled automatically by vite-plugin-pwa
     
     // Check for saved game state when app loads
     setTimeout(() => {
