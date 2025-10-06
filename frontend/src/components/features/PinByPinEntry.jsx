@@ -121,6 +121,23 @@ const PinDeck = ({
  */
 const PinByPinEntry = ({ onGameComplete, initialData = {} }) => {
   // Use game store for consistent state management
+  const gameStore = useGameStore();
+  
+  // Safety check for game store availability
+  if (!gameStore) {
+    return (
+      <div className="max-w-6xl mx-auto">
+        <Card className="bg-red-50 border-red-200">
+          <CardContent className="p-6 text-center">
+            <h3 className="text-lg font-semibold text-red-800 mb-2">Error: Game Store Unavailable</h3>
+            <p className="text-red-600">The game store could not be initialized. Please refresh the page and try again.</p>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+  
+  // Safely destructure store methods and state
   const { 
     currentGame, 
     currentFrame: storeCurrentFrame, 
@@ -130,13 +147,14 @@ const PinByPinEntry = ({ onGameComplete, initialData = {} }) => {
     updateFrame,
     initializeGame,
     setCurrentGame
-  } = useGameStore();
+  } = gameStore;
 
   // Initialize game if not already present
   useEffect(() => {
-    if (!currentGame) {
+    if (!currentGame && initializeGame) {
       initializeGame({
         entryMode: 'pin_by_pin',
+        entry_mode: 'pin_by_pin', // Ensure both formats for compatibility
         ...initialData
       });
     }
@@ -376,7 +394,10 @@ const PinByPinEntry = ({ onGameComplete, initialData = {} }) => {
   };
 
   const handleConfirmThrow = () => {
-    if (!currentGame) return;
+    if (!currentGame || !setCurrentGame) {
+      console.error('Game store not available');
+      return;
+    }
     
     const pinsKnockedDown = selectedPins.length;
     const frameKey = `${currentFrame}`;
@@ -434,12 +455,14 @@ const PinByPinEntry = ({ onGameComplete, initialData = {} }) => {
     const updatedFrames = BowlingScoreCalculator.calculateGameScore(newFrames);
     const totalScore = updatedFrames[updatedFrames.length - 1].cumulative_score || 0;
     
-    // Update the game in the store
+    // Update the game in the store with proper entry mode
     const updatedGame = {
       ...currentGame,
       frames: updatedFrames,
       total_score: totalScore,
-      is_complete: BowlingScoreCalculator.isGameComplete(updatedFrames)
+      is_complete: BowlingScoreCalculator.isGameComplete(updatedFrames),
+      entryMode: 'pin_by_pin',
+      entry_mode: 'pin_by_pin' // Ensure both formats for compatibility
     };
     
     setCurrentGame(updatedGame);
@@ -562,10 +585,13 @@ const PinByPinEntry = ({ onGameComplete, initialData = {} }) => {
   };
 
   const handleReset = () => {
-    initializeGame({
-      entryMode: 'pin_by_pin',
-      ...initialData
-    });
+    if (initializeGame) {
+      initializeGame({
+        entryMode: 'pin_by_pin',
+        entry_mode: 'pin_by_pin',
+        ...initialData
+      });
+    }
     setCurrentFrame(1);
     setCurrentThrow(1);
     setSelectedPins([]);
@@ -583,6 +609,8 @@ const PinByPinEntry = ({ onGameComplete, initialData = {} }) => {
       const gameData = {
         ...currentGame,
         entryMode: 'pin_by_pin',
+        entry_mode: 'pin_by_pin', // Ensure consistent field naming
+        game_type: 'pin_by_pin', // Additional field for game type
         frames: frames,
         total_score: totalScore,
         frameThrowPins: frameThrowPins, // Include specific pins hit per throw
