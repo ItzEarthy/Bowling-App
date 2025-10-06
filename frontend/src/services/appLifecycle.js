@@ -5,6 +5,7 @@
 
 import useGameStore from '../stores/gameStore';
 import useAuthStore from '../stores/authStore';
+import serviceWorkerManager from './serviceWorkerManager';
 
 class AppLifecycleManager {
   constructor() {
@@ -36,6 +37,8 @@ class AppLifecycleManager {
     if ('serviceWorker' in navigator) {
       // Listen for service worker messages about app state
       navigator.serviceWorker.addEventListener('message', this.handleServiceWorkerMessage.bind(this));
+        // Listen for window-level messages (for commands like CLEAR_API_CACHE)
+        window.addEventListener('message', this.handleWindowMessage.bind(this));
     }
 
     // Page freeze/resume (mobile browsers)
@@ -126,6 +129,13 @@ class AppLifecycleManager {
     }
   }
 
+    handleWindowMessage(event) {
+      // Forward to service worker manager for handling
+      if (event && event.data && event.data.type) {
+        serviceWorkerManager.handleClientMessage(event.data);
+      }
+    }
+
   /**
    * Save current game state with throttling
    */
@@ -138,6 +148,9 @@ class AppLifecycleManager {
       if (this.saveTimeout) {
         clearTimeout(this.saveTimeout);
       }
+
+        // Remove window message listener
+        window.removeEventListener('message', this.handleWindowMessage.bind(this));
       
       this.saveTimeout = setTimeout(() => {
         this.performSave();

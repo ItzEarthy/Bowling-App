@@ -55,6 +55,15 @@ api.interceptors.response.use(
           // Update localStorage with new data
           localStorage.setItem('authToken', newToken);
           localStorage.setItem('user', JSON.stringify(user));
+
+          // Inform service worker to clear API cache so it won't serve a stale 403
+          try {
+            if (navigator.serviceWorker && navigator.serviceWorker.controller) {
+              navigator.serviceWorker.controller.postMessage({ type: 'CLEAR_API_CACHE' });
+            }
+          } catch (swErr) {
+            console.warn('Could not message service worker to clear cache:', swErr);
+          }
           
           // Retry the original request with new token
           const originalRequest = error.config;

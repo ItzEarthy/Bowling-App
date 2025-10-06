@@ -28,7 +28,11 @@ export default defineConfig({
                 maxEntries: 100,
                 maxAgeSeconds: 300
               },
-              networkTimeoutSeconds: 10
+              networkTimeoutSeconds: 10,
+              // Only cache successful responses (status 200) to avoid caching 403/401
+              cacheableResponse: {
+                statuses: [200]
+              }
             }
           },
           {

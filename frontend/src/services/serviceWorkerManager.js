@@ -95,6 +95,39 @@ class ServiceWorkerManager {
     return false;
   }
 
+  // Listen for messages from the app to perform SW-related actions (e.g., clearing caches)
+  async handleClientMessage(message) {
+    if (!message || !message.type) return;
+
+    if (message.type === 'CLEAR_API_CACHE') {
+      console.log('ServiceWorkerManager: Received CLEAR_API_CACHE');
+      try {
+        const registration = await navigator.serviceWorker.getRegistration();
+        if (registration && registration.active) {
+          // Ask the service worker to clear its api cache
+          registration.active.postMessage({ type: 'CLEAR_API_CACHE' });
+        }
+      } catch (err) {
+        console.warn('Could not message service worker; attempting client-side cache delete', err);
+      }
+
+      // Fallback: Remove 'api-cache' from window.caches if available
+      try {
+        if ('caches' in window) {
+          const cacheKeys = await caches.keys();
+          for (const key of cacheKeys) {
+            if (key && key.includes('api-cache')) {
+              await caches.delete(key);
+              console.log(`Deleted client cache: ${key}`);
+            }
+          }
+        }
+      } catch (cacheErr) {
+        console.warn('Failed to clear client caches:', cacheErr);
+      }
+    }
+  }
+
   cleanup() {
     if (this.updateCheckInterval) {
       clearInterval(this.updateCheckInterval);
