@@ -39,6 +39,7 @@ import {
 } from 'lucide-react';
 import useAuthStore from '../stores/authStore';
 import PageHeader from '../components/layout/PageHeader';
+import versionInfo from '../../../version.json';
 import Card, { CardContent, CardHeader, CardTitle } from '../components/ui/Card';
 import Button from '../components/ui/Button';
 import Input from '../components/ui/Input';
@@ -769,6 +770,10 @@ const AdminPage = () => {
                     {systemStats?.users?.admin_users || 0}
                   </div>
                   <div className="text-sm text-charcoal-600">Admin Users</div>
+                </div>
+                <div className="text-center">
+                  <div className="text-sm text-charcoal-500 mb-1">App Version</div>
+                  <div className="text-lg font-semibold text-charcoal-900">{versionInfo.version}</div>
                 </div>
               </div>
             </CardContent>
