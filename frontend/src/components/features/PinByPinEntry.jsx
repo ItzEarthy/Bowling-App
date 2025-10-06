@@ -8,6 +8,7 @@ import BowlingScoreCalculator from '../../utils/bowlingScoring';
 import { analyzeSplitFromPins, getSplitAdvice } from '../../utils/splitDetection';
 import { ballAPI } from '../../lib/api';
 import { getLocalISOString, getLocalDateString } from '../../utils/dateUtils';
+import useGameStore from '../../stores/gameStore';
 
 /**
  * Individual Pin Component for Pin Selection (circular, true-to-life)
@@ -119,17 +120,40 @@ const PinDeck = ({
  * Enhanced full-game pin entry interface
  */
 const PinByPinEntry = ({ onGameComplete, initialData = {} }) => {
-  // Initialize game state
-  const [frames, setFrames] = useState(() => {
-    return BowlingScoreCalculator.createEmptyGame();
-  });
+  // Use game store for consistent state management
+  const { 
+    currentGame, 
+    currentFrame: storeCurrentFrame, 
+    currentThrow: storeCurrentThrow,
+    setCurrentFrameAndThrow,
+    addThrow,
+    updateFrame,
+    initializeGame,
+    setCurrentGame
+  } = useGameStore();
 
-  const [currentFrame, setCurrentFrame] = useState(1);
-  const [currentThrow, setCurrentThrow] = useState(1);
+  // Initialize game if not already present
+  useEffect(() => {
+    if (!currentGame) {
+      initializeGame({
+        entryMode: 'pin_by_pin',
+        ...initialData
+      });
+    }
+  }, [currentGame, initializeGame, initialData]);
+
+  // Local state for pin-by-pin specific data
+  const [currentFrame, setCurrentFrame] = useState(storeCurrentFrame || 1);
+  const [currentThrow, setCurrentThrow] = useState(storeCurrentThrow || 1);
+  
   const [selectedPins, setSelectedPins] = useState([]);
   const [frameThrowPins, setFrameThrowPins] = useState({}); // Store which specific pins were hit for each throw
   const [editingThrowSelectorOpen, setEditingThrowSelectorOpen] = useState(false);
-  const [gameComplete, setGameComplete] = useState(false);
+  
+  // Get frames from game store
+  const frames = currentGame?.frames || BowlingScoreCalculator.createEmptyGame();
+  const gameComplete = currentGame?.is_complete || false;
+  
   const [showScorecard, setShowScorecard] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [gameDate, setGameDate] = useState(initialData.gameDate || getLocalDateString());
@@ -316,10 +340,6 @@ const PinByPinEntry = ({ onGameComplete, initialData = {} }) => {
   };
 
   // Check if game is complete
-  const checkGameComplete = (framesData) => {
-    return BowlingScoreCalculator.isGameComplete(framesData);
-  };
-
   const handlePinClick = (pinNumber) => {
     setSelectedPins(prev => {
       if (prev.includes(pinNumber)) {
@@ -356,9 +376,9 @@ const PinByPinEntry = ({ onGameComplete, initialData = {} }) => {
   };
 
   const handleConfirmThrow = () => {
+    if (!currentGame) return;
+    
     const pinsKnockedDown = selectedPins.length;
-    const newFrames = [...frames];
-    const frameIndex = currentFrame - 1;
     const frameKey = `${currentFrame}`;
     const throwKey = `${frameKey}-${currentThrow}`;
     
@@ -367,6 +387,10 @@ const PinByPinEntry = ({ onGameComplete, initialData = {} }) => {
       ...prev,
       [throwKey]: [...selectedPins]
     }));
+    
+    // Create updated game data with the new throw
+    const newFrames = [...frames];
+    const frameIndex = currentFrame - 1;
     
     // Initialize throws array if needed
     if (!newFrames[frameIndex].throws) {
@@ -406,14 +430,22 @@ const PinByPinEntry = ({ onGameComplete, initialData = {} }) => {
       newFrames[frameIndex].throws.push(pinsKnockedDown);
     }
 
-    // Calculate scores
+    // Calculate scores and update game store
     const updatedFrames = BowlingScoreCalculator.calculateGameScore(newFrames);
-    setFrames(updatedFrames);
+    const totalScore = updatedFrames[updatedFrames.length - 1].cumulative_score || 0;
+    
+    // Update the game in the store
+    const updatedGame = {
+      ...currentGame,
+      frames: updatedFrames,
+      total_score: totalScore,
+      is_complete: BowlingScoreCalculator.isGameComplete(updatedFrames)
+    };
+    
+    setCurrentGame(updatedGame);
 
     // Check if game is complete
-    const isGameComplete = checkGameComplete(updatedFrames);
-    if (isGameComplete) {
-      setGameComplete(true);
+    if (updatedGame.is_complete) {
       return;
     }
 
@@ -449,9 +481,7 @@ const PinByPinEntry = ({ onGameComplete, initialData = {} }) => {
     } else {
       // 10th frame logic
       const isComplete = BowlingScoreCalculator.isFrameComplete(throws, 10);
-      if (isComplete) {
-        setGameComplete(true);
-      } else {
+      if (!isComplete) {
         setCurrentThrow(Math.min(currentThrow + 1, 3));
       }
     }
@@ -532,25 +562,29 @@ const PinByPinEntry = ({ onGameComplete, initialData = {} }) => {
   };
 
   const handleReset = () => {
-    setFrames(BowlingScoreCalculator.createEmptyGame());
+    initializeGame({
+      entryMode: 'pin_by_pin',
+      ...initialData
+    });
     setCurrentFrame(1);
     setCurrentThrow(1);
     setSelectedPins([]);
     setFrameThrowPins({});
-    setGameComplete(false);
+    setFrameBalls({});
   };
 
   const handleSaveGame = async () => {
-    if (!gameComplete) return;
+    if (!gameComplete || !currentGame) return;
 
     setIsSubmitting(true);
     try {
-      const totalScore = frames[frames.length - 1].cumulative_score;
+      const totalScore = currentGame.total_score || 0;
       
       const gameData = {
+        ...currentGame,
         entryMode: 'pin_by_pin',
         frames: frames,
-        totalScore: totalScore,
+        total_score: totalScore,
         frameThrowPins: frameThrowPins, // Include specific pins hit per throw
         frameBalls: frameBalls, // Include ball selections per throw
         created_at: (() => {
@@ -571,7 +605,7 @@ const PinByPinEntry = ({ onGameComplete, initialData = {} }) => {
   };
 
   const currentFrameThrows = frames[currentFrame - 1]?.throws || [];
-  const totalScore = frames[frames.length - 1]?.cumulative_score || 0;
+  const totalScore = currentGame?.total_score || 0;
 
   return (
     <div className="max-w-6xl mx-auto space-y-6">
