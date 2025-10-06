@@ -12,41 +12,25 @@ import { getLocalISOString, getLocalDateString } from '../../utils/dateUtils';
 /**
  * Individual Pin Component for Pin Selection (circular, true-to-life)
  */
-const Pin = ({ 
-  pinNumber, 
-  isKnockedDown, 
-  isDisabled = false,
-  onClick 
-}) => {
+const Pin = ({ pinNumber, isKnockedDown, isDisabled = false }) => {
+  // Visual-only pin; sizing/positioning is handled by PinDeck
   return (
-    <button
-      className={`
-        pin-circle
-        flex items-center justify-center
-        transition-all duration-200 border-2
-        ${isKnockedDown 
-          ? 'bg-vintage-red-500 border-vintage-red-600 text-white' 
-          : isDisabled
-          ? 'bg-gray-300 border-gray-400 text-gray-500 cursor-not-allowed'
-          : 'bg-white border-charcoal-300 text-charcoal-900 hover:bg-charcoal-50'
-        }
-        ${!isDisabled && !isKnockedDown ? 'cursor-pointer hover:scale-105' : ''}
-        font-bold text-xs shadow-md
-      `}
+    <div
+      className={`pin-circle flex items-center justify-center select-none pointer-events-none
+        ${isKnockedDown ? 'bg-vintage-red-500 border-vintage-red-600 text-white' : 'bg-white border-charcoal-300 text-charcoal-900'}
+        font-bold text-[0.8rem] md:text-xs shadow-md`
+      }
       style={{
-        width: '15vw',
-        height: '15vw',
-        maxWidth: 60,
-        maxHeight: 60,
+        width: '100%',
+        height: '100%',
         borderRadius: '50%',
-        margin: 5,
-        zIndex: 2
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center'
       }}
-      onClick={() => !isDisabled && onClick && onClick(pinNumber)}
-      disabled={isDisabled}
     >
       {pinNumber}
-    </button>
+    </div>
   );
 };
 
@@ -61,6 +45,7 @@ const PinDeck = ({
   // Scaling factor: 1 inch ≈ 2.2vw (deck width 40.75in ≈ 90vw)
   const scale = 2.2; // vw per inch
   const pinDiameter = 4.75 * scale; // in vw
+  const halfPin = pinDiameter / 2;
   // Pin positions (in inches, relative to deck)
   const pinPositions = {
     1:  { top: 0, left: 18 },
@@ -93,38 +78,40 @@ const PinDeck = ({
         minHeight: 250,
       }}
     >
-      {Object.entries(pinPositions).map(([pinNumber, pos]) => (
-        <button
-          key={pinNumber}
-          className={`pin-circle flex items-center justify-center transition-all duration-200 border-2
-            ${knockedDownPins.includes(Number(pinNumber))
-              ? 'bg-vintage-red-500 border-vintage-red-600 text-white'
-              : !availablePins.includes(Number(pinNumber))
-              ? 'bg-gray-300 border-gray-400 text-gray-500 cursor-not-allowed'
-              : 'bg-white border-charcoal-300 text-charcoal-900 hover:bg-charcoal-50'}
-            ${availablePins.includes(Number(pinNumber)) && !knockedDownPins.includes(Number(pinNumber)) ? 'cursor-pointer hover:scale-105' : ''}
-            font-bold text-xs shadow-md`
-          }
-          style={{
-            position: 'absolute',
-            width: `${pinDiameter}vw`,
-            height: `${pinDiameter}vw`,
-            left: `calc(${pos.left * scale}vw)`,
-            top: `calc(${pos.top * scale}vw)`,
-            borderRadius: '50%',
-            margin: 0,
-            zIndex: 2,
-            minWidth: 32,
-            minHeight: 32,
-            maxWidth: 60,
-            maxHeight: 60,
-          }}
-          onClick={() => availablePins.includes(Number(pinNumber)) && onPinClick && onPinClick(Number(pinNumber))}
-          disabled={!availablePins.includes(Number(pinNumber))}
-        >
-          {pinNumber}
-        </button>
-      ))}
+      {Object.entries(pinPositions).map(([pinNumber, pos]) => {
+        const isKnocked = knockedDownPins.includes(Number(pinNumber));
+        const isAvailable = availablePins.includes(Number(pinNumber));
+        // center the pin by offsetting half the pin diameter
+        const left = pos.left * scale - halfPin;
+        const top = pos.top * scale - halfPin;
+        return (
+          <button
+            key={pinNumber}
+            onClick={() => isAvailable && onPinClick && onPinClick(Number(pinNumber))}
+            disabled={!isAvailable}
+            aria-pressed={isKnocked}
+            aria-label={`Pin ${pinNumber}`}
+            className={`absolute overflow-hidden transition-transform duration-150 rounded-full border-2 p-0 shadow-md focus:outline-none ${isKnocked ? 'scale-[0.95] opacity-80' : ''}`}
+            style={{
+              left: `calc(${left}vw)`,
+              top: `calc(${top}vw)`,
+              width: `${pinDiameter}vw`,
+              height: `${pinDiameter}vw`,
+              minWidth: 28,
+              minHeight: 28,
+              maxWidth: 64,
+              maxHeight: 64,
+              zIndex: isKnocked ? 1 : 3,
+              borderRadius: '50%',
+              padding: 0,
+              background: 'transparent',
+              borderColor: isKnocked ? undefined : undefined
+            }}
+          >
+            <Pin pinNumber={Number(pinNumber)} isKnockedDown={isKnocked} isDisabled={!isAvailable} />
+          </button>
+        );
+      })}
     </div>
   );
 };

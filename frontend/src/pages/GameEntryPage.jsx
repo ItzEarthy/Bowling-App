@@ -130,34 +130,37 @@ const GameEntryPage = () => {
         action={getBackAction()}
       />
 
-      <div className="max-w-7xl mx-auto px-4 py-6">
+      <div className="max-w-3xl mx-auto px-4 py-4 sm:py-6">
         {/* Game Setup Info */}
         {(gameSetup.ball_name || gameSetup.location) && (
-          <div className="mb-6 bg-white rounded-xl p-4 border border-charcoal-200 shadow-sm">
-            <h3 className="font-semibold text-charcoal-800 mb-3 flex items-center">
-              <div className="w-2 h-2 bg-mint-green-500 rounded-full mr-2"></div>
-              Game Setup
-            </h3>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+          <div className="mb-4 bg-white rounded-xl p-3 border border-charcoal-200 shadow-sm">
+            <div className="flex items-center justify-between mb-2">
+              <h3 className="font-semibold text-charcoal-800 text-sm flex items-center">
+                <div className="w-2 h-2 bg-mint-green-500 rounded-full mr-2"></div>
+                Game Setup
+              </h3>
+              <div className="text-xs text-charcoal-500">{new Date().toLocaleDateString()}</div>
+            </div>
+            <div className="grid grid-cols-2 gap-2 text-sm">
               {gameSetup.ball_name && (
-                <div className="bg-charcoal-50 rounded-lg p-3">
+                <div className="bg-charcoal-50 rounded-lg p-2 text-xs truncate">
                   <span className="font-medium text-charcoal-500 block">Ball</span>
                   <span className="text-charcoal-800">{gameSetup.ball_name}</span>
                 </div>
               )}
               {gameSetup.location && (
-                <div className="bg-charcoal-50 rounded-lg p-3">
+                <div className="bg-charcoal-50 rounded-lg p-2 text-xs truncate">
                   <span className="font-medium text-charcoal-500 block">Location</span>
                   <span className="text-charcoal-800">{gameSetup.location}</span>
                 </div>
               )}
-              <div className="bg-charcoal-50 rounded-lg p-3">
-                <span className="font-medium text-charcoal-500 block">Date</span>
-                <span className="text-charcoal-800">{new Date().toLocaleDateString()}</span>
-              </div>
-              <div className="bg-charcoal-50 rounded-lg p-3">
+              <div className="bg-charcoal-50 rounded-lg p-2 text-xs">
                 <span className="font-medium text-charcoal-500 block">Time</span>
                 <span className="text-charcoal-800">{new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+              </div>
+              <div className="bg-charcoal-50 rounded-lg p-2 text-xs">
+                <span className="font-medium text-charcoal-500 block">Frames</span>
+                <span className="text-charcoal-800">10</span>
               </div>
             </div>
           </div>
@@ -190,7 +193,7 @@ const GameEntryPage = () => {
         )}
 
         {/* Main Content */}
-        <div className="space-y-6">
+        <div className="space-y-4">
           {!selectedMode ? (
             /* Mode Selection */
             <DataEntryModeSelector 
@@ -199,12 +202,12 @@ const GameEntryPage = () => {
             />
           ) : (
             /* Selected Entry Component */
-            <div className="space-y-6">
+            <div className="space-y-4">
               {/* Mode indicator */}
               <div className="text-center">
-                <div className="inline-flex items-center px-6 py-3 bg-gradient-to-r from-vintage-red-100 to-vintage-red-50 border border-vintage-red-200 rounded-xl shadow-sm">
-                  <div className="w-2 h-2 bg-vintage-red-500 rounded-full mr-3 animate-pulse"></div>
-                  <span className="text-sm font-semibold text-vintage-red-800">
+                <div className="inline-flex items-center px-4 py-2 bg-gradient-to-r from-vintage-red-100 to-vintage-red-50 border border-vintage-red-200 rounded-lg shadow-sm text-xs">
+                  <div className="w-2 h-2 bg-vintage-red-500 rounded-full mr-2 animate-pulse"></div>
+                  <span className="text-xs font-semibold text-vintage-red-800">
                     Using: {selectedMode === DATA_ENTRY_MODES.FINAL_SCORE && 'Final Score Entry'}
                     {selectedMode === DATA_ENTRY_MODES.FRAME_BY_FRAME && 'Frame by Frame Entry'}
                     {selectedMode === DATA_ENTRY_MODES.PIN_BY_PIN && 'Pin by Pin Entry'}
@@ -213,7 +216,9 @@ const GameEntryPage = () => {
               </div>
 
               {/* Entry Component */}
-              {renderEntryComponent()}
+              <div className="bg-white rounded-lg p-3 border border-charcoal-100 shadow-sm">
+                {renderEntryComponent()}
+              </div>
             </div>
           )}
         </div>
