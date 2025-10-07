@@ -46,7 +46,7 @@ const GameRestorationModal = () => {
   const handleRestore = () => {
     loadGameState();
     setIsOpen(false);
-    navigate('/game');
+    navigate('/game-entry');
   };
 
   const handleDiscard = () => {

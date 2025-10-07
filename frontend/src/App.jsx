@@ -8,6 +8,7 @@ import ErrorBoundary from './components/ui/ErrorBoundary';
 // Layout Components
 import Layout from './components/layout/Layout';
 import GameRestorationModal from './components/features/GameRestorationModal';
+import GameRedirect from './components/features/GameRedirect';
 
 // Pages
 import LoginPage from './pages/LoginPage';
@@ -15,7 +16,6 @@ import RegisterPage from './pages/RegisterPage';
 import DashboardPage from './pages/DashboardPage';
 import GameSetupPage from './pages/GameSetupPage';
 import GameEntryPage from './pages/GameEntryPage';
-import GamePage from './pages/GamePage';
 import GameLogPage from './pages/GameLogPage';
 import FriendsPage from './pages/FriendsPage';
 import ArsenalPage from './pages/ArsenalPage';
@@ -122,9 +122,9 @@ function App() {
             <Route path="admin" element={<AdminPage />} />
           </Route>
 
-          {/* Temporary public game routes for testing */}
-          <Route path="game" element={<Layout><GamePage /></Layout>} />
-          <Route path="game/:gameId" element={<Layout><GamePage /></Layout>} />
+          {/* Redirect old game URLs */}
+          <Route path="game" element={<GameRedirect />} />
+          <Route path="game/:gameId" element={<GameRedirect />} />
 
           {/* Catch all route */}
           <Route path="*" element={<Navigate to="/dashboard" replace />} />

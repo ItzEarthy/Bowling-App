@@ -11,22 +11,38 @@ import { getLocalISOString, getLocalDateString } from '../../utils/dateUtils';
 import useGameStore from '../../stores/gameStore';
 
 /**
- * Individual Pin Component for Pin Selection (circular, true-to-life)
+ * Individual Pin Component for Pin Selection (realistic bowling pin shape)
  */
 const Pin = ({ pinNumber, isKnockedDown, isDisabled = false }) => {
-  // SVG bowling pin visual. The wrapper controls sizing; this is pointer-events-none
-  const fill = isKnockedDown ? '#DC2626' : '#FFFFFF';
-  const stroke = isKnockedDown ? '#B91C1C' : '#374151';
+  const fill = isKnockedDown ? '#DC2626' : '#F8FAFC';
+  const stroke = isKnockedDown ? '#B91C1C' : '#475569';
+  const textColor = isKnockedDown ? '#FFFFFF' : '#1F2937';
 
   return (
     <div className="pointer-events-none select-none flex items-center justify-center" style={{ width: '100%', height: '100%' }}>
-      <svg viewBox="0 0 100 200" preserveAspectRatio="xMidYMid meet" className="w-full h-full">
-        {/* Simple stylized pin shape */}
-        <path d="M50 6 C66 6 78 18 78 32 C78 42 70 48 64 64 C58 80 60 92 60 104 C60 118 50 126 50 126 C50 126 40 118 40 104 C40 92 42 80 36 64 C30 48 22 42 22 32 C22 18 34 6 50 6 Z" fill={fill} stroke={stroke} strokeWidth="2" />
-        {/* Neck and base accent */}
-        <ellipse cx="50" cy="152" rx="22" ry="8" fill={fill} stroke={stroke} strokeWidth="1" opacity="0.9" />
-        {/* Number badge */}
-        <text x="50%" y="60%" dominantBaseline="middle" textAnchor="middle" fontSize="30" fontWeight="700" fill={isKnockedDown ? '#fff' : '#111827'}>{pinNumber}</text>
+      <svg viewBox="0 0 100 140" preserveAspectRatio="xMidYMid meet" className="w-full h-full drop-shadow-sm">
+        {/* Realistic bowling pin shape */}
+        <path 
+          d="M50 8 C62 8 72 16 72 26 C72 32 68 36 64 44 C60 52 58 60 58 70 C58 75 60 80 60 85 C60 95 58 105 58 110 C58 120 54 128 50 128 C46 128 42 120 42 110 C42 105 40 95 40 85 C40 80 42 75 42 70 C42 60 40 52 36 44 C32 36 28 32 28 26 C28 16 38 8 50 8 Z" 
+          fill={fill} 
+          stroke={stroke} 
+          strokeWidth="2"
+        />
+        {/* Pin base */}
+        <ellipse cx="50" cy="125" rx="18" ry="4" fill={fill} stroke={stroke} strokeWidth="1" />
+        {/* Number */}
+        <text 
+          x="50%" 
+          y="45%" 
+          dominantBaseline="middle" 
+          textAnchor="middle" 
+          fontSize="24" 
+          fontWeight="900" 
+          fill={textColor}
+          style={{ filter: isKnockedDown ? 'none' : 'drop-shadow(0 1px 1px rgba(0,0,0,0.2))' }}
+        >
+          {pinNumber}
+        </text>
       </svg>
     </div>
   );
@@ -61,15 +77,15 @@ const PinDeck = ({
 
   return (
     <div
-      className="pin-deck relative mx-auto"
+      className="pin-deck relative mx-auto bg-gradient-to-b from-amber-50 to-amber-100 rounded-lg border-2 border-amber-200 shadow-inner"
       style={{
         position: 'relative',
         width: '100%',
-        maxWidth: 520,
+        maxWidth: 450,
         aspectRatio: `${deckInchesWidth} / ${deckInchesHeight}`,
-        margin: '0 auto',
-        background: 'transparent',
-        minWidth: 260
+        margin: '20px auto',
+        minWidth: 280,
+        padding: '10px'
       }}
     >
       {Object.entries(pinPositions).map(([pinNumber, pos]) => {
@@ -82,7 +98,7 @@ const PinDeck = ({
         const topPercent = ((deckInchesHeight - pos.top) / deckInchesHeight) * 100;
 
         // Size pin as percent of deck width to keep consistent circular/oval sizing
-        const pinSizePercent = (pinDiameterInches / deckInchesWidth) * 100;
+        const pinSizePercent = Math.min((pinDiameterInches / deckInchesWidth) * 85, 18); // Reduced size to prevent overlap
 
         return (
           <button
@@ -91,17 +107,19 @@ const PinDeck = ({
             disabled={!isAvailable}
             aria-pressed={isKnocked}
             aria-label={`Pin ${pinNumber}`}
-            className={`absolute transition-transform duration-150 p-0 shadow-md focus:outline-none flex items-center justify-center ${isKnocked ? 'opacity-60' : 'opacity-100'}`}
+            className={`absolute transition-all duration-200 p-0 rounded-full focus:outline-none focus:ring-2 focus:ring-vintage-red-400 hover:scale-110 flex items-center justify-center ${
+              isKnocked ? 'opacity-50 scale-90' : 'opacity-100 hover:shadow-lg'
+            } ${isAvailable ? 'cursor-pointer' : 'cursor-not-allowed'}`}
             style={{
               left: `${leftPercent}%`,
               top: `${topPercent}%`,
               transform: 'translate(-50%, -50%)',
               width: `${pinSizePercent}%`,
-              height: `${pinSizePercent}%`,
-              minWidth: 28,
-              minHeight: 40,
-              maxWidth: 88,
-              maxHeight: 120,
+              height: `${pinSizePercent * 1.4}%`, // Make pins taller
+              minWidth: 32,
+              minHeight: 48,
+              maxWidth: 60,
+              maxHeight: 85,
               zIndex: isKnocked ? 1 : 4,
               background: 'transparent',
               border: 'none'
@@ -454,21 +472,33 @@ const PinByPinEntry = ({ onGameComplete, initialData = {} }) => {
     // Calculate scores and update game store
     const updatedFrames = BowlingScoreCalculator.calculateGameScore(newFrames);
     const totalScore = updatedFrames[updatedFrames.length - 1].cumulative_score || 0;
+    const isGameComplete = BowlingScoreCalculator.isGameComplete(updatedFrames);
     
-    // Update the game in the store with proper entry mode
+    // Calculate game stats if game is complete
+    let gameStats = {};
+    if (isGameComplete) {
+      gameStats = BowlingScoreCalculator.getGameStatistics(updatedFrames);
+    }
+    
+    // Update the game in the store with proper entry mode and stats
     const updatedGame = {
       ...currentGame,
       frames: updatedFrames,
       total_score: totalScore,
-      is_complete: BowlingScoreCalculator.isGameComplete(updatedFrames),
+      is_complete: isGameComplete,
       entryMode: 'pin_by_pin',
-      entry_mode: 'pin_by_pin' // Ensure both formats for compatibility
+      entry_mode: 'pin_by_pin', // Ensure both formats for compatibility
+      ...(isGameComplete && {
+        strikes: gameStats.strikes,
+        spares: gameStats.spares,
+        opens: gameStats.opens
+      })
     };
     
     setCurrentGame(updatedGame);
 
     // Check if game is complete
-    if (updatedGame.is_complete) {
+    if (isGameComplete) {
       return;
     }
 
@@ -663,7 +693,11 @@ const PinByPinEntry = ({ onGameComplete, initialData = {} }) => {
               frames={frames}
               onFrameClick={handleFrameClick}
               currentFrame={currentFrame}
+              totalScore={totalScore}
+              gameComplete={gameComplete}
               entryMode="pin_by_pin"
+              strikes={currentGame?.strikes}
+              spares={currentGame?.spares}
             />
           </CardContent>
         </Card>
@@ -807,11 +841,14 @@ const PinByPinEntry = ({ onGameComplete, initialData = {} }) => {
                 </div>
               )}
 
-              <PinDeck 
-                knockedDownPins={getKnockedDownPins()}
-                availablePins={getAvailablePins()}
-                onPinClick={handlePinClick}
-              />
+              {/* Pin Deck Container with proper spacing */}
+              <div className="my-6 py-4">
+                <PinDeck 
+                  knockedDownPins={getKnockedDownPins()}
+                  availablePins={getAvailablePins()}
+                  onPinClick={handlePinClick}
+                />
+              </div>
 
               {/* Selected Pins Display - Compact */}
               {selectedPins.length > 0 && (
@@ -926,17 +963,19 @@ const PinByPinEntry = ({ onGameComplete, initialData = {} }) => {
               </div>
 
               {/* Confirm Button */}
-              <Button
-                onClick={handleConfirmThrow}
-                className="w-full"
-                size="lg"
-              >
-                <Target className="w-4 h-4 mr-2" />
-                {currentFrameThrows.length >= currentThrow 
-                  ? `Update Throw ${currentThrow} (${selectedPins.length} Pin${selectedPins.length !== 1 ? 's' : ''})`
-                  : `Confirm ${selectedPins.length} Pin${selectedPins.length !== 1 ? 's' : ''}`
-                }
-              </Button>
+              <div className="mt-6 pt-4 border-t border-charcoal-200">
+                <Button
+                  onClick={handleConfirmThrow}
+                  className="w-full"
+                  size="lg"
+                >
+                  <Target className="w-4 h-4 mr-2" />
+                  {currentFrameThrows.length >= currentThrow 
+                    ? `Update Throw ${currentThrow} (${selectedPins.length} Pin${selectedPins.length !== 1 ? 's' : ''})`
+                    : `Confirm ${selectedPins.length} Pin${selectedPins.length !== 1 ? 's' : ''}`
+                  }
+                </Button>
+              </div>
             </CardContent>
           </Card>
         </>

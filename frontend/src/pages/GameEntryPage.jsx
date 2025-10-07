@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { ChevronLeft, RotateCcw } from 'lucide-react';
 import PageHeader from '../components/layout/PageHeader';
@@ -25,6 +25,13 @@ const GameEntryPage = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState(null);
   const { currentGame, initializeGame } = useGameStore();
+
+  // Auto-select mode based on restored game
+  useEffect(() => {
+    if (currentGame && currentGame.entry_mode && !selectedMode) {
+      setSelectedMode(currentGame.entry_mode);
+    }
+  }, [currentGame, selectedMode]);
 
   const handleModeSelect = (mode) => {
     setSelectedMode(mode);
