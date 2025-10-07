@@ -11,39 +11,38 @@ import { getLocalISOString, getLocalDateString } from '../../utils/dateUtils';
 import useGameStore from '../../stores/gameStore';
 
 /**
- * Individual Pin Component for Pin Selection (realistic bowling pin shape)
+ * Individual Pin Component for Pin Selection (using pin.png image)
  */
 const Pin = ({ pinNumber, isKnockedDown, isDisabled = false }) => {
-  const fill = isKnockedDown ? '#DC2626' : '#F8FAFC';
-  const stroke = isKnockedDown ? '#B91C1C' : '#475569';
-  const textColor = isKnockedDown ? '#FFFFFF' : '#1F2937';
-
   return (
-    <div className="pointer-events-none select-none flex items-center justify-center" style={{ width: '100%', height: '100%' }}>
-      <svg viewBox="0 0 100 140" preserveAspectRatio="xMidYMid meet" className="w-full h-full drop-shadow-sm">
-        {/* Realistic bowling pin shape */}
-        <path 
-          d="M50 8 C62 8 72 16 72 26 C72 32 68 36 64 44 C60 52 58 60 58 70 C58 75 60 80 60 85 C60 95 58 105 58 110 C58 120 54 128 50 128 C46 128 42 120 42 110 C42 105 40 95 40 85 C40 80 42 75 42 70 C42 60 40 52 36 44 C32 36 28 32 28 26 C28 16 38 8 50 8 Z" 
-          fill={fill} 
-          stroke={stroke} 
-          strokeWidth="2"
-        />
-        {/* Pin base */}
-        <ellipse cx="50" cy="125" rx="18" ry="4" fill={fill} stroke={stroke} strokeWidth="1" />
-        {/* Number */}
-        <text 
-          x="50%" 
-          y="45%" 
-          dominantBaseline="middle" 
-          textAnchor="middle" 
-          fontSize="24" 
-          fontWeight="900" 
-          fill={textColor}
-          style={{ filter: isKnockedDown ? 'none' : 'drop-shadow(0 1px 1px rgba(0,0,0,0.2))' }}
+    <div className="pointer-events-none select-none flex items-center justify-center relative" style={{ width: '100%', height: '100%' }}>
+      <img 
+        src="/pin.png"
+        alt={`Bowling Pin ${pinNumber}`}
+        className={`w-full h-full object-contain drop-shadow-sm transition-all duration-200 ${
+          isKnockedDown ? 'opacity-50 grayscale' : 'opacity-100'
+        }`}
+        style={{
+          filter: isKnockedDown ? 'grayscale(100%) brightness(0.7)' : 'none'
+        }}
+      />
+      {/* Pin number overlay */}
+      <div 
+        className="absolute inset-0 flex items-center justify-center pointer-events-none"
+        style={{ top: '35%' }}
+      >
+        <span 
+          className={`text-lg font-black drop-shadow-md ${
+            isKnockedDown ? 'text-red-600' : 'text-gray-800'
+          }`}
+          style={{ 
+            fontSize: 'clamp(12px, 2.5vw, 18px)',
+            textShadow: '1px 1px 2px rgba(255,255,255,0.8)'
+          }}
         >
           {pinNumber}
-        </text>
-      </svg>
+        </span>
+      </div>
     </div>
   );
 };
