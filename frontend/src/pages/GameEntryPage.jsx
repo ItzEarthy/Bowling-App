@@ -7,6 +7,7 @@ import DataEntryModeSelector, { DATA_ENTRY_MODES } from '../components/features/
 import FinalScoreEntry from '../components/features/FinalScoreEntry';
 import FrameByFrameEntry from '../components/features/FrameByFrameEntry';
 import PinByPinEntry from '../components/features/PinByPinEntry';
+import useGameStore from '../stores/gameStore';
 import { api } from '../lib/api';
 import { getLocalISOString } from '../utils/dateUtils';
 
