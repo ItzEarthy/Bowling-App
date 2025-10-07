@@ -1,10 +1,17 @@
 const winston = require('winston');
 const path = require('path');
+const fs = require('fs');
 
 /**
  * Logger configuration with multiple transports and formats
  * Provides structured logging for debugging and monitoring
  */
+
+// Create logs directory if it doesn't exist
+const logsDir = path.join(__dirname, '../../logs');
+if (!fs.existsSync(logsDir)) {
+  fs.mkdirSync(logsDir, { recursive: true });
+}
 
 // Custom format for development logs
 const developmentFormat = winston.format.combine(
@@ -46,8 +53,6 @@ const productionFormat = winston.format.combine(
 );
 
 // Create logs directory if it doesn't exist
-const logsDir = path.join(__dirname, '../../logs');
-
 // Create the logger
 const logger = winston.createLogger({
   level: process.env.LOG_LEVEL || 'info',

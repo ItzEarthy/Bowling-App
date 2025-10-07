@@ -1,8 +1,5 @@
 const jwt = require('jsonwebtoken');
 const { z } = require('zod');
-
-const jwt = require('jsonwebtoken');
-const { z } = require('zod');
 const logger = require('../utils/logger');
 const { securityLogger } = require('./logging');
 
