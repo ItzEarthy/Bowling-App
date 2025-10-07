@@ -23,25 +23,25 @@ const Pin = ({ pinNumber, isKnockedDown, isDisabled = false }) => {
       <img 
         src="/pin.png"
         alt={`Bowling Pin ${pinNumber}`}
-        className={`w-full h-full object-contain drop-shadow-sm transition-all duration-200 ${
-          isKnockedDown ? 'opacity-50 grayscale' : 'opacity-100'
+        className={`w-full h-full object-contain drop-shadow-sm transition-transform duration-200 ${
+          isKnockedDown ? 'opacity-50 grayscale scale-90' : 'opacity-100 scale-100'
         }`}
         style={{
-          filter: isKnockedDown ? 'grayscale(100%) brightness(0.7)' : 'none'
+          filter: isKnockedDown ? 'grayscale(100%) brightness(0.7)' : 'none',
+          transformOrigin: '50% 50%'
         }}
       />
-      {/* Pin number overlay */}
+      {/* Pin number overlay - vertically centered over the visual pin */}
       <div 
-        className="absolute inset-0 flex items-center justify-center pointer-events-none"
-        style={{ top: '35%' }}
+        className="absolute left-1/2 top-1/2 transform -translate-x-1/2 -translate-y-1/2 pointer-events-none"
       >
         <span 
-          className={`text-lg font-black drop-shadow-md ${
+          className={`text-base sm:text-lg font-extrabold drop-shadow-md ${
             isKnockedDown ? 'text-red-600' : 'text-gray-800'
           }`}
           style={{ 
-            fontSize: 'clamp(12px, 2.5vw, 18px)',
-            textShadow: '1px 1px 2px rgba(255,255,255,0.8)'
+            fontSize: 'clamp(14px, 2.8vw, 20px)',
+            textShadow: '0 1px 0 rgba(255,255,255,0.8)'
           }}
         >
           {pinNumber}
@@ -65,30 +65,17 @@ const PinDeck = ({
   const pinDiameterInches = 4.75;
 
   // Pin positions (in inches, center coordinates measured from left/top of deck)
-  const pinPositions = {
-    1:  { top: 0, left: 18 },
-    2:  { top: 10.39, left: 12 },
-    3:  { top: 10.39, left: 24 },
-    4:  { top: 20.78, left: 6 },
-    5:  { top: 20.78, left: 18 },
-    6:  { top: 20.78, left: 30 },
-    7:  { top: 31.17, left: 0 },
-    8:  { top: 31.17, left: 12 },
-    9:  { top: 31.17, left: 24 },
-    10: { top: 31.17, left: 36 },
-  };
-
   return (
     <div
       className="pin-deck relative mx-auto bg-gradient-to-b from-amber-50 to-amber-100 rounded-lg border-2 border-amber-200 shadow-inner"
       style={{
         position: 'relative',
         width: '100%',
-        maxWidth: 450,
+        maxWidth: 520,
         aspectRatio: `${deckInchesWidth} / ${deckInchesHeight}`,
-        margin: '20px auto',
-        minWidth: 280,
-        padding: '10px'
+        margin: '18px auto',
+        minWidth: 320,
+        padding: '12px'
       }}
     >
       {Object.entries(pinPositions).map(([pinNumber, pos]) => {
@@ -101,7 +88,12 @@ const PinDeck = ({
         const topPercent = ((deckInchesHeight - pos.top) / deckInchesHeight) * 100;
 
         // Size pin as percent of deck width to keep consistent circular/oval sizing
-        const pinSizePercent = Math.min((pinDiameterInches / deckInchesWidth) * 85, 18); // Reduced size to prevent overlap
+        // Increase maximum size for improved visibility while keeping overlap controlled
+        const pinSizePercent = Math.min((pinDiameterInches / deckInchesWidth) * 95, 24);
+
+        // Convert percent size to CSS-friendly values for width/height
+        const widthStyle = `${pinSizePercent}%`;
+        const heightStyle = `${pinSizePercent * 1.5}%`;
 
         return (
           <button
@@ -110,22 +102,25 @@ const PinDeck = ({
             disabled={!isAvailable}
             aria-pressed={isKnocked}
             aria-label={`Pin ${pinNumber}`}
-            className={`absolute transition-all duration-200 p-0 rounded-full focus:outline-none focus:ring-2 focus:ring-vintage-red-400 hover:scale-110 flex items-center justify-center ${
-              isKnocked ? 'opacity-50 scale-90' : 'opacity-100 hover:shadow-lg'
+            className={`absolute transition-transform duration-200 p-0 rounded-full focus:outline-none focus:ring-2 focus:ring-vintage-red-400 ${
+              isKnocked ? 'opacity-60 scale-95' : 'opacity-100 hover:scale-105'
             } ${isAvailable ? 'cursor-pointer' : 'cursor-not-allowed'}`}
             style={{
               left: `${leftPercent}%`,
               top: `${topPercent}%`,
               transform: 'translate(-50%, -50%)',
-              width: `${pinSizePercent}%`,
-              height: `${pinSizePercent * 1.4}%`, // Make pins taller
-              minWidth: 32,
-              minHeight: 48,
-              maxWidth: 60,
-              maxHeight: 85,
-              zIndex: isKnocked ? 1 : 4,
+              width: widthStyle,
+              height: heightStyle,
+              minWidth: 38,
+              minHeight: 54,
+              maxWidth: 90,
+              maxHeight: 120,
+              zIndex: isKnocked ? 1 : 6,
               background: 'transparent',
-              border: 'none'
+              border: 'none',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center'
             }}
           >
             <Pin pinNumber={Number(pinNumber)} isKnockedDown={isKnocked} isDisabled={!isAvailable} />
