@@ -7,6 +7,40 @@ import axios from 'axios';
  * - Proxied by nginx to backend:5000 in production
  */
 
+// Enhanced logging utility for frontend
+const logger = {
+  info: (message, data = {}) => {
+    console.log(`[API] ${message}`, {
+      timestamp: new Date().toISOString(),
+      level: 'info',
+      ...data
+    });
+  },
+  warn: (message, data = {}) => {
+    console.warn(`[API] ${message}`, {
+      timestamp: new Date().toISOString(),
+      level: 'warn',
+      ...data
+    });
+  },
+  error: (message, data = {}) => {
+    console.error(`[API] ${message}`, {
+      timestamp: new Date().toISOString(),
+      level: 'error',
+      ...data
+    });
+  },
+  debug: (message, data = {}) => {
+    if (process.env.NODE_ENV === 'development') {
+      console.debug(`[API] ${message}`, {
+        timestamp: new Date().toISOString(),
+        level: 'debug',
+        ...data
+      });
+    }
+  }
+};
+
 // Create axios instance with base configuration
 const api = axios.create({
   baseURL: '/api',
@@ -17,83 +51,199 @@ const api = axios.create({
 });
 
 // Log the API base URL for debugging
-console.log('API Base URL:', api.defaults.baseURL);
+logger.info('API client initialized', {
+  baseURL: api.defaults.baseURL,
+  timeout: api.defaults.timeout,
+  environment: process.env.NODE_ENV
+});
 
-// Request interceptor to add auth token
+// Request interceptor to add auth token and logging
 api.interceptors.request.use(
   (config) => {
     const token = localStorage.getItem('authToken');
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }
+    
+    // Add correlation ID for request tracking
+    if (!config.headers['X-Correlation-ID']) {
+      config.headers['X-Correlation-ID'] = `web-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+    }
+    
+    // Log outgoing requests
+    logger.debug('API Request', {
+      method: config.method?.toUpperCase(),
+      url: config.url,
+      correlationId: config.headers['X-Correlation-ID'],
+      hasAuth: !!token
+    });
+    
     return config;
   },
   (error) => {
+    logger.error('Request interceptor error', {
+      message: error.message,
+      stack: error.stack
+    });
     return Promise.reject(error);
   }
 );
 
-// Response interceptor for error handling
-api.interceptors.response.use(
-  (response) => response,
-  async (error) => {
-    // Handle authentication errors (401 Unauthorized and 403 Forbidden for expired tokens)
-    if (error.response?.status === 401 || 
-        (error.response?.status === 403 && error.response?.data?.error?.includes('expired token'))) {
-      console.warn('Authentication failed - attempting token refresh');
-      
-      // Try to refresh the token before redirecting to login
-      const token = localStorage.getItem('authToken');
-      if (token) {
-        try {
-          const refreshResponse = await axios.post('/api/auth/refresh', {}, {
-            headers: { Authorization: `Bearer ${token}` }
-          });
-          
-          const { user, token: newToken } = refreshResponse.data;
-          
-          // Update localStorage with new data
-          localStorage.setItem('authToken', newToken);
-          localStorage.setItem('user', JSON.stringify(user));
+// Track ongoing refresh to prevent multiple simultaneous refresh attempts
+let isRefreshing = false;
+let failedQueue = [];
 
-          // Inform service worker to clear API cache so it won't serve a stale 403
-          try {
-            if (navigator.serviceWorker && navigator.serviceWorker.controller) {
-              navigator.serviceWorker.controller.postMessage({ type: 'CLEAR_API_CACHE' });
-            }
-          } catch (swErr) {
-            console.warn('Could not message service worker to clear cache:', swErr);
-          }
-          
-          // Retry the original request with new token
-          const originalRequest = error.config;
-          originalRequest.headers.Authorization = `Bearer ${newToken}`;
-          
-          console.log('Token refreshed successfully, retrying request');
-          return axios(originalRequest);
-          
-        } catch (refreshError) {
-          console.warn('Token refresh failed, clearing session and redirecting to login');
-          localStorage.removeItem('authToken');
-          localStorage.removeItem('user');
-          
-          // Only redirect if not already on login/register page
-          if (!window.location.pathname.includes('/login') && !window.location.pathname.includes('/register')) {
-            window.location.href = '/login';
-          }
-        }
-      } else {
-        console.warn('No token found, redirecting to login');
+const processQueue = (error, token = null) => {
+  failedQueue.forEach(prom => {
+    if (error) {
+      prom.reject(error);
+    } else {
+      prom.resolve(token);
+    }
+  });
+  
+  failedQueue = [];
+};
+
+// Response interceptor for success logging and error handling
+api.interceptors.response.use(
+  (response) => {
+    // Log successful responses
+    logger.debug('API Response', {
+      method: response.config.method?.toUpperCase(),
+      url: response.config.url,
+      status: response.status,
+      correlationId: response.headers['x-correlation-id'] || response.config.headers['X-Correlation-ID'],
+      responseTime: response.headers['x-response-time']
+    });
+    return response;
+  },
+  async (error) => {
+    const originalRequest = error.config;
+    const correlationId = error.response?.headers['x-correlation-id'] || originalRequest?.headers['X-Correlation-ID'];
+    
+    // Log the error with context
+    logger.error('API Error', {
+      method: originalRequest?.method?.toUpperCase(),
+      url: originalRequest?.url,
+      status: error.response?.status,
+      statusText: error.response?.statusText,
+      correlationId,
+      errorId: error.response?.headers['x-error-id'],
+      message: error.response?.data?.error || error.message,
+      isNetworkError: !error.response
+    });
+    
+    // Handle authentication errors (401 Unauthorized and 403 Forbidden for expired tokens)
+    if ((error.response?.status === 401 || error.response?.status === 403) && 
+        !originalRequest._retry) {
+      
+      logger.warn('Authentication failed, attempting token refresh', {
+        status: error.response.status,
+        correlationId,
+        url: originalRequest?.url
+      });
+      
+      // Mark this request as a retry to prevent infinite loops
+      originalRequest._retry = true;
+      
+      const token = localStorage.getItem('authToken');
+      if (!token) {
+        logger.warn('No token found, redirecting to login');
         // Only redirect if not already on login/register page
         if (!window.location.pathname.includes('/login') && !window.location.pathname.includes('/register')) {
           window.location.href = '/login';
         }
+        return Promise.reject(error);
+      }
+
+      if (isRefreshing) {
+        // If a refresh is already in progress, queue this request
+        logger.debug('Token refresh in progress, queueing request', { correlationId });
+        return new Promise((resolve, reject) => {
+          failedQueue.push({ resolve, reject });
+        }).then(token => {
+          originalRequest.headers.Authorization = `Bearer ${token}`;
+          return axios(originalRequest);
+        }).catch(err => {
+          return Promise.reject(err);
+        });
+      }
+
+      isRefreshing = true;
+
+      try {
+        logger.info('Attempting to refresh authentication token');
+        const refreshResponse = await axios.post('/api/auth/refresh', {}, {
+          headers: { 
+            Authorization: `Bearer ${token}`,
+            'X-Correlation-ID': `refresh-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
+          },
+          timeout: 10000 // 10 second timeout for refresh
+        });
+        
+        const { user, token: newToken } = refreshResponse.data;
+        
+        // Update localStorage with new data
+        localStorage.setItem('authToken', newToken);
+        localStorage.setItem('user', JSON.stringify(user));
+
+        // Inform service worker to clear API cache so it won't serve a stale 403
+        try {
+          if (navigator.serviceWorker && navigator.serviceWorker.controller) {
+            navigator.serviceWorker.controller.postMessage({ type: 'CLEAR_API_CACHE' });
+          }
+        } catch (swErr) {
+          logger.warn('Could not message service worker to clear cache', { error: swErr.message });
+        }
+        
+        // Update the authorization header with the new token
+        originalRequest.headers.Authorization = `Bearer ${newToken}`;
+        
+        // Process the queue with the new token
+        processQueue(null, newToken);
+        
+        logger.info('Token refreshed successfully, retrying original request', {
+          correlationId,
+          originalUrl: originalRequest.url
+        });
+        
+        // Retry the original request with new token
+        return axios(originalRequest);
+        
+      } catch (refreshError) {
+        logger.error('Token refresh failed', {
+          error: refreshError.response?.data || refreshError.message,
+          status: refreshError.response?.status,
+          correlationId: refreshError.response?.headers['x-correlation-id']
+        });
+        
+        // Process the queue with the error
+        processQueue(refreshError, null);
+        
+        // Clear auth data
+        localStorage.removeItem('authToken');
+        localStorage.removeItem('user');
+        
+        // Only redirect if not already on login/register page
+        if (!window.location.pathname.includes('/login') && !window.location.pathname.includes('/register')) {
+          logger.info('Redirecting to login page due to refresh failure');
+          window.location.href = '/login';
+        }
+        
+        return Promise.reject(refreshError);
+      } finally {
+        isRefreshing = false;
       }
     }
     
     // Handle network errors
     if (!error.response) {
-      console.error('Network error:', error);
+      logger.error('Network error occurred', {
+        message: error.message,
+        correlationId,
+        url: originalRequest?.url
+      });
       return Promise.reject(new Error('Network error. Please check your connection.'));
     }
     

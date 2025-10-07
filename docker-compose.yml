@@ -6,9 +6,18 @@ services:
     environment:
       - JWT_SECRET=your-secret-jwt-key-change-in-production
       - DB_PATH=/app/data/bowling.db
+      - NODE_ENV=production
+      - LOG_LEVEL=info
     volumes:
       - ./backend/data:/app/data
+      - ./logs/backend:/app/logs
     restart: unless-stopped
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+        labels: "service=bowling-backend"
 
   frontend:
     build: ./frontend
@@ -16,4 +25,12 @@ services:
       - "8031:80"
     depends_on:
       - backend
+    volumes:
+      - ./logs/frontend:/var/log/nginx
     restart: unless-stopped
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+        labels: "service=bowling-frontend"

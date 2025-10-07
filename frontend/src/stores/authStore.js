@@ -5,6 +5,40 @@ import { authAPI } from '../lib/api';
  * Authentication store using Zustand
  * Manages user authentication state and provides auth methods
  */
+
+// Enhanced logging utility
+const logger = {
+  info: (message, data = {}) => {
+    console.log(`[AUTH] ${message}`, {
+      timestamp: new Date().toISOString(),
+      level: 'info',
+      ...data
+    });
+  },
+  warn: (message, data = {}) => {
+    console.warn(`[AUTH] ${message}`, {
+      timestamp: new Date().toISOString(),
+      level: 'warn',
+      ...data
+    });
+  },
+  error: (message, data = {}) => {
+    console.error(`[AUTH] ${message}`, {
+      timestamp: new Date().toISOString(),
+      level: 'error',
+      ...data
+    });
+  },
+  debug: (message, data = {}) => {
+    if (process.env.NODE_ENV === 'development') {
+      console.debug(`[AUTH] ${message}`, {
+        timestamp: new Date().toISOString(),
+        level: 'debug',
+        ...data
+      });
+    }
+  }
+};
 const useAuthStore = create((set, get) => ({
   // State
   user: null,
@@ -15,12 +49,18 @@ const useAuthStore = create((set, get) => ({
 
   // Initialize auth from localStorage
   initialize: () => {
+    logger.info('Initializing authentication store');
     const token = localStorage.getItem('authToken');
     const userData = localStorage.getItem('user');
     
     if (token && userData) {
       try {
         const user = JSON.parse(userData);
+        logger.info('Restoring authentication from localStorage', {
+          userId: user.id,
+          username: user.username
+        });
+        
         set({
           user,
           token,
@@ -32,10 +72,15 @@ const useAuthStore = create((set, get) => ({
         get().validateAndRefreshToken();
         
       } catch (error) {
+        logger.error('Failed to parse stored user data', {
+          error: error.message
+        });
         // Clear invalid data
         localStorage.removeItem('authToken');
         localStorage.removeItem('user');
       }
+    } else {
+      logger.debug('No stored authentication found');
     }
   },
 
@@ -50,21 +95,42 @@ const useAuthStore = create((set, get) => ({
       const currentTime = Date.now() / 1000;
       const timeUntilExpiry = payload.exp - currentTime;
       
-      // If token expires in less than 1 day, refresh it
-      if (timeUntilExpiry < 86400) { // 24 hours
-        console.log('Token expires soon, refreshing...');
+      logger.debug('Token validation check', {
+        userId: payload.userId,
+        expiresIn: `${Math.floor(timeUntilExpiry / 3600)} hours`,
+        expiresAt: new Date(payload.exp * 1000).toISOString()
+      });
+      
+      // If token expires in less than 7 days, refresh it
+      if (timeUntilExpiry < 604800) { // 7 days in seconds
+        logger.info('Token expires within 7 days, refreshing');
         await get().refreshToken();
       }
       
-      // Set up periodic check every hour
+      // Set up next check - check more frequently as expiration approaches
+      let nextCheckInterval;
+      if (timeUntilExpiry < 86400) { // Less than 1 day
+        nextCheckInterval = 3600000; // Check every hour
+      } else if (timeUntilExpiry < 604800) { // Less than 7 days
+        nextCheckInterval = 43200000; // Check every 12 hours
+      } else {
+        nextCheckInterval = 86400000; // Check once per day
+      }
+      
+      logger.debug('Scheduling next token validation', {
+        nextCheckIn: `${Math.floor(nextCheckInterval / 3600000)} hours`
+      });
+      
       setTimeout(() => {
         if (get().isAuthenticated) {
           get().validateAndRefreshToken();
         }
-      }, 3600000); // 1 hour
+      }, nextCheckInterval);
       
     } catch (error) {
-      console.warn('Token validation failed:', error);
+      logger.warn('Token validation failed', {
+        error: error.message
+      });
       // Token is invalid, clear it
       get().logout();
     }
@@ -73,6 +139,7 @@ const useAuthStore = create((set, get) => ({
   // Refresh token
   refreshToken: async () => {
     try {
+      logger.info('Refreshing authentication token');
       const response = await authAPI.refresh();
       const { user, token } = response.data;
       
@@ -87,20 +154,39 @@ const useAuthStore = create((set, get) => ({
         error: null
       });
       
-      console.log('Token refreshed successfully');
+      logger.info('Token refreshed successfully', {
+        userId: user.id,
+        username: user.username
+      });
       return { success: true };
       
     } catch (error) {
-      console.warn('Token refresh failed:', error);
-      // Refresh failed, logout user
-      get().logout();
-      return { success: false };
+      logger.error('Token refresh failed', {
+        error: error.response?.data || error.message,
+        status: error.response?.status,
+        isNetworkError: !error.response
+      });
+      
+      // If refresh fails due to network error, don't logout immediately
+      if (!error.response) {
+        logger.warn('Network error during refresh, keeping current session');
+        return { success: false, networkError: true };
+      }
+      
+      // Only logout on authentication errors (401, 403)
+      if (error.response?.status === 401 || error.response?.status === 403) {
+        logger.warn('Authentication failed during refresh, logging out');
+        get().logout();
+      }
+      
+      return { success: false, error: error.response?.data?.error || error.message };
     }
   },
 
   // Login action
   login: async (credentials) => {
     set({ isLoading: true, error: null });
+    logger.info('Login attempt', { identifier: credentials.emailOrUsername });
     
     try {
       const response = await authAPI.login(credentials);
@@ -118,9 +204,20 @@ const useAuthStore = create((set, get) => ({
         error: null
       });
       
+      logger.info('Login successful', {
+        userId: user.id,
+        username: user.username
+      });
+      
       return { success: true };
     } catch (error) {
       const errorMessage = error.response?.data?.error || 'Login failed';
+      logger.error('Login failed', {
+        error: errorMessage,
+        status: error.response?.status,
+        correlationId: error.response?.data?.correlationId
+      });
+      
       set({
         isLoading: false,
         error: errorMessage
@@ -162,6 +259,12 @@ const useAuthStore = create((set, get) => ({
 
   // Logout action
   logout: async () => {
+    const user = get().user;
+    logger.info('User logout', {
+      userId: user?.id,
+      username: user?.username
+    });
+    
     localStorage.removeItem('authToken');
     localStorage.removeItem('user');
     
@@ -174,9 +277,9 @@ const useAuthStore = create((set, get) => ({
             .filter(name => name.includes('api-cache'))
             .map(name => caches.delete(name))
         );
-        console.log('API cache cleared on logout');
+        logger.debug('API cache cleared on logout');
       } catch (error) {
-        console.warn('Failed to clear caches:', error);
+        logger.warn('Failed to clear caches', { error: error.message });
       }
     }
     
