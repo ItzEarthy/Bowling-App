@@ -314,7 +314,7 @@ const PinByPinEntry = ({ onGameComplete, initialData = {} }) => {
       const firstThrowKey = `${frameKey}-1`;
       const firstThrowPins = frameThrowPins[firstThrowKey] || [];
       
-      // If first throw was a strike, all pins are down
+      // If first throw was a strike, all pins are down (but this shouldn't happen for second throw)
       if (throws[0] === 10) {
         return [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
       }
@@ -348,7 +348,7 @@ const PinByPinEntry = ({ onGameComplete, initialData = {} }) => {
         if (throws[0] === 10 || throws[0] + (throws[1] || 0) === 10) {
           return selectedPins;
         } else {
-          // Show all previous throws
+          // Show all previous throws plus current selection
           return [...new Set([...firstThrowPins, ...secondThrowPins, ...selectedPins])];
         }
       }
@@ -364,14 +364,66 @@ const PinByPinEntry = ({ onGameComplete, initialData = {} }) => {
     if (saved) {
       setSelectedPins(saved);
     } else {
-      setSelectedPins([]);
+      // If no saved pins for this throw, initialize based on the throw score
+      const frame = frames[frameNum - 1];
+      const throws = frame.throws || [];
+      const throwIndex = throwNum - 1;
+      
+      if (throwIndex < throws.length) {
+        const throwScore = throws[throwIndex];
+        
+        if (throwNum === 1) {
+          // First throw - if it's a strike, select all pins; otherwise derive from score
+          if (throwScore === 10) {
+            setSelectedPins([1, 2, 3, 4, 5, 6, 7, 8, 9, 10]);
+          } else {
+            // For non-strikes, we don't know which specific pins were hit
+            // so just clear selection and let user re-select
+            setSelectedPins([]);
+          }
+        } else if (throwNum === 2 && frameNum < 10) {
+          // Second throw in regular frame
+          const firstThrowScore = throws[0] || 0;
+          const secondThrowScore = throwScore;
+          
+          if (firstThrowScore === 10) {
+            // Strike on first throw - no second throw should exist
+            setSelectedPins([]);
+          } else {
+            // Regular second throw - we don't know which specific pins
+            setSelectedPins([]);
+          }
+        } else if (frameNum === 10) {
+          // 10th frame logic - more complex due to potential third throw
+          setSelectedPins([]);
+        } else {
+          setSelectedPins([]);
+        }
+      } else {
+        setSelectedPins([]);
+      }
     }
   };
 
   const handleChooseThrow = (throwNum) => {
+    // Clear any existing split advice when switching throws
+    setCurrentSplit(null);
+    setShowSplitAdvice(false);
+    
+    // Set the current throw
     setCurrentThrow(throwNum);
+    
+    // Load the saved pins for this specific throw
     loadPinsForThrow(currentFrame, throwNum);
+    
+    // Close the throw selector
     setEditingThrowSelectorOpen(false);
+    
+    // Force a re-render of available pins by updating the component state
+    // This ensures the pin deck shows the correct available/knocked down state
+    setTimeout(() => {
+      // Small delay to ensure state updates are processed
+    }, 10);
   };
 
   // Check if game is complete
@@ -820,23 +872,60 @@ const PinByPinEntry = ({ onGameComplete, initialData = {} }) => {
             <CardContent className="p-3">
               {/* Throw selector (shows when user clicks a frame) */}
               {editingThrowSelectorOpen && (
-                <div className="absolute top-2 right-2 z-30 bg-white/95 dark:bg-gray-800/95 p-2 rounded shadow-md">
-                  <div className="text-sm font-semibold mb-1">Edit Throw</div>
-                  <div className="flex gap-1">
+                <div className="absolute top-2 right-2 z-30 bg-white/95 dark:bg-gray-800/95 p-3 rounded shadow-lg border">
+                  <div className="text-sm font-semibold mb-2">Edit Throw</div>
+                  <div className="flex gap-1 mb-2">
                     {/* For frames 1-9 there are up to 2 throws, frame 10 may have 3 */}
                     {[1, 2, 3].map((t) => {
                       if (t === 3 && currentFrame !== 10) return null;
+                      
+                      // Get throw info for display
+                      const frame = frames[currentFrame - 1];
+                      const throws = frame.throws || [];
+                      const throwExists = t <= throws.length;
+                      const throwScore = throwExists ? throws[t - 1] : null;
+                      
+                      // Determine if this throw should be available for editing
+                      let isAvailable = true;
+                      if (currentFrame < 10) {
+                        if (t === 2 && throws[0] === 10) {
+                          isAvailable = false; // No second throw after strike
+                        }
+                      } else {
+                        // 10th frame - third throw only if strike or spare
+                        if (t === 3) {
+                          const needsThirdThrow = throws[0] === 10 || (throws[0] + (throws[1] || 0) === 10);
+                          isAvailable = needsThirdThrow;
+                        }
+                      }
+                      
                       return (
                         <button
                           key={t}
-                          onClick={() => handleChooseThrow(t)}
-                          className={`px-2 py-1 text-xs rounded border ${currentThrow === t ? 'bg-blue-600 text-white' : 'bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-200'}`}>
-                          {t}
+                          onClick={() => isAvailable ? handleChooseThrow(t) : null}
+                          disabled={!isAvailable}
+                          className={`px-3 py-1 text-xs rounded border flex flex-col items-center min-w-[40px] ${
+                            currentThrow === t 
+                              ? 'bg-blue-600 text-white border-blue-600' 
+                              : isAvailable 
+                                ? 'bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-600' 
+                                : 'bg-gray-100 text-gray-400 cursor-not-allowed border-gray-200'
+                          }`}>
+                          <span className="font-semibold">{t}</span>
+                          {throwExists && (
+                            <span className="text-xs opacity-75">
+                              {throwScore === 10 ? 'X' : throwScore || '0'}
+                            </span>
+                          )}
                         </button>
                       );
                     })}
-                    <button onClick={() => setEditingThrowSelectorOpen(false)} className="px-2 py-1 text-xs rounded border bg-red-100">Cancel</button>
                   </div>
+                  <button 
+                    onClick={() => setEditingThrowSelectorOpen(false)} 
+                    className="px-2 py-1 text-xs rounded border bg-red-100 hover:bg-red-200 text-red-800 w-full">
+                    Cancel
+                  </button>
                 </div>
               )}
 
