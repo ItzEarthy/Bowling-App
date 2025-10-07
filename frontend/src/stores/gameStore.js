@@ -195,12 +195,23 @@ const useGameStore = create((set, get) => ({
     // Calculate total score
     const totalScore = framesWithScores[framesWithScores.length - 1]?.cumulative_score || 0;
 
+    // Calculate game stats when game is complete
+    let gameStats = {};
+    if (gameComplete) {
+      gameStats = BowlingScoreCalculator.getGameStatistics(framesWithScores);
+    }
+
     set({
       currentGame: {
         ...currentGame,
         frames: framesWithScores,
         total_score: totalScore,
-        is_complete: gameComplete
+        is_complete: gameComplete,
+        ...(gameComplete && {
+          strikes: gameStats.strikes,
+          spares: gameStats.spares,
+          opens: gameStats.opens
+        })
       },
       currentFrame: nextFrame,
       currentThrow: nextThrow,
@@ -396,11 +407,15 @@ const useGameStore = create((set, get) => ({
 
     const calculatedFrames = BowlingScoreCalculator.calculateGameScore(frames);
     const totalScore = calculatedFrames[calculatedFrames.length - 1]?.cumulative_score || 0;
+    const gameStats = BowlingScoreCalculator.getGameStatistics(calculatedFrames);
 
     const newGame = {
       frames: calculatedFrames,
       total_score: totalScore,
       is_complete: true,
+      strikes: gameStats.strikes,
+      spares: gameStats.spares,
+      opens: gameStats.opens,
       entry_mode: 'frame_by_frame',
       created_at: new Date().toISOString()
     };
@@ -424,6 +439,7 @@ const useGameStore = create((set, get) => ({
   createGameFromPinData: (frames) => {
     const calculatedFrames = BowlingScoreCalculator.calculateGameScore(frames);
     const totalScore = calculatedFrames[calculatedFrames.length - 1]?.cumulative_score || 0;
+    const gameStats = BowlingScoreCalculator.getGameStatistics(calculatedFrames);
 
     const newGame = {
       frames: calculatedFrames.map(frame => ({
@@ -432,6 +448,9 @@ const useGameStore = create((set, get) => ({
       })),
       total_score: totalScore,
       is_complete: true,
+      strikes: gameStats.strikes,
+      spares: gameStats.spares,
+      opens: gameStats.opens,
       entry_mode: 'pin_by_pin',
       created_at: new Date().toISOString()
     };
