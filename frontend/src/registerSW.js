@@ -36,13 +36,26 @@ export function setupUpdateChecker() {
             }
           };
 
-          // Initial update check after registration
-          setTimeout(checkForUpdates, 2000);
+          // Initial update check after registration (delayed)
+          setTimeout(checkForUpdates, 5000); // Increased delay
 
-          // Periodic checks and user-triggered checks
-          const updateInterval = setInterval(checkForUpdates, 300000); // 5 minutes
-          document.addEventListener('visibilitychange', () => { if (!document.hidden) checkForUpdates(); });
-          window.addEventListener('focus', checkForUpdates);
+          // Periodic checks and user-triggered checks (less frequent)
+          const updateInterval = setInterval(checkForUpdates, 600000); // 10 minutes instead of 5
+          
+          // Debounced visibility and focus checks to avoid excessive updates
+          let visibilityTimeout;
+          document.addEventListener('visibilitychange', () => { 
+            if (!document.hidden) {
+              clearTimeout(visibilityTimeout);
+              visibilityTimeout = setTimeout(checkForUpdates, 2000); // 2 second delay
+            }
+          });
+          
+          let focusTimeout;
+          window.addEventListener('focus', () => {
+            clearTimeout(focusTimeout);
+            focusTimeout = setTimeout(checkForUpdates, 3000); // 3 second delay
+          });
 
           // Listen for updates
           registration.addEventListener('updatefound', () => {
@@ -76,15 +89,32 @@ export function setupUpdateChecker() {
           navigator.serviceWorker.addEventListener('controllerchange', () => {
             if (refreshing) return;
             refreshing = true;
-            console.log('\ud83d\udd04 Service Worker controller changed - reloading page');
-            window.location.reload();
+            
+            // Preserve auth state before reloading
+            console.log('🔄 Service Worker controller changed - preserving auth state before reload');
+            
+            // Store a flag to indicate this is a PWA update reload
+            sessionStorage.setItem('pwaUpdateReload', 'true');
+            sessionStorage.setItem('lastAuthCheck', Date.now().toString());
+            
+            // Small delay to ensure storage operations complete
+            setTimeout(() => {
+              window.location.reload();
+            }, 100);
           });
 
           // Handle messages from service worker
           navigator.serviceWorker.addEventListener('message', (event) => {
             if (event.data && event.data.type === 'SW_UPDATED') {
-              console.log('\ud83d\udd04 Service Worker updated (message), reloading...');
-              window.location.reload();
+              console.log('🔄 Service Worker updated (message), preserving auth and reloading...');
+              
+              // Preserve auth state before reloading
+              sessionStorage.setItem('pwaUpdateReload', 'true');
+              sessionStorage.setItem('lastAuthCheck', Date.now().toString());
+              
+              setTimeout(() => {
+                window.location.reload();
+              }, 100);
             }
           });
 

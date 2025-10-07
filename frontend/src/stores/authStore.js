@@ -50,6 +50,14 @@ const useAuthStore = create((set, get) => ({
   // Initialize auth from localStorage
   initialize: () => {
     logger.info('Initializing authentication store');
+    
+    // Check if this is a PWA update reload
+    const isPwaReload = sessionStorage.getItem('pwaUpdateReload') === 'true';
+    if (isPwaReload) {
+      logger.info('Detected PWA update reload - preserving authentication');
+      sessionStorage.removeItem('pwaUpdateReload');
+    }
+    
     const token = localStorage.getItem('authToken');
     const userData = localStorage.getItem('user');
     
@@ -58,7 +66,8 @@ const useAuthStore = create((set, get) => ({
         const user = JSON.parse(userData);
         logger.info('Restoring authentication from localStorage', {
           userId: user.id,
-          username: user.username
+          username: user.username,
+          isPwaReload
         });
         
         set({
@@ -68,8 +77,16 @@ const useAuthStore = create((set, get) => ({
           error: null
         });
         
-        // Check token validity and start periodic refresh
-        get().validateAndRefreshToken();
+        // For PWA reloads, be more lenient with token validation
+        if (isPwaReload) {
+          // Delay token validation slightly to allow the app to stabilize
+          setTimeout(() => {
+            get().validateAndRefreshToken();
+          }, 2000);
+        } else {
+          // Check token validity and start periodic refresh
+          get().validateAndRefreshToken();
+        }
         
       } catch (error) {
         logger.error('Failed to parse stored user data', {
@@ -140,6 +157,19 @@ const useAuthStore = create((set, get) => ({
   refreshToken: async () => {
     try {
       logger.info('Refreshing authentication token');
+      
+      // Add extra headers for PWA context
+      const headers = {
+        'X-PWA-Context': 'true'
+      };
+      
+      // Check if this is shortly after a PWA reload
+      const lastAuthCheck = sessionStorage.getItem('lastAuthCheck');
+      if (lastAuthCheck && (Date.now() - parseInt(lastAuthCheck)) < 10000) {
+        headers['X-PWA-Reload'] = 'true';
+        sessionStorage.removeItem('lastAuthCheck');
+      }
+      
       const response = await authAPI.refresh();
       const { user, token } = response.data;
       
@@ -171,6 +201,13 @@ const useAuthStore = create((set, get) => ({
       if (!error.response) {
         logger.warn('Network error during refresh, keeping current session');
         return { success: false, networkError: true };
+      }
+      
+      // For PWA contexts, be more lenient with certain errors
+      const isPwaContext = error.config?.headers?.['X-PWA-Context'] === 'true';
+      if (isPwaContext && error.response?.status === 500) {
+        logger.warn('Server error during PWA refresh, retrying later');
+        return { success: false, retryLater: true };
       }
       
       // Only logout on authentication errors (401, 403)
@@ -269,17 +306,24 @@ const useAuthStore = create((set, get) => ({
     localStorage.removeItem('user');
     
     // Clear service worker caches to ensure fresh data on next login
+    // But do it more selectively to avoid disrupting PWA functionality
     if ('caches' in window) {
       try {
         const cacheNames = await caches.keys();
-        await Promise.all(
-          cacheNames
-            .filter(name => name.includes('api-cache'))
-            .map(name => caches.delete(name))
+        const apiCacheNames = cacheNames.filter(name => 
+          name.includes('api-cache') || 
+          name.includes('auth-') ||
+          name.includes('-user-')
         );
-        logger.debug('API cache cleared on logout');
+        
+        if (apiCacheNames.length > 0) {
+          await Promise.all(apiCacheNames.map(name => caches.delete(name)));
+          logger.debug('API and auth caches cleared on logout', { 
+            clearedCaches: apiCacheNames 
+          });
+        }
       } catch (error) {
-        logger.warn('Failed to clear caches', { error: error.message });
+        logger.warn('Failed to clear caches during logout', { error: error.message });
       }
     }
     

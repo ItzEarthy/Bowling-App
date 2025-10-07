@@ -4,19 +4,25 @@ import Card, { CardContent } from '../ui/Card';
 import Button from '../ui/Button';
 import Input from '../ui/Input';
 import { ballAPI } from '../../lib/api';
+import BallSelector from '../shared/BallSelector';
+import { saveGameEntryState, loadGameEntryState, clearGameEntryState } from '../../utils/gameEntryPersistence';
+import { withErrorHandling, validateGameData } from '../../utils/errorHandling';
 
 /**
  * Final Score Entry Component
  * Allows users to enter just the total score with optional strikes/spares
+ * Features: localStorage persistence, error handling, mobile-optimized UI
  */
 const FinalScoreEntry = ({ onGameComplete, initialData = {} }) => {
+  const ENTRY_MODE = 'final_score';
+
   const [formData, setFormData] = useState({
     totalScore: initialData.totalScore || '',
     strikes: initialData.strikes || '',
     spares: initialData.spares || '',
     notes: initialData.notes || '',
     gameDate: initialData.gameDate || new Date().toISOString().split('T')[0],
-    ballsUsed: initialData.ballsUsed || [] // Array of ball objects used in the game
+    ballsUsed: initialData.ballsUsed || []
   });
   
   const [errors, setErrors] = useState({});
@@ -25,16 +31,40 @@ const FinalScoreEntry = ({ onGameComplete, initialData = {} }) => {
   const [houseBallWeights] = useState([8, 9, 10, 11, 12, 13, 14, 15, 16]);
   const [showBallSelector, setShowBallSelector] = useState(false);
 
+  // Load saved state on mount
+  useEffect(() => {
+    const savedState = loadGameEntryState(ENTRY_MODE);
+    if (savedState && Object.keys(initialData).length === 0) {
+      setFormData(savedState);
+    }
+  }, []);
+
+  // Auto-save state when form data changes
+  useEffect(() => {
+    if (formData.totalScore || formData.strikes || formData.spares) {
+      saveGameEntryState(ENTRY_MODE, formData);
+    }
+  }, [formData]);
+
   useEffect(() => {
     loadAvailableBalls();
   }, []);
 
   const loadAvailableBalls = async () => {
-    try {
-      const response = await ballAPI.getBalls();
-      setAvailableBalls(response.data.balls || []);
-    } catch (err) {
-      console.log('Could not load balls');
+    const result = await withErrorHandling(
+      async () => {
+        const response = await ballAPI.getBalls();
+        return response.data.balls || [];
+      },
+      {
+        maxRetries: 1,
+        errorMessage: 'Could not load balls',
+      }
+    );
+
+    if (result.success) {
+      setAvailableBalls(result.data);
+    } else {
       setAvailableBalls([]);
     }
   };
@@ -128,22 +158,38 @@ const FinalScoreEntry = ({ onGameComplete, initialData = {} }) => {
   const handleSubmit = async () => {
     if (!validateForm()) return;
 
-    setIsSubmitting(true);
-    try {
-      const gameData = {
-        entryMode: 'final_score',
-        totalScore: parseInt(formData.totalScore),
-        strikes: formData.strikes ? parseInt(formData.strikes) : undefined,
-        spares: formData.spares ? parseInt(formData.spares) : undefined,
-        notes: formData.notes || undefined,
-        ballsUsed: formData.ballsUsed.length > 0 ? formData.ballsUsed : undefined,
-        created_at: new Date(formData.gameDate + 'T' + new Date().toTimeString().split(' ')[0]).toISOString()
-      };
+    const gameData = {
+      entryMode: 'final_score',
+      totalScore: parseInt(formData.totalScore),
+      strikes: formData.strikes ? parseInt(formData.strikes) : undefined,
+      spares: formData.spares ? parseInt(formData.spares) : undefined,
+      notes: formData.notes || undefined,
+      ballsUsed: formData.ballsUsed.length > 0 ? formData.ballsUsed : undefined,
+      created_at: new Date(formData.gameDate + 'T' + new Date().toTimeString().split(' ')[0]).toISOString()
+    };
 
-      await onGameComplete(gameData);
-    } catch (error) {
-      setErrors({ submit: 'Failed to save game. Please try again.' });
-    } finally {
+    // Validate game data
+    const validation = validateGameData(gameData, 'final_score');
+    if (!validation.valid) {
+      setErrors({ submit: validation.errors.join('. ') });
+      return;
+    }
+
+    setIsSubmitting(true);
+    const result = await withErrorHandling(
+      async () => await onGameComplete(gameData),
+      {
+        maxRetries: 2,
+        errorMessage: 'Failed to save game',
+        onError: (error) => {
+          setErrors({ submit: error.message });
+        },
+      }
+    );
+
+    if (result.success) {
+      clearGameEntryState(ENTRY_MODE);
+    } else {
       setIsSubmitting(false);
     }
   };
@@ -157,21 +203,19 @@ const FinalScoreEntry = ({ onGameComplete, initialData = {} }) => {
   };
 
   return (
-    <div className="max-w-2xl mx-auto space-y-6">
+    <div className="max-w-2xl mx-auto space-y-4">
       {/* Header */}
-      <div className="text-center">
-        <h2 className="text-2xl font-bold text-charcoal-800 mb-2">Final Score Entry</h2>
-        <p className="text-charcoal-600">Enter your total game score with optional details</p>
+      <div className="text-center mb-4">
+        <h2 className="text-xl font-bold text-charcoal-800">Final Score Entry</h2>
+        <p className="text-sm text-charcoal-600">Enter your total game score</p>
       </div>
 
       {/* Main Entry Card */}
       <Card>
-        <CardContent className="p-6 space-y-6">
-          {/* Total Score - Large Input */}
-          <div className="text-center">
-            <label className="block text-sm font-medium text-charcoal-700 mb-2">
-              Total Score
-            </label>
+        <CardContent className="p-4 space-y-4">
+          {/* Total Score */}
+          <div>
+            <label className="block text-sm font-medium text-charcoal-700 mb-2">Total Score</label>
             <div className="relative">
               <input
                 type="number"
@@ -179,30 +223,27 @@ const FinalScoreEntry = ({ onGameComplete, initialData = {} }) => {
                 max="300"
                 value={formData.totalScore}
                 onChange={(e) => handleInputChange('totalScore', e.target.value)}
-                className={`w-full text-4xl font-bold text-center py-4 px-6 border-2 rounded-xl
+                className={`w-full text-3xl font-bold text-center py-3 px-4 border-2 rounded-lg
                   ${errors.totalScore 
                     ? 'border-vintage-red-300 bg-vintage-red-50' 
                     : 'border-charcoal-200 focus:border-vintage-red-500'
-                  } ${getScoreColor()} focus:outline-none focus:ring-0 transition-colors`}
+                  } ${getScoreColor()} focus:outline-none transition-colors`}
                 placeholder="0"
               />
-              <div className="absolute right-4 top-1/2 transform -translate-y-1/2">
-                <Trophy className={`w-6 h-6 ${getScoreColor()}`} />
-              </div>
+              <Trophy className={`absolute right-3 top-1/2 -translate-y-1/2 w-5 h-5 ${getScoreColor()}`} />
             </div>
             {errors.totalScore && (
-              <p className="text-vintage-red-600 text-sm mt-2">{errors.totalScore}</p>
+              <p className="text-vintage-red-600 text-xs mt-1">{errors.totalScore}</p>
             )}
-            <p className="text-xs text-charcoal-500 mt-2">Enter a score between 0 and 300</p>
+            <p className="text-xs text-charcoal-500 mt-1">Enter 0-300</p>
           </div>
 
-          {/* Optional Details */}
-          <div className="grid md:grid-cols-2 gap-4">
-            {/* Strikes */}
+          {/* Strikes & Spares */}
+          <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block text-sm font-medium text-charcoal-700 mb-2">
-                <Target className="w-4 h-4 inline mr-1" />
-                Strikes (Optional)
+              <label className="flex items-center text-sm font-medium text-charcoal-700 mb-2">
+                <Target className="w-4 h-4 mr-1" />
+                Strikes
               </label>
               <Input
                 type="number"
@@ -214,14 +255,12 @@ const FinalScoreEntry = ({ onGameComplete, initialData = {} }) => {
                 error={errors.strikes}
                 className="text-center"
               />
-              <p className="text-xs text-charcoal-500 mt-1">0-12 strikes</p>
             </div>
 
-            {/* Spares */}
             <div>
-              <label className="block text-sm font-medium text-charcoal-700 mb-2">
-                <Zap className="w-4 h-4 inline mr-1" />
-                Spares (Optional)
+              <label className="flex items-center text-sm font-medium text-charcoal-700 mb-2">
+                <Zap className="w-4 h-4 mr-1" />
+                Spares
               </label>
               <Input
                 type="number"
@@ -233,7 +272,6 @@ const FinalScoreEntry = ({ onGameComplete, initialData = {} }) => {
                 error={errors.spares}
                 className="text-center"
               />
-              <p className="text-xs text-charcoal-500 mt-1">0-10 spares</p>
             </div>
           </div>
 
@@ -243,110 +281,100 @@ const FinalScoreEntry = ({ onGameComplete, initialData = {} }) => {
               Balls Used (Optional)
             </label>
             
-            {/* Current balls */}
             {formData.ballsUsed.length > 0 && (
-              <div className="mb-3 space-y-2">
+              <div className="space-y-2 mb-2">
                 {formData.ballsUsed.map((ball) => (
                   <div 
                     key={ball.id}
-                    className="flex items-center justify-between p-3 bg-gray-50 rounded-lg border"
+                    className="flex items-center justify-between p-2 bg-charcoal-50 rounded-lg"
                   >
-                    <div className="flex items-center space-x-3">
+                    <div className="flex items-center space-x-2 min-w-0">
                       <div 
-                        className="w-8 h-8 rounded-full border-2 border-gray-200"
-                        style={{ 
-                          backgroundColor: ball.color || (ball.type === 'house' ? '#6B7280' : '#374151')
-                        }}
-                      ></div>
-                      <div>
-                        <div className="font-medium text-sm">{ball.name}</div>
-                        <div className="text-xs text-gray-600">
-                          {ball.weight}lbs • {ball.type === 'house' ? 'House Ball' : 'Personal'}
-                        </div>
+                        className="w-6 h-6 rounded-full border border-charcoal-300 flex-shrink-0"
+                        style={{ backgroundColor: ball.color || (ball.type === 'house' ? '#6B7280' : '#374151') }}
+                      />
+                      <div className="min-w-0">
+                        <div className="font-medium text-sm truncate">{ball.name}</div>
+                        <div className="text-xs text-charcoal-600">{ball.weight}lbs</div>
                       </div>
                     </div>
-                    <Button
-                      variant="ghost"
-                      size="sm"
+                    <button
                       onClick={() => removeBallFromGame(ball.id)}
-                      className="text-red-600 hover:text-red-700"
+                      className="p-1 text-vintage-red-600 hover:text-vintage-red-700 flex-shrink-0"
+                      aria-label="Remove ball"
                     >
                       <X className="w-4 h-4" />
-                    </Button>
+                    </button>
                   </div>
                 ))}
               </div>
             )}
 
-            {/* Add ball button */}
             <Button
               variant="outline"
               onClick={() => setShowBallSelector(true)}
               className="w-full"
+              size="sm"
             >
-              <Plus className="w-4 h-4 mr-2" />
+              <Plus className="w-4 h-4 mr-1" />
               Add Ball
             </Button>
 
             {/* Ball Selector Modal */}
             {showBallSelector && (
-              <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-                <div className="bg-white rounded-lg p-6 max-w-2xl w-full mx-4 max-h-[80vh] overflow-y-auto">
-                  <div className="flex justify-between items-center mb-4">
-                    <h3 className="text-lg font-semibold">Select Ball</h3>
-                    <Button
-                      variant="ghost"
-                      size="sm"
+              <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+                <div className="bg-white rounded-xl max-w-lg w-full max-h-[80vh] overflow-y-auto">
+                  <div className="sticky top-0 bg-white border-b border-charcoal-200 p-3 flex justify-between items-center">
+                    <h3 className="font-semibold text-charcoal-800">Select Ball</h3>
+                    <button
                       onClick={() => setShowBallSelector(false)}
+                      className="p-1 hover:bg-charcoal-100 rounded"
                     >
-                      <X className="w-4 h-4" />
-                    </Button>
+                      <X className="w-5 h-5" />
+                    </button>
                   </div>
 
-                  {/* Personal Balls */}
-                  {availableBalls.length > 0 && (
-                    <div className="mb-6">
-                      <h4 className="font-medium mb-3">Personal Balls</h4>
-                      <div className="grid grid-cols-2 gap-3">
-                        {availableBalls.map((ball) => (
-                          <button
-                            key={ball.id}
-                            onClick={() => addBallToGame(ball)}
-                            className="p-3 border rounded-lg hover:bg-gray-50 text-left"
-                          >
-                            <div className="flex items-center space-x-3">
-                              <div 
-                                className="w-8 h-8 rounded-full border-2 border-gray-200"
-                                style={{ 
-                                  backgroundColor: ball.color || '#374151'
-                                }}
-                              ></div>
-                              <div>
-                                <div className="font-medium text-sm">{ball.name}</div>
-                                <div className="text-xs text-gray-600">{ball.weight}lbs</div>
+                  <div className="p-4 space-y-4">
+                    {availableBalls.length > 0 && (
+                      <div>
+                        <h4 className="font-medium text-charcoal-800 mb-2 text-sm">Personal Balls</h4>
+                        <div className="grid grid-cols-2 gap-2">
+                          {availableBalls.map((ball) => (
+                            <button
+                              key={ball.id}
+                              onClick={() => addBallToGame(ball)}
+                              className="p-2 border border-charcoal-200 rounded-lg hover:bg-charcoal-50 text-left transition-colors"
+                            >
+                              <div className="flex items-center space-x-2">
+                                <div 
+                                  className="w-8 h-8 rounded-full border border-charcoal-300 flex-shrink-0"
+                                  style={{ backgroundColor: ball.color || '#374151' }}
+                                />
+                                <div className="min-w-0">
+                                  <div className="font-medium text-sm truncate">{ball.name}</div>
+                                  <div className="text-xs text-charcoal-600">{ball.weight}lbs</div>
+                                </div>
                               </div>
-                            </div>
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    <div>
+                      <h4 className="font-medium text-charcoal-800 mb-2 text-sm">House Balls</h4>
+                      <div className="grid grid-cols-5 gap-2">
+                        {houseBallWeights.map((weight) => (
+                          <button
+                            key={weight}
+                            onClick={() => addBallToGame(null, true, weight)}
+                            className="p-2 border border-charcoal-200 rounded-lg hover:bg-charcoal-50 text-center transition-colors"
+                          >
+                            <div className="text-lg">🎳</div>
+                            <div className="font-medium text-xs">{weight}lb</div>
                           </button>
                         ))}
                       </div>
-                    </div>
-                  )}
-
-                  {/* House Balls */}
-                  <div>
-                    <h4 className="font-medium mb-3">House Balls</h4>
-                    <div className="grid grid-cols-3 gap-3">
-                      {houseBallWeights.map((weight) => (
-                        <button
-                          key={weight}
-                          onClick={() => addBallToGame(null, true, weight)}
-                          className="p-3 border rounded-lg hover:bg-gray-50 text-center"
-                        >
-                          <div className="text-lg mb-1">🎳</div>
-                          <div className="font-medium text-sm">{weight}lbs</div>
-                          <div className="text-xs text-gray-600">House</div>
-                        </button>
-                      ))}
                     </div>
                   </div>
                 </div>
@@ -358,30 +386,24 @@ const FinalScoreEntry = ({ onGameComplete, initialData = {} }) => {
 
           {/* Game Date */}
           <div>
-            <label className="block text-sm font-medium text-charcoal-700 mb-2">
-              Game Date
-            </label>
+            <label className="block text-sm font-medium text-charcoal-700 mb-2">Game Date</label>
             <Input
               type="date"
               value={formData.gameDate}
               onChange={(e) => handleInputChange('gameDate', e.target.value)}
-              max={new Date().toISOString().split('T')[0]} // Don't allow future dates
-              className="text-center"
+              max={new Date().toISOString().split('T')[0]}
             />
-            <p className="text-xs text-charcoal-500 mt-1">When was this game played?</p>
           </div>
 
           {/* Notes */}
           <div>
-            <label className="block text-sm font-medium text-charcoal-700 mb-2">
-              Notes (Optional)
-            </label>
+            <label className="block text-sm font-medium text-charcoal-700 mb-2">Notes (Optional)</label>
             <textarea
               value={formData.notes}
               onChange={(e) => handleInputChange('notes', e.target.value)}
-              placeholder="Add any notes about this game..."
-              rows={3}
-              className="w-full px-3 py-2 border border-charcoal-200 rounded-lg focus:border-vintage-red-500 focus:outline-none focus:ring-0 resize-none"
+              placeholder="Add notes about this game..."
+              rows={2}
+              className="w-full px-3 py-2 border border-charcoal-200 rounded-lg focus:border-vintage-red-500 focus:outline-none resize-none text-sm"
             />
           </div>
         </CardContent>
@@ -390,22 +412,18 @@ const FinalScoreEntry = ({ onGameComplete, initialData = {} }) => {
       {/* Score Summary */}
       {formData.totalScore && (
         <Card className="bg-charcoal-50">
-          <CardContent className="p-4">
+          <CardContent className="p-3">
             <div className="flex justify-between items-center text-sm">
-              <span className="text-charcoal-600">Game Summary:</span>
-              <div className="flex space-x-4">
+              <span className="text-charcoal-600">Summary:</span>
+              <div className="flex items-center space-x-3">
                 <span className={`font-bold ${getScoreColor()}`}>
-                  {formData.totalScore} points
+                  {formData.totalScore} pts
                 </span>
                 {formData.strikes && (
-                  <span className="text-charcoal-600">
-                    {formData.strikes} strikes
-                  </span>
+                  <span className="text-charcoal-600">{formData.strikes}X</span>
                 )}
                 {formData.spares && (
-                  <span className="text-charcoal-600">
-                    {formData.spares} spares
-                  </span>
+                  <span className="text-charcoal-600">{formData.spares}/</span>
                 )}
               </div>
             </div>
@@ -415,7 +433,7 @@ const FinalScoreEntry = ({ onGameComplete, initialData = {} }) => {
 
       {/* Submit Error */}
       {errors.submit && (
-        <div className="bg-vintage-red-50 border border-vintage-red-200 rounded-xl p-4">
+        <div className="bg-vintage-red-50 border border-vintage-red-200 rounded-lg p-3">
           <p className="text-vintage-red-800 text-sm">{errors.submit}</p>
         </div>
       )}
@@ -424,13 +442,13 @@ const FinalScoreEntry = ({ onGameComplete, initialData = {} }) => {
       <Button
         onClick={handleSubmit}
         disabled={!formData.totalScore || isSubmitting}
-        className="w-full py-3"
+        className="w-full sticky bottom-4 shadow-lg"
         size="lg"
       >
         {isSubmitting ? (
           <>
             <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2" />
-            Saving Game...
+            Saving...
           </>
         ) : (
           <>

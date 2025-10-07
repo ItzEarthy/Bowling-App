@@ -174,12 +174,23 @@ api.interceptors.response.use(
 
       try {
         logger.info('Attempting to refresh authentication token');
+        
+        // Add PWA context headers
+        const refreshHeaders = { 
+          Authorization: `Bearer ${token}`,
+          'X-Correlation-ID': `refresh-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+          'X-PWA-Context': 'true'
+        };
+        
+        // Check if this is shortly after a PWA reload
+        const lastAuthCheck = sessionStorage.getItem('lastAuthCheck');
+        if (lastAuthCheck && (Date.now() - parseInt(lastAuthCheck)) < 10000) {
+          refreshHeaders['X-PWA-Reload'] = 'true';
+        }
+        
         const refreshResponse = await axios.post('/api/auth/refresh', {}, {
-          headers: { 
-            Authorization: `Bearer ${token}`,
-            'X-Correlation-ID': `refresh-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
-          },
-          timeout: 10000 // 10 second timeout for refresh
+          headers: refreshHeaders,
+          timeout: 15000 // Increased timeout for PWA scenarios
         });
         
         const { user, token: newToken } = refreshResponse.data;
@@ -220,6 +231,13 @@ api.interceptors.response.use(
         
         // Process the queue with the error
         processQueue(refreshError, null);
+        
+        // Be more lenient for PWA-related errors
+        const isPwaContext = refreshError.config?.headers?.['X-PWA-Context'] === 'true';
+        if (isPwaContext && refreshError.response?.status >= 500) {
+          logger.warn('Server error during PWA token refresh, not clearing auth data');
+          return Promise.reject(refreshError);
+        }
         
         // Clear auth data
         localStorage.removeItem('authToken');

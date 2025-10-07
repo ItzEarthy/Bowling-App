@@ -9,6 +9,10 @@ import { analyzeSplitFromPins, getSplitAdvice } from '../../utils/splitDetection
 import { ballAPI } from '../../lib/api';
 import { getLocalISOString, getLocalDateString } from '../../utils/dateUtils';
 import useGameStore from '../../stores/gameStore';
+import BallSelector from '../shared/BallSelector';
+import QuickSelectButtons, { QuickSelectLegend } from '../shared/QuickSelectButtons';
+import { saveGameEntryState, loadGameEntryState, clearGameEntryState } from '../../utils/gameEntryPersistence';
+import { withErrorHandling, validateGameData, safeCalculation } from '../../utils/errorHandling';
 
 /**
  * Individual Pin Component for Pin Selection (using pin.png image)
@@ -137,6 +141,8 @@ const PinDeck = ({
  * Enhanced full-game pin entry interface
  */
 const PinByPinEntry = ({ onGameComplete, initialData = {} }) => {
+  const ENTRY_MODE = 'pin_by_pin';
+  
   // Use game store for consistent state management
   const gameStore = useGameStore();
   
@@ -145,9 +151,9 @@ const PinByPinEntry = ({ onGameComplete, initialData = {} }) => {
     return (
       <div className="max-w-6xl mx-auto">
         <Card className="bg-red-50 border-red-200">
-          <CardContent className="p-6 text-center">
-            <h3 className="text-lg font-semibold text-red-800 mb-2">Error: Game Store Unavailable</h3>
-            <p className="text-red-600">The game store could not be initialized. Please refresh the page and try again.</p>
+          <CardContent className="p-4 text-center">
+            <h3 className="font-semibold text-red-800 mb-2">Error: Game Store Unavailable</h3>
+            <p className="text-sm text-red-600">The game store could not be initialized. Please refresh and try again.</p>
           </CardContent>
         </Card>
       </div>
@@ -171,7 +177,7 @@ const PinByPinEntry = ({ onGameComplete, initialData = {} }) => {
     if (!currentGame && initializeGame) {
       initializeGame({
         entryMode: 'pin_by_pin',
-        entry_mode: 'pin_by_pin', // Ensure both formats for compatibility
+        entry_mode: 'pin_by_pin',
         ...initialData
       });
     }
@@ -182,7 +188,7 @@ const PinByPinEntry = ({ onGameComplete, initialData = {} }) => {
   const [currentThrow, setCurrentThrow] = useState(storeCurrentThrow || 1);
   
   const [selectedPins, setSelectedPins] = useState([]);
-  const [frameThrowPins, setFrameThrowPins] = useState({}); // Store which specific pins were hit for each throw
+  const [frameThrowPins, setFrameThrowPins] = useState({});
   const [editingThrowSelectorOpen, setEditingThrowSelectorOpen] = useState(false);
   
   // Get frames from game store
@@ -196,7 +202,33 @@ const PinByPinEntry = ({ onGameComplete, initialData = {} }) => {
   const [showSplitAdvice, setShowSplitAdvice] = useState(false);
   const [availableBalls, setAvailableBalls] = useState([]);
   const [houseBallWeights] = useState([8, 9, 10, 11, 12, 13, 14, 15, 16]);
-  const [frameBalls, setFrameBalls] = useState({}); // Store ball selection per frame/throw
+  const [frameBalls, setFrameBalls] = useState({});
+
+  // Load saved state on mount
+  useEffect(() => {
+    const savedState = loadGameEntryState(ENTRY_MODE);
+    if (savedState && Object.keys(initialData).length === 0) {
+      if (savedState.currentFrame) setCurrentFrame(savedState.currentFrame);
+      if (savedState.currentThrow) setCurrentThrow(savedState.currentThrow);
+      if (savedState.frameThrowPins) setFrameThrowPins(savedState.frameThrowPins);
+      if (savedState.frameBalls) setFrameBalls(savedState.frameBalls);
+      if (savedState.gameDate) setGameDate(savedState.gameDate);
+    }
+  }, []);
+
+  // Auto-save state when data changes
+  useEffect(() => {
+    const hasData = Object.keys(frameThrowPins).length > 0 || Object.keys(frameBalls).length > 0;
+    if (hasData) {
+      saveGameEntryState(ENTRY_MODE, {
+        currentFrame,
+        currentThrow,
+        frameThrowPins,
+        frameBalls,
+        gameDate,
+      });
+    }
+  }, [currentFrame, currentThrow, frameThrowPins, frameBalls, gameDate]);
 
   useEffect(() => {
     loadAvailableBalls();
@@ -215,11 +247,20 @@ const PinByPinEntry = ({ onGameComplete, initialData = {} }) => {
   }, []);
 
   const loadAvailableBalls = async () => {
-    try {
-      const response = await ballAPI.getBalls();
-      setAvailableBalls(response.data.balls || []);
-    } catch (err) {
-      console.log('Could not load balls');
+    const result = await withErrorHandling(
+      async () => {
+        const response = await ballAPI.getBalls();
+        return response.data.balls || [];
+      },
+      {
+        maxRetries: 1,
+        errorMessage: 'Could not load balls',
+      }
+    );
+
+    if (result.success) {
+      setAvailableBalls(result.data);
+    } else {
       setAvailableBalls([]);
     }
   };
@@ -525,10 +566,20 @@ const PinByPinEntry = ({ onGameComplete, initialData = {} }) => {
     const totalScore = updatedFrames[updatedFrames.length - 1].cumulative_score || 0;
     const isGameComplete = BowlingScoreCalculator.isGameComplete(updatedFrames);
     
+    console.log('Pin by pin score calculation:', {
+      frameNumber: currentFrame,
+      throwNumber: currentThrow,
+      pinsKnockedDown,
+      totalScore,
+      lastFrameScore: updatedFrames[updatedFrames.length - 1].cumulative_score,
+      isGameComplete
+    });
+    
     // Calculate game stats if game is complete
     let gameStats = {};
     if (isGameComplete) {
       gameStats = BowlingScoreCalculator.getGameStatistics(updatedFrames);
+      console.log('Final game stats:', gameStats);
     }
     
     // Update the game in the store with proper entry mode and stats
@@ -683,32 +734,67 @@ const PinByPinEntry = ({ onGameComplete, initialData = {} }) => {
   const handleSaveGame = async () => {
     if (!gameComplete || !currentGame) return;
 
-    setIsSubmitting(true);
-    try {
-      const totalScore = currentGame.total_score || 0;
-      
-      const gameData = {
-        ...currentGame,
-        entryMode: 'pin_by_pin',
-        entry_mode: 'pin_by_pin', // Ensure consistent field naming
-        game_type: 'pin_by_pin', // Additional field for game type
-        frames: frames,
-        total_score: totalScore,
-        frameThrowPins: frameThrowPins, // Include specific pins hit per throw
-        frameBalls: frameBalls, // Include ball selections per throw
-        created_at: (() => {
-          // Combine game date with current time, preserving local timezone
-          const [year, month, day] = gameDate.split('-');
-          const now = new Date();
-          const gameDateTime = new Date(year, month - 1, day, now.getHours(), now.getMinutes(), now.getSeconds());
-          return gameDateTime.toISOString();
-        })()
-      };
+    // Recalculate with error handling
+    const calcResult = safeCalculation(
+      () => BowlingScoreCalculator.calculateGameScore(frames),
+      frames
+    );
 
-      await onGameComplete(gameData);
-    } catch (error) {
-      console.error('Failed to save game:', error);
-    } finally {
+    if (!calcResult.success) {
+      console.error('Failed to calculate score:', calcResult.error);
+      return;
+    }
+
+    const calculatedFrames = calcResult.data;
+    const totalScore = calculatedFrames[calculatedFrames.length - 1]?.cumulative_score || 0;
+    
+    const statsResult = safeCalculation(
+      () => BowlingScoreCalculator.getGameStatistics(calculatedFrames),
+      calculatedFrames
+    );
+
+    const gameStats = statsResult.success ? statsResult.data : { strikes: 0, spares: 0, opens: 0 };
+      
+    const gameData = {
+      ...currentGame,
+      entryMode: 'pin_by_pin',
+      entry_mode: 'pin_by_pin',
+      game_type: 'pin_by_pin',
+      frames: calculatedFrames,
+      total_score: totalScore,
+      totalScore: totalScore,
+      strikes: gameStats.strikes,
+      spares: gameStats.spares,
+      opens: gameStats.opens,
+      frameThrowPins: frameThrowPins,
+      frameBalls: frameBalls,
+      created_at: (() => {
+        const [year, month, day] = gameDate.split('-');
+        const now = new Date();
+        const gameDateTime = new Date(year, month - 1, day, now.getHours(), now.getMinutes(), now.getSeconds());
+        return gameDateTime.toISOString();
+      })()
+    };
+
+    // Validate game data
+    const validation = validateGameData(gameData, 'pin_by_pin');
+    if (!validation.valid) {
+      console.error('Validation failed:', validation.errors);
+      return;
+    }
+
+    setIsSubmitting(true);
+    const result = await withErrorHandling(
+      async () => await onGameComplete(gameData),
+      {
+        maxRetries: 2,
+        errorMessage: 'Failed to save game',
+      }
+    );
+
+    if (result.success) {
+      clearGameEntryState(ENTRY_MODE);
+    } else {
       setIsSubmitting(false);
     }
   };
