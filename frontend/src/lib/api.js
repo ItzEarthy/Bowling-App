@@ -69,6 +69,18 @@ api.interceptors.request.use(
     if (!config.headers['X-Correlation-ID']) {
       config.headers['X-Correlation-ID'] = `web-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
     }
+
+    // For authentication endpoints, ensure we bypass caches/service-worker cached responses
+    try {
+      const url = config.url || '';
+      if (url.includes('/auth')) {
+        config.headers['Cache-Control'] = 'no-store';
+        config.headers['Pragma'] = 'no-cache';
+        config.headers['X-Bypass-SW'] = 'true';
+      }
+    } catch (e) {
+      // ignore
+    }
     
     // Log outgoing requests
     logger.debug('API Request', {

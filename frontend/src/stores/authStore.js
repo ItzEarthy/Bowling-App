@@ -212,8 +212,11 @@ const useAuthStore = create((set, get) => ({
       
       // Only logout on authentication errors (401, 403)
       if (error.response?.status === 401 || error.response?.status === 403) {
-        logger.warn('Authentication failed during refresh, logging out');
-        get().logout();
+        logger.warn('Authentication failed during refresh');
+        // For PWA/offline contexts, surface a recoverable error rather than forcibly logging out
+        // Set an error flag so UI can prompt the user to re-authenticate when they return online
+        set({ error: 'Session expired. Please sign in again.' });
+        return { success: false, authError: true };
       }
       
       return { success: false, error: error.response?.data?.error || error.message };
