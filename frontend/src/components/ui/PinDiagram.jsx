@@ -29,22 +29,41 @@ const PinDiagram = ({ pinData, title, throwNumber = 1 }) => {
     if (percentage === 0 || percentage === null || percentage === undefined) {
       return '#E5E7EB'; // Gray for no data
     }
+    // Normalize and clamp percentage to [1,100]
+    const p = Math.max(1, Math.min(100, Math.round(percentage)));
+
+    // Helper: parse hex to RGB
+    const hexToRgb = (hex) => {
+      const clean = hex.replace('#', '');
+      const bigint = parseInt(clean, 16);
+      return [(bigint >> 16) & 255, (bigint >> 8) & 255, bigint & 255];
+    };
+
+    // Helper: interpolate between two hex colors by t in [0,1]
+    const interp = (hexA, hexB, t) => {
+      const a = hexToRgb(hexA);
+      const b = hexToRgb(hexB);
+      const r = Math.round(a[0] + (b[0] - a[0]) * t);
+      const g = Math.round(a[1] + (b[1] - a[1]) * t);
+      const bl = Math.round(a[2] + (b[2] - a[2]) * t);
+      const toHex = (v) => v.toString(16).padStart(2, '0');
+      return `#${toHex(r)}${toHex(g)}${toHex(bl)}`;
+    };
 
     if (isHit) {
-      // Color scale for HIT percentages (high is red, low is light)
-      if (percentage >= 80) return '#DC2626'; // Dark red - very high hit rate
-      if (percentage >= 60) return '#EF4444'; // Red
-      if (percentage >= 40) return '#F97316'; // Orange
-      if (percentage >= 20) return '#FBBF24'; // Yellow
-      return '#FDE047'; // Light yellow - low hit rate
+      // Continuous warm gradient: low -> high
+      // lowColor = #FDE047 (warm yellow), highColor = #DC2626 (dark red)
+      const low = '#FDE047';
+      const high = '#DC2626';
+      const t = (p - 1) / 99; // map 1..100 to 0..1
+      return interp(low, high, t);
     } else {
-      // Color scale for LEAVE percentages (higher contrast ramp)
-      // Very high leave rate -> very dark navy, medium -> bright blue, low -> very light blue
-      if (percentage >= 80) return '#08123A'; // Very dark navy - very high leave rate
-      if (percentage >= 60) return '#1E3A8A'; // Dark indigo
-      if (percentage >= 40) return '#2563EB'; // Blue
-      if (percentage >= 20) return '#60A5FA'; // Light blue
-      return '#EEF6FF'; // Very light blue - low leave rate
+      // Continuous cool gradient for leaves: low -> high
+      // lowColor = #EEF6FF (very light blue), highColor = #08123A (very dark navy)
+      const low = '#EEF6FF';
+      const high = '#08123A';
+      const t = (p - 1) / 99;
+      return interp(low, high, t);
     }
   };
 
