@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import Modal from '../ui/Modal';
 import Button from '../ui/Button';
 import useGameStore from '../../stores/gameStore';
+import { clearAllGameEntryStates } from '../../utils/gameEntryPersistence';
 import useAuthStore from '../../stores/authStore';
 
 /**
@@ -25,6 +26,9 @@ const GameRestorationModal = () => {
     loadGameState,
     clearSavedState
   } = useGameStore();
+
+  // also grab a method to clear any in-memory current game
+  const { clearCurrentGame } = useGameStore();
 
   // Check for saved game when component mounts or auth state changes
   useEffect(() => {
@@ -50,8 +54,26 @@ const GameRestorationModal = () => {
   };
 
   const handleDiscard = () => {
+    // Clear persistent saved game (localStorage)
     clearSavedState();
+    // Clear any session-saved entry modes (frame-by-frame, pin-by-pin, final)
+    try {
+      clearAllGameEntryStates();
+    } catch (err) {
+      // swallow errors, best-effort
+      console.warn('Failed to clear entry mode states:', err);
+    }
+
+    // Clear in-memory current game so components won't pick it up
+    try {
+      clearCurrentGame();
+    } catch (err) {
+      console.warn('Failed to clear in-memory game:', err);
+    }
+
     setIsOpen(false);
+    // Navigate to the game entry screen so user can start fresh
+    navigate('/game-entry');
   };
 
   const formatTimeSince = (milliseconds) => {

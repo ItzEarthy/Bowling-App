@@ -52,81 +52,63 @@ const Pin = ({ pinNumber, isKnockedDown, isDisabled = false }) => {
 };
 
 /**
- * Pin Deck Layout Component (true-to-life triangle, absolute positioning)
+ * Pin Deck Layout Component (row-based, centered rows)
+ * Rows are: [7,8,9,10], [4,5,6], [2,3], [1]
  */
 const PinDeck = ({
   knockedDownPins = [],
   availablePins = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
   onPinClick
 }) => {
-  // Use real-world inches but map them to percentages so pins scale to container width/height
-  const deckInchesWidth = 40.75;
-  const deckInchesHeight = 35.875;
-  const pinDiameterInches = 4.75;
+  const rows = [
+    [7, 8, 9, 10],
+    [4, 5, 6],
+    [2, 3],
+    [1]
+  ];
 
-  // Pin positions (in inches, center coordinates measured from left/top of deck)
   return (
-    <div
-      className="pin-deck relative mx-auto bg-gradient-to-b from-amber-50 to-amber-100 rounded-lg border-2 border-amber-200 shadow-inner"
-      style={{
-        position: 'relative',
-        width: '100%',
-        maxWidth: 520,
-        aspectRatio: `${deckInchesWidth} / ${deckInchesHeight}`,
-        margin: '18px auto',
-        minWidth: 320,
-        padding: '12px'
-      }}
-    >
-      {Object.entries(pinPositions).map(([pinNumber, pos]) => {
-        const isKnocked = knockedDownPins.includes(Number(pinNumber));
-        const isAvailable = availablePins.includes(Number(pinNumber));
+    <div className="pin-deck mx-auto bg-gradient-to-b from-amber-50 to-amber-100 rounded-lg border-2 border-amber-200 shadow-inner p-4" style={{ maxWidth: 520 }}>
+      <div className="flex flex-col items-center space-y-3">
+        {rows.map((row, rowIndex) => (
+          <div key={`row-${rowIndex}`} className="flex items-end justify-center gap-3 w-full">
+            {row.map((pinNumber) => {
+              const isKnocked = knockedDownPins.includes(pinNumber);
+              const isAvailable = availablePins.includes(pinNumber);
 
-        // Compute center position as percentages of the deck so visuals scale with container
-        const leftPercent = (pos.left / deckInchesWidth) * 100;
-        // Invert vertical axis so pin 1 is at the bottom
-        const topPercent = ((deckInchesHeight - pos.top) / deckInchesHeight) * 100;
+              // Responsive width for pin touch target
+              const widthStyle = 'clamp(48px, 9vw, 90px)';
 
-        // Size pin as percent of deck width to keep consistent circular/oval sizing
-        // Increase maximum size for improved visibility while keeping overlap controlled
-        const pinSizePercent = Math.min((pinDiameterInches / deckInchesWidth) * 95, 24);
-
-        // Convert percent size to CSS-friendly values for width/height
-        const widthStyle = `${pinSizePercent}%`;
-        const heightStyle = `${pinSizePercent * 1.5}%`;
-
-        return (
-          <button
-            key={pinNumber}
-            onClick={() => isAvailable && onPinClick && onPinClick(Number(pinNumber))}
-            disabled={!isAvailable}
-            aria-pressed={isKnocked}
-            aria-label={`Pin ${pinNumber}`}
-            className={`absolute transition-transform duration-200 p-0 rounded-full focus:outline-none focus:ring-2 focus:ring-vintage-red-400 ${
-              isKnocked ? 'opacity-60 scale-95' : 'opacity-100 hover:scale-105'
-            } ${isAvailable ? 'cursor-pointer' : 'cursor-not-allowed'}`}
-            style={{
-              left: `${leftPercent}%`,
-              top: `${topPercent}%`,
-              transform: 'translate(-50%, -50%)',
-              width: widthStyle,
-              height: heightStyle,
-              minWidth: 38,
-              minHeight: 54,
-              maxWidth: 90,
-              maxHeight: 120,
-              zIndex: isKnocked ? 1 : 6,
-              background: 'transparent',
-              border: 'none',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center'
-            }}
-          >
-            <Pin pinNumber={Number(pinNumber)} isKnockedDown={isKnocked} isDisabled={!isAvailable} />
-          </button>
-        );
-      })}
+              return (
+                <button
+                  key={pinNumber}
+                  onClick={() => isAvailable && onPinClick && onPinClick(Number(pinNumber))}
+                  disabled={!isAvailable}
+                  aria-pressed={isKnocked}
+                  aria-label={`Pin ${pinNumber}`}
+                  className={`transition-transform duration-150 p-0 focus:outline-none focus:ring-2 focus:ring-vintage-red-400 rounded ${
+                    isKnocked ? 'opacity-60 scale-95' : 'opacity-100 hover:scale-105'
+                  } ${isAvailable ? 'cursor-pointer' : 'cursor-not-allowed'}`}
+                  style={{
+                    width: widthStyle,
+                    aspectRatio: '2 / 3',
+                    minWidth: 44,
+                    maxWidth: 110,
+                    zIndex: isKnocked ? 1 : 6,
+                    background: 'transparent',
+                    border: 'none',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center'
+                  }}
+                >
+                  <Pin pinNumber={Number(pinNumber)} isKnockedDown={isKnocked} isDisabled={!isAvailable} />
+                </button>
+              );
+            })}
+          </div>
+        ))}
+      </div>
     </div>
   );
 };
@@ -498,41 +480,37 @@ const PinByPinEntry = ({ onGameComplete, initialData = {} }) => {
     });
   };
 
+  // Per-throw confirm: save the selected pins for the current throw immediately,
+  // update scores, and advance to the next throw/frame per the rules.
   const handleConfirmThrow = () => {
     if (!currentGame || !setCurrentGame) {
       console.error('Game store not available');
       return;
     }
-    
+
     const pinsKnockedDown = selectedPins.length;
     const frameKey = `${currentFrame}`;
     const throwKey = `${frameKey}-${currentThrow}`;
-    
+
     // Store which specific pins were hit for this throw
     setFrameThrowPins(prev => ({
       ...prev,
       [throwKey]: [...selectedPins]
     }));
-    
+
     // Create updated game data with the new throw
     const newFrames = [...frames];
     const frameIndex = currentFrame - 1;
-    
-    // Initialize throws array if needed
-    if (!newFrames[frameIndex].throws) {
-      newFrames[frameIndex].throws = [];
-    }
-    
-    // Handle editing existing throws
+
+    if (!newFrames[frameIndex].throws) newFrames[frameIndex].throws = [];
+
     const throwIndex = currentThrow - 1;
     if (throwIndex < newFrames[frameIndex].throws.length) {
-      // Replace existing throw
       newFrames[frameIndex].throws[throwIndex] = pinsKnockedDown;
-      
-      // If we're editing an earlier throw, clear subsequent throws in the frame
-      if (currentFrame < 10) {
-        if (throwIndex === 0 && pinsKnockedDown === 10) {
-          // Strike - clear second throw and its pin data
+
+      // If editing first throw in frames 1-9, clear second throw
+      if (currentFrame < 10 && throwIndex === 0) {
+        if (pinsKnockedDown === 10) {
           newFrames[frameIndex].throws = [10];
           const secondThrowKey = `${frameKey}-2`;
           setFrameThrowPins(prev => {
@@ -540,8 +518,7 @@ const PinByPinEntry = ({ onGameComplete, initialData = {} }) => {
             delete newPins[secondThrowKey];
             return newPins;
           });
-        } else if (throwIndex === 0) {
-          // First throw but not strike - clear second throw
+        } else {
           newFrames[frameIndex].throws = [pinsKnockedDown];
           const secondThrowKey = `${frameKey}-2`;
           setFrameThrowPins(prev => {
@@ -552,7 +529,6 @@ const PinByPinEntry = ({ onGameComplete, initialData = {} }) => {
         }
       }
     } else {
-      // Add new throw
       newFrames[frameIndex].throws.push(pinsKnockedDown);
     }
 
@@ -560,52 +536,36 @@ const PinByPinEntry = ({ onGameComplete, initialData = {} }) => {
     const updatedFrames = BowlingScoreCalculator.calculateGameScore(newFrames);
     const totalScore = updatedFrames[updatedFrames.length - 1].cumulative_score || 0;
     const isGameComplete = BowlingScoreCalculator.isGameComplete(updatedFrames);
-    
-    console.log('Pin by pin score calculation:', {
-      frameNumber: currentFrame,
-      throwNumber: currentThrow,
-      pinsKnockedDown,
-      totalScore,
-      lastFrameScore: updatedFrames[updatedFrames.length - 1].cumulative_score,
-      isGameComplete
-    });
-    
-    // Calculate game stats if game is complete
+
     let gameStats = {};
     if (isGameComplete) {
       gameStats = BowlingScoreCalculator.getGameStatistics(updatedFrames);
-      console.log('Final game stats:', gameStats);
     }
-    
-    // Update the game in the store with proper entry mode and stats
+
     const updatedGame = {
       ...currentGame,
       frames: updatedFrames,
       total_score: totalScore,
       is_complete: isGameComplete,
       entryMode: 'pin_by_pin',
-      entry_mode: 'pin_by_pin', // Ensure both formats for compatibility
+      entry_mode: 'pin_by_pin',
       ...(isGameComplete && {
         strikes: gameStats.strikes,
         spares: gameStats.spares,
         opens: gameStats.opens
       })
     };
-    
+
     setCurrentGame(updatedGame);
 
-    // Check if game is complete
-    if (isGameComplete) {
-      return;
-    }
+    if (isGameComplete) return;
 
     // Determine next throw/frame
     const throws = updatedFrames[frameIndex].throws;
     const prevFrame = currentFrame;
     const nextFrameChanged = currentFrame < 10 && (throws[0] === 10 || throws.length === 2);
-    
+
     if (currentFrame < 10) {
-      // Frames 1-9
       if (throws[0] === 10) {
         // Strike - move to next frame
         if (currentFrame === 9) {
@@ -636,11 +596,8 @@ const PinByPinEntry = ({ onGameComplete, initialData = {} }) => {
       }
     }
 
-    // Dispatch frame changed event to dismiss achievement toasts
     if (nextFrameChanged || (currentFrame === 10 && prevFrame !== currentFrame)) {
-      window.dispatchEvent(new CustomEvent('bowlingFrameChanged', { 
-        detail: { frame: currentFrame + (nextFrameChanged ? 1 : 0) } 
-      }));
+      window.dispatchEvent(new CustomEvent('bowlingFrameChanged', { detail: { frame: currentFrame + (nextFrameChanged ? 1 : 0) } }));
     }
 
     setSelectedPins([]);
@@ -1117,9 +1074,11 @@ const PinByPinEntry = ({ onGameComplete, initialData = {} }) => {
                   onClick={() => handleQuickSelect('strike')}
                   className="text-sm"
                 >
-                  {currentFrame < 10 && currentThrow === 2 
-                    ? `Spare (${10 - (currentFrameThrows[0] || 0)})` 
-                    : 'Strike (10)'
+                  {currentThrow === 2 && currentFrame === 10
+                    ? `Spare (${10 - (currentFrameThrows[0] || 0)})`
+                    : currentFrame < 10 && currentThrow === 2
+                      ? `Spare (${10 - (currentFrameThrows[0] || 0)})`
+                      : 'Strike (10)'
                   }
                 </Button>
                 <Button 
@@ -1131,7 +1090,7 @@ const PinByPinEntry = ({ onGameComplete, initialData = {} }) => {
                 </Button>
               </div>
 
-              {/* Confirm Button */}
+              {/* Confirm Button (per-throw) */}
               <div className="mt-6 pt-4 border-t border-charcoal-200">
                 <Button
                   onClick={handleConfirmThrow}
@@ -1139,7 +1098,7 @@ const PinByPinEntry = ({ onGameComplete, initialData = {} }) => {
                   size="lg"
                 >
                   <Target className="w-4 h-4 mr-2" />
-                  {currentFrameThrows.length >= currentThrow 
+                  {currentFrameThrows.length >= currentThrow
                     ? `Update Throw ${currentThrow} (${selectedPins.length} Pin${selectedPins.length !== 1 ? 's' : ''})`
                     : `Confirm ${selectedPins.length} Pin${selectedPins.length !== 1 ? 's' : ''}`
                   }

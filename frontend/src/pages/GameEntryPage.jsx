@@ -24,12 +24,34 @@ const GameEntryPage = () => {
   const [selectedMode, setSelectedMode] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState(null);
-  const { currentGame, initializeGame } = useGameStore();
+  const { currentGame, initializeGame, restoredFromSave } = useGameStore();
 
   // Auto-select mode based on restored game
   useEffect(() => {
-    if (currentGame && currentGame.entry_mode && !selectedMode) {
-      setSelectedMode(currentGame.entry_mode);
+    // Only auto-select entry mode when the current game was restored from a saved state.
+    // Freshly-initialized games (e.g., from Game Setup) should not auto-select.
+    if (restoredFromSave && currentGame && !selectedMode) {
+      // Prefer explicit entry_mode (newer), then entryMode, else try to infer from frames
+      const explicit = currentGame.entry_mode || currentGame.entryMode || currentGame.entryMode;
+      if (explicit) {
+        setSelectedMode(explicit);
+        return;
+      }
+
+      // Try to infer from frames if available
+      try {
+        const firstFrame = currentGame.frames && currentGame.frames[0];
+        const frameHint = firstFrame && (firstFrame.entry_mode || firstFrame.entryMode);
+        if (frameHint) {
+          setSelectedMode(frameHint);
+          return;
+        }
+      } catch (err) {
+        // ignore and fallback
+      }
+
+      // Fallback to pin-by-pin (most detailed) to avoid losing data
+      setSelectedMode('pin_by_pin');
     }
   }, [currentGame, selectedMode]);
 

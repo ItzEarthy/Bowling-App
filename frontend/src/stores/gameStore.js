@@ -9,6 +9,7 @@ const useGameStore = create((set, get) => ({
   currentGame: null,
   currentFrame: 1,
   currentThrow: 1,
+  restoredFromSave: false,
   isLoading: false,
   error: null,
   gameComplete: false,
@@ -54,7 +55,8 @@ const useGameStore = create((set, get) => ({
             currentFrame: gameState.currentFrame,
             currentThrow: gameState.currentThrow,
             gameComplete: gameState.gameComplete,
-            lastAutoSave: gameState.timestamp
+            lastAutoSave: gameState.timestamp,
+            restoredFromSave: true
           });
           
           console.log('Game state restored from auto-save');
@@ -140,6 +142,7 @@ const useGameStore = create((set, get) => ({
       currentFrame: 1,
       currentThrow: 1,
       gameComplete: false,
+      restoredFromSave: false,
       error: null 
     });
 
@@ -312,6 +315,7 @@ const useGameStore = create((set, get) => ({
       currentFrame: 1,
       currentThrow: 1,
       gameComplete: false,
+      restoredFromSave: false,
       error: null 
     });
 

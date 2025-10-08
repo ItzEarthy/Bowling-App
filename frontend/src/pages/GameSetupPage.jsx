@@ -8,6 +8,7 @@ import Input from '../components/ui/Input';
 import { api } from '../lib/api';
 import Spinner from '../components/ui/Spinner';
 import useGameStore from '../stores/gameStore';
+import { clearAllGameEntryStates } from '../utils/gameEntryPersistence';
 
 /**
  * Game Setup Page Component
@@ -15,7 +16,7 @@ import useGameStore from '../stores/gameStore';
  */
 const GameSetupPage = () => {
   const navigate = useNavigate();
-  const { initializeGame } = useGameStore();
+  const { initializeGame, clearSavedState, clearCurrentGame } = useGameStore();
   const [balls, setBalls] = useState([]);
   const [selectedBall, setSelectedBall] = useState(null);
   const [selectedHouseBallWeight, setSelectedHouseBallWeight] = useState(null);
@@ -113,6 +114,26 @@ const GameSetupPage = () => {
       };
       
       // Navigate to the game entry page with setup data
+      // Ensure any previous saved game data is cleared before starting a new one
+      try {
+        clearSavedState();
+      } catch (err) {
+        console.warn('Failed to clear saved game state:', err);
+      }
+
+      try {
+        clearAllGameEntryStates();
+      } catch (err) {
+        console.warn('Failed to clear entry mode session state:', err);
+      }
+
+      try {
+        // Clear any in-memory game to avoid race with restore flows
+        clearCurrentGame();
+      } catch (err) {
+        console.warn('Failed to clear in-memory game before initializing new one:', err);
+      }
+
       // Initialize the game in store so it's saved immediately
       try {
         initializeGame({ ...gameSetup });
@@ -135,6 +156,11 @@ const GameSetupPage = () => {
     const gameSetup = {
       created_at: new Date().toISOString()
     };
+    // Clear any prior saved state so quick start is fresh
+    try { clearSavedState(); } catch (err) { console.warn('Failed to clear saved state for quick start:', err); }
+    try { clearAllGameEntryStates(); } catch (err) { console.warn('Failed to clear entry mode session state for quick start:', err); }
+    try { clearCurrentGame(); } catch (err) { console.warn('Failed to clear in-memory game for quick start:', err); }
+
     // Initialize empty game immediately
     try {
       initializeGame({ created_at: gameSetup.created_at });
