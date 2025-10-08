@@ -574,17 +574,6 @@ const GameSetupPage = () => {
               Please select a ball to continue
             </p>
           )}
-          
-          <div>
-            <Button 
-              variant="outline" 
-              onClick={handleQuickStart}
-              disabled={isCreatingGame}
-              className="text-sm px-6 py-2"
-            >
-              Quick Start (Skip Setup)
-            </Button>
-          </div>
         </div>
       </div>
     </div>

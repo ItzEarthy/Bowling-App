@@ -38,12 +38,13 @@ const PinDiagram = ({ pinData, title, throwNumber = 1 }) => {
       if (percentage >= 20) return '#FBBF24'; // Yellow
       return '#FDE047'; // Light yellow - low hit rate
     } else {
-      // Color scale for LEAVE percentages (high is blue, low is light)
-      if (percentage >= 80) return '#1E3A8A'; // Dark blue - very high leave rate
-      if (percentage >= 60) return '#2563EB'; // Blue
-      if (percentage >= 40) return '#3B82F6'; // Light blue
-      if (percentage >= 20) return '#60A5FA'; // Lighter blue
-      return '#DBEAFE'; // Very light blue - low leave rate
+      // Color scale for LEAVE percentages (higher contrast ramp)
+      // Very high leave rate -> very dark navy, medium -> bright blue, low -> very light blue
+      if (percentage >= 80) return '#08123A'; // Very dark navy - very high leave rate
+      if (percentage >= 60) return '#1E3A8A'; // Dark indigo
+      if (percentage >= 40) return '#2563EB'; // Blue
+      if (percentage >= 20) return '#60A5FA'; // Light blue
+      return '#EEF6FF'; // Very light blue - low leave rate
     }
   };
 
@@ -67,6 +68,12 @@ const PinDiagram = ({ pinData, title, throwNumber = 1 }) => {
       {/* SVG Pin Diagram */}
       <div className="relative w-full" style={{ maxWidth: '300px', margin: '0 auto' }}>
         <svg viewBox="0 0 100 65" className="w-full h-auto">
+          {/* Drop shadow/filter for numbers to improve contrast on coloured pins */}
+          <defs>
+            <filter id="pinTextShadow" x="-50%" y="-50%" width="200%" height="200%">
+              <feDropShadow dx="0" dy="0.6" stdDeviation="0.6" floodColor="#000" floodOpacity="0.55"/>
+            </filter>
+          </defs>
           {/* Render pins */}
           {Object.entries(pinPositions).map(([pinNumber, position]) => {
             const pinNum = parseInt(pinNumber);
@@ -105,14 +112,18 @@ const PinDiagram = ({ pinData, title, throwNumber = 1 }) => {
                   className="transition-all duration-200"
                 />
                 
-                {/* Pin number below pin */}
+                {/* Pin number below pin - larger + outlined for readability */}
                 <text
                   x={position.x}
-                  y={position.y + 11}
+                  y={position.y + 12}
                   textAnchor="middle"
-                  fontSize="5"
-                  fill="#1F2937"
-                  fontWeight="bold"
+                  fontSize="6"
+                  fill="#0F172A"
+                  fontWeight="700"
+                  stroke="white"
+                  strokeWidth="0.6"
+                  paintOrder="stroke"
+                  style={{ filter: 'url(#pinTextShadow)' }}
                 >
                   {pinNum}
                 </text>
@@ -120,21 +131,27 @@ const PinDiagram = ({ pinData, title, throwNumber = 1 }) => {
                 {/* Percentage text inside pin */}
                 {displayPercentage > 0 && (
                   <>
-                    {/* Background circle for better text visibility */}
+                    {/* Background circle for better text visibility (stronger) */}
                     <circle
                       cx={position.x}
                       cy={position.y + 0.5}
                       r="4"
                       fill="white"
-                      opacity="0.7"
+                      opacity="0.95"
+                      stroke="#000"
+                      strokeOpacity="0.06"
                     />
                     <text
                       x={position.x}
-                      y={position.y + 1.5}
+                      y={position.y + 1.7}
                       textAnchor="middle"
-                      fontSize="3.5"
+                      fontSize="4"
                       fill={textColor}
-                      fontWeight="bold"
+                      fontWeight="700"
+                      stroke="white"
+                      strokeWidth="0.6"
+                      paintOrder="stroke"
+                      style={{ filter: 'url(#pinTextShadow)' }}
                     >
                       {displayPercentage.toFixed(0)}%
                     </text>
@@ -175,16 +192,16 @@ const PinDiagram = ({ pinData, title, throwNumber = 1 }) => {
             </div>
             <div className="flex items-center justify-center space-x-4 text-xs">
               <div className="flex items-center space-x-1">
-                <div className="w-3 h-3 rounded-full" style={{ backgroundColor: '#DBEAFE' }}></div>
-                <span>Low</span>
+                <div className="w-3 h-3 rounded-full" style={{ backgroundColor: '#EEF6FF' }}></div>
+                <span>Low (0-20%)</span>
               </div>
               <div className="flex items-center space-x-1">
-                <div className="w-3 h-3 rounded-full" style={{ backgroundColor: '#3B82F6' }}></div>
-                <span>Medium</span>
+                <div className="w-3 h-3 rounded-full" style={{ backgroundColor: '#2563EB' }}></div>
+                <span>Medium (20-60%)</span>
               </div>
               <div className="flex items-center space-x-1">
-                <div className="w-3 h-3 rounded-full" style={{ backgroundColor: '#1E3A8A' }}></div>
-                <span>High</span>
+                <div className="w-3 h-3 rounded-full" style={{ backgroundColor: '#08123A' }}></div>
+                <span>High (60%+)</span>
               </div>
             </div>
           </>

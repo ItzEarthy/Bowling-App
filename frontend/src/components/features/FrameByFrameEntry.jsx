@@ -149,7 +149,13 @@ const FrameByFrameEntry = ({ onGameComplete, initialData = {} }) => {
     if (result.success) {
       setFrames(result.data);
       setErrors({});
-      // Don't auto-advance - user will click confirm button
+      // For frame-by-frame: auto-advance on strike for frames 1-9 when first throw entered
+      const currentFrameNumber = newFrames[frameIndex].frame_number;
+      const parsedVal = numValue;
+      if (currentFrameNumber < 10 && throwIndex === 0 && parsedVal === 10) {
+        // Strike - move to next frame
+        setSelectedFrame(currentFrameNumber + 1);
+      }
     } else {
       setErrors({ calculation: result.error.message });
     }
@@ -420,8 +426,8 @@ const FrameByFrameEntry = ({ onGameComplete, initialData = {} }) => {
                   ))}
                 </div>
 
-                {/* Confirm Button */}
-                {currentValue !== undefined && (
+                {/* Confirm Button - hide for first throw in frames 1-9 (auto-advance/auto-confirm for DB) */}
+                {currentValue !== undefined && !(throwIndex === 0 && selectedFrame < 10) && (
                   <Button
                     onClick={() => handleConfirmThrow(selectedFrame - 1, throwIndex)}
                     className="w-full"
