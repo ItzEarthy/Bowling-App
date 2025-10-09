@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { authAPI } from '../lib/api';
+import cacheManager from '../utils/cacheManager';
 
 /**
  * Authentication store using Zustand
@@ -48,7 +49,7 @@ const useAuthStore = create((set, get) => ({
   error: null,
 
   // Initialize auth from localStorage
-  initialize: () => {
+  initialize: async () => {
     logger.info('Initializing authentication store');
     
     // Check if this is a PWA update reload
@@ -64,7 +65,56 @@ const useAuthStore = create((set, get) => ({
     if (token && userData) {
       try {
         const user = JSON.parse(userData);
-        logger.info('Restoring authentication from localStorage', {
+        
+        // CRITICAL FIX: Validate token BEFORE setting authenticated state
+        // Decode token to check expiration
+        try {
+          const payload = JSON.parse(atob(token.split('.')[1]));
+          const currentTime = Date.now() / 1000;
+          const timeUntilExpiry = payload.exp - currentTime;
+          
+          logger.debug('Token validation on init', {
+            userId: payload.userId,
+            expiresIn: `${Math.floor(timeUntilExpiry / 3600)} hours`,
+            expiresAt: new Date(payload.exp * 1000).toISOString(),
+            isExpired: timeUntilExpiry <= 0
+          });
+          
+          // If token is expired, clear it immediately and don't set authenticated state
+          if (timeUntilExpiry <= 0) {
+            logger.warn('Token expired on initialization - clearing auth state', {
+              userId: payload.userId,
+              expiredAgo: `${Math.floor(Math.abs(timeUntilExpiry) / 3600)} hours`
+            });
+            
+            // Clear everything
+            localStorage.removeItem('authToken');
+            localStorage.removeItem('user');
+            
+            // Clear all caches to prevent stale auth responses
+            await cacheManager.clearAllCaches('expired_token');
+            
+            set({
+              user: null,
+              token: null,
+              isAuthenticated: false,
+              error: 'Your session has expired. Please log in again.'
+            });
+            
+            return; // Exit early - don't restore expired session
+          }
+        } catch (decodeError) {
+          logger.error('Failed to decode token during initialization', {
+            error: decodeError.message
+          });
+          // Token is malformed, clear it
+          localStorage.removeItem('authToken');
+          localStorage.removeItem('user');
+          return;
+        }
+        
+        // Token is valid, restore session
+        logger.info('Restoring valid authentication from localStorage', {
           userId: user.id,
           username: user.username,
           isPwaReload
@@ -228,6 +278,16 @@ const useAuthStore = create((set, get) => ({
     set({ isLoading: true, error: null });
     logger.info('Login attempt', { identifier: credentials.emailOrUsername });
     
+    // CRITICAL FIX: Clear all caches before login to prevent stale auth responses
+    try {
+      await cacheManager.clearAllCaches('pre_login');
+    } catch (cacheError) {
+      logger.warn('Failed to clear caches before login', { 
+        error: cacheError.message 
+      });
+      // Continue with login even if cache clearing fails
+    }
+    
     try {
       const response = await authAPI.login(credentials);
       const { user, token } = response.data;
@@ -305,29 +365,15 @@ const useAuthStore = create((set, get) => ({
       username: user?.username
     });
     
+    // Clear localStorage first
     localStorage.removeItem('authToken');
     localStorage.removeItem('user');
     
-    // Clear service worker caches to ensure fresh data on next login
-    // But do it more selectively to avoid disrupting PWA functionality
-    if ('caches' in window) {
-      try {
-        const cacheNames = await caches.keys();
-        const apiCacheNames = cacheNames.filter(name => 
-          name.includes('api-cache') || 
-          name.includes('auth-') ||
-          name.includes('-user-')
-        );
-        
-        if (apiCacheNames.length > 0) {
-          await Promise.all(apiCacheNames.map(name => caches.delete(name)));
-          logger.debug('API and auth caches cleared on logout', { 
-            clearedCaches: apiCacheNames 
-          });
-        }
-      } catch (error) {
-        logger.warn('Failed to clear caches during logout', { error: error.message });
-      }
+    // Comprehensive cache clearing - clear ALL caches to prevent stale auth data
+    try {
+      await cacheManager.clearAllCaches('logout');
+    } catch (error) {
+      logger.error('Failed to clear caches during logout', { error: error.message });
     }
     
     set({

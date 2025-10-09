@@ -18,7 +18,18 @@ export default defineConfig({
         clientsClaim: true,
         navigateFallback: '/index.html',
         navigateFallbackDenylist: [/^\/_/, /\/[^/?]+\.[^/]+$/],
+        // Inject custom message handlers into the generated service worker
+        additionalManifestEntries: undefined,
+        // Custom message event handler
         runtimeCaching: [
+          {
+            // Never cache authentication endpoints
+            urlPattern: /^https?:.*\/api\/auth\/.*/,
+            handler: 'NetworkOnly',
+            options: {
+              networkTimeoutSeconds: 10
+            }
+          },
           {
             urlPattern: /^https?:.*\/api\/.*/,
             handler: 'NetworkFirst',

@@ -20,6 +20,24 @@ export function setupUpdateChecker() {
 
           console.log('\u2705 Service Worker registered successfully');
 
+          // Add message handler for cache clearing commands
+          if (navigator.serviceWorker.controller) {
+            console.log('🔌 Setting up service worker message handlers');
+            
+            // Override the message handler to support cache clearing
+            const originalController = navigator.serviceWorker.controller;
+            window.addEventListener('message', async (event) => {
+              if (event.data && event.data.type === 'CLEAR_ALL_CACHES') {
+                console.log('📨 Forwarding CLEAR_ALL_CACHES to service worker');
+                try {
+                  originalController.postMessage(event.data);
+                } catch (err) {
+                  console.warn('Failed to forward message to SW:', err);
+                }
+              }
+            });
+          }
+
           // Helper: perform a registration update check
           const checkForUpdates = () => {
             try {

@@ -1,4 +1,5 @@
 import axios from 'axios';
+import cacheManager from '../utils/cacheManager';
 
 /**
  * API client for Bowling App
@@ -249,6 +250,16 @@ api.interceptors.response.use(
         if (isPwaContext && refreshError.response?.status >= 500) {
           logger.warn('Server error during PWA token refresh, not clearing auth data');
           return Promise.reject(refreshError);
+        }
+        
+        // CRITICAL FIX: Clear ALL caches when auth fails to prevent serving stale responses
+        logger.info('Clearing all caches due to authentication failure');
+        try {
+          await cacheManager.clearAllCaches('auth_failure');
+        } catch (cacheError) {
+          logger.warn('Failed to clear caches after auth failure', { 
+            error: cacheError.message 
+          });
         }
         
         // Clear auth data

@@ -100,6 +100,18 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ## 📝 Changelog
 
+
+### v2.2.0 - 2025-10-09
+**🛡️ Critical PWA Authentication & Session Bug Fix**
+- **Fixed**: Users can now always log in after session expiration—no more lockouts or uninstall required!
+- **Fixed**: Service worker no longer caches authentication errors (401/403)
+- **Fixed**: Token validation now happens before setting authenticated state
+- **Fixed**: All caches are cleared on logout, login, and auth errors
+- **Added**: Centralized cache management utility for robust state cleanup
+- **Added**: Custom service worker extensions for cache clearing
+- **Improved**: Logging and diagnostics for authentication and cache events
+- **Docs**: Added detailed bug analysis, troubleshooting, and deployment guides
+
 ### v2.1.0 - 2025-10-03
 **🔄 Enhanced Session Management & Auto-Save**
 - **Added**: Comprehensive auto-save system - never lose game progress

@@ -48,7 +48,16 @@ function App() {
 
   // Initialize auth state from localStorage on app start
   useEffect(() => {
-    initialize();
+    // Initialize auth state asynchronously
+    const initializeApp = async () => {
+      try {
+        await initialize();
+      } catch (error) {
+        console.error('Auth initialization failed:', error);
+      }
+    };
+    
+    initializeApp();
     
     // Initialize app lifecycle manager for auto-save
     appLifecycleManager.initialize();
