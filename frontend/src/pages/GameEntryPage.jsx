@@ -24,7 +24,7 @@ const GameEntryPage = () => {
   const [selectedMode, setSelectedMode] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState(null);
-  const { currentGame, initializeGame, restoredFromSave } = useGameStore();
+  const { currentGame, initializeGame, restoredFromSave, clearSavedState, prepareGameForAPI } = useGameStore();
 
   // Auto-select mode based on restored game
   useEffect(() => {
@@ -97,6 +97,9 @@ const GameEntryPage = () => {
       const response = await api.post('/games', completeGameData);
       const savedGame = response.data.game;
       
+      // Clear the saved game state on successful save
+      clearSavedState();
+      
       // Navigate to success page or dashboard
       navigate('/dashboard', {
         state: {
@@ -105,8 +108,34 @@ const GameEntryPage = () => {
         }
       });
     } catch (err) {
-      setError('Failed to save game: ' + (err.response?.data?.message || err.message));
+      console.error('Game save error:', err);
+      
+      // Check if this is an auth error
+      const isAuthError = err.response?.status === 401 || err.response?.status === 403;
+      
+      if (isAuthError) {
+        // Auth error - user might be logged out, but game state is preserved
+        setError(
+          'Your session expired. Please log in again to save your game. Your progress has been preserved.'
+        );
+      } else {
+        // Other error - show retry option
+        setError('Failed to save game: ' + (err.response?.data?.error || err.message));
+      }
+      
       setIsLoading(false);
+      
+      // Keep the game in currentGame so they can retry
+    }
+  };
+
+  const handleRetry = async () => {
+    if (!currentGame) return;
+    
+    // Re-prepare the game data and retry
+    const gameData = prepareGameForAPI(currentGame);
+    if (gameData) {
+      await handleGameComplete(gameData);
     }
   };
 
@@ -213,14 +242,25 @@ const GameEntryPage = () => {
           <div className="mb-6 bg-vintage-red-50 border border-vintage-red-200 rounded-xl p-4">
             <h4 className="font-medium text-vintage-red-800 mb-2">Error</h4>
             <p className="text-vintage-red-700 text-sm">{error}</p>
-            <Button 
-              variant="outline" 
-              size="sm" 
-              onClick={() => setError(null)}
-              className="mt-3"
-            >
-              Dismiss
-            </Button>
+            <div className="flex gap-2 mt-3">
+              {sessionStorage.getItem('gamePreservedAfterAuth') && (
+                <Button 
+                  variant="default" 
+                  size="sm" 
+                  onClick={handleRetry}
+                  className="bg-mint-green-500 hover:bg-mint-green-600 text-white"
+                >
+                  Retry Save
+                </Button>
+              )}
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={() => setError(null)}
+              >
+                Dismiss
+              </Button>
+            </div>
           </div>
         )}
 

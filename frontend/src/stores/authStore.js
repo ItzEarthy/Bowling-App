@@ -358,16 +358,58 @@ const useAuthStore = create((set, get) => ({
   },
 
   // Logout action
-  logout: async () => {
+  logout: async (preserveGameState = false) => {
     const user = get().user;
     logger.info('User logout', {
       userId: user?.id,
-      username: user?.username
+      username: user?.username,
+      preserveGameState
     });
     
-    // Clear localStorage first
+    // IMPORTANT: Preserve game state before clearing localStorage
+    let savedGameState = null;
+    if (preserveGameState) {
+      try {
+        savedGameState = localStorage.getItem('bowlingGameState');
+        const lastGameSave = localStorage.getItem('lastGameSave');
+        logger.info('Preserving game state during logout', {
+          hasGameState: !!savedGameState
+        });
+        // Store temporarily so we can restore after clearing
+        if (savedGameState) {
+          sessionStorage.setItem('preservedGameState', savedGameState);
+          if (lastGameSave) {
+            sessionStorage.setItem('preservedLastGameSave', lastGameSave);
+          }
+        }
+      } catch (error) {
+        logger.warn('Failed to preserve game state', { error: error.message });
+      }
+    }
+    
+    // Clear auth localStorage
     localStorage.removeItem('authToken');
     localStorage.removeItem('user');
+    
+    // Restore game state if it was preserved
+    if (preserveGameState && savedGameState) {
+      try {
+        const preserved = sessionStorage.getItem('preservedGameState');
+        const preservedLastSave = sessionStorage.getItem('preservedLastGameSave');
+        if (preserved) {
+          localStorage.setItem('bowlingGameState', preserved);
+          if (preservedLastSave) {
+            localStorage.setItem('lastGameSave', preservedLastSave);
+          }
+          logger.info('Game state restored after logout');
+        }
+        // Clean up session storage
+        sessionStorage.removeItem('preservedGameState');
+        sessionStorage.removeItem('preservedLastGameSave');
+      } catch (error) {
+        logger.warn('Failed to restore game state after logout', { error: error.message });
+      }
+    }
     
     // Comprehensive cache clearing - clear ALL caches to prevent stale auth data
     try {

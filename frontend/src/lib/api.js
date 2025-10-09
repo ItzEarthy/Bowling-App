@@ -262,9 +262,19 @@ api.interceptors.response.use(
           });
         }
         
-        // Clear auth data
+        // Check if there's an unsaved game - if so, preserve it during logout
+        const hasUnsavedGame = localStorage.getItem('bowlingGameState') !== null;
+        
+        // Clear auth data (but preserve game state if it exists)
         localStorage.removeItem('authToken');
         localStorage.removeItem('user');
+        
+        // Preserve game state during forced logout so user can recover after re-login
+        if (hasUnsavedGame) {
+          logger.warn('Preserving unsaved game state during auth failure logout');
+          sessionStorage.setItem('authFailedWithGame', 'true');
+          sessionStorage.setItem('authFailureTime', Date.now().toString());
+        }
         
         // Only redirect if not already on login/register page
         if (!window.location.pathname.includes('/login') && !window.location.pathname.includes('/register')) {

@@ -90,6 +90,7 @@ export class PinCarryAnalyzer {
         // Pin-specific tracking for visualization
         pin_hit_frequency: {}, // Track how often each pin is hit on first throw
         pin_leave_frequency_by_pin: {}, // Track how often each pin is left standing after first throw
+        pin_leave_after_second_by_pin: {}, // Track how often each pin remains standing after second throw
         pin_spare_conversion: {} // Track spare conversion rate by pin
       };
       this.saveCarryData();
@@ -164,6 +165,21 @@ export class PinCarryAnalyzer {
         userData.pin_leave_frequency[missedPattern] = 
           (userData.pin_leave_frequency[missedPattern] || 0) + 1;
       }
+    }
+
+    // Track per-pin leaves after the second throw (remaining pins at frame end)
+    // ballData.leavePattern is the pins knocked on the first throw (array)
+    // ballData.pinsHit is the pins knocked on the second throw (array)
+    try {
+      const firstPins = Array.isArray(ballData.leavePattern) ? ballData.leavePattern : [];
+      const secondPins = Array.isArray(ballData.pinsHit) ? ballData.pinsHit : [];
+      // Remaining pins = all pins minus firstPins and secondPins
+      const remaining = [1,2,3,4,5,6,7,8,9,10].filter(p => !firstPins.includes(p) && !secondPins.includes(p));
+      remaining.forEach(pin => {
+        userData.pin_leave_after_second_by_pin[pin] = (userData.pin_leave_after_second_by_pin[pin] || 0) + 1;
+      });
+    } catch (e) {
+      // ignore any malformed data
     }
 
     this.saveCarryData();
@@ -552,20 +568,24 @@ export class PinCarryAnalyzer {
 
   // Get pin diagram data for visualization
   getPinDiagramData(userData) {
+    // For hit % on first throw, denominator is total_first_balls
     const totalFirstBalls = userData.total_first_balls || 1; // Avoid division by zero
 
-    // Calculate hit percentages for each pin
+    // For leave-after-second %, denominator should exclude frames where first throw was a strike
+    const framesWithSecondThrow = Math.max(1, userData.total_first_balls - (userData.total_strikes || 0));
+
+    // Calculate hit percentages for each pin (first throw)
     const hitPercentages = {};
     for (let pin = 1; pin <= 10; pin++) {
       const hitCount = userData.pin_hit_frequency[pin] || 0;
       hitPercentages[pin] = (hitCount / totalFirstBalls) * 100;
     }
 
-    // Calculate leave percentages for each pin
-    const leavePercentages = {};
+    // Calculate leave-after-second percentages for each pin (exclude strikes)
+    const leaveAfterSecondPercentages = {};
     for (let pin = 1; pin <= 10; pin++) {
-      const leaveCount = userData.pin_leave_frequency_by_pin[pin] || 0;
-      leavePercentages[pin] = (leaveCount / totalFirstBalls) * 100;
+      const leaveCount = userData.pin_leave_after_second_by_pin[pin] || 0;
+      leaveAfterSecondPercentages[pin] = (leaveCount / framesWithSecondThrow) * 100;
     }
 
     return {
@@ -575,7 +595,7 @@ export class PinCarryAnalyzer {
       },
       secondThrow: {
         hit: {},
-        leave: leavePercentages
+        leave: leaveAfterSecondPercentages
       }
     };
   }
