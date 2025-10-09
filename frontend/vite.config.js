@@ -25,10 +25,7 @@ export default defineConfig({
           {
             // Never cache authentication endpoints
             urlPattern: /^https?:.*\/api\/auth\/.*/,
-            handler: 'NetworkOnly',
-            options: {
-              networkTimeoutSeconds: 10
-            }
+            handler: 'NetworkOnly'
           },
           {
             urlPattern: /^https?:.*\/api\/.*/,
