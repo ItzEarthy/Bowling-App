@@ -53,15 +53,15 @@ const PinDiagram = ({ pinData, title, throwNumber = 1 }) => {
     if (isHit) {
       // Continuous warm gradient: low -> high
       // lowColor = #FDE047 (warm yellow), highColor = #DC2626 (dark red)
-      const low = '#fff2b3ff';
-      const high = '#c70000ff';
+      const low = '#FDE047';
+      const high = '#DC2626';
       const t = (p - 1) / 99; // map 1..100 to 0..1
       return interp(low, high, t);
     } else {
       // Continuous cool gradient for leaves: low -> high
       // lowColor = #EEF6FF (very light blue), highColor = #08123A (very dark navy)
-      const low = '#c1e4ffff';
-      const high = '#0000ffff';
+      const low = '#EEF6FF';
+      const high = '#0033ff';
       const t = (p - 1) / 99;
       return interp(low, high, t);
     }
