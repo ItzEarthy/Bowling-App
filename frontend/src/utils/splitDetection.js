@@ -205,29 +205,49 @@ export function calculateSplitDifficulty(splitInfo) {
  * Analyzes a frame to detect splits from pin-by-pin data
  */
 export function analyzeSplitFromFrame(frame) {
-  if (!frame.throws || frame.throws.length === 0) {
+  if (!frame || !frame.throws || frame.throws.length === 0) {
     return null;
   }
 
   // Look at first throw result to determine standing pins
   const firstThrow = frame.throws[0];
-  const pinsKnocked = firstThrow.pins_knocked || 0;
-  
+  // Support both pin-by-pin throw objects ({ pins_knocked }) and numeric throw counts
+  let pinsKnocked = 0;
+  if (typeof firstThrow === 'number') {
+    pinsKnocked = firstThrow;
+  } else if (firstThrow && typeof firstThrow.pins_knocked === 'number') {
+    pinsKnocked = firstThrow.pins_knocked;
+  } else {
+    pinsKnocked = 0;
+  }
+
   if (pinsKnocked === 10) {
     return null; // Strike, no split possible
   }
 
-  // Calculate standing pins after first throw
+  // Calculate standing pins after first throw (best-effort estimate without pin-by-pin data)
   const standingPins = [];
   for (let pin = 1; pin <= 10; pin++) {
-    // This is simplified - in reality we'd need pin-by-pin data
-    // For now, we'll estimate based on pins knocked down
+    // Simplified heuristic: assume the lowest-numbered pins were knocked down
     if (pin > pinsKnocked) {
       standingPins.push(pin);
     }
   }
 
-  return identifySplit(standingPins);
+  // If it's a split (non-adjacent standing pins), prefer returning a known split pattern
+  if (isSplit(standingPins)) {
+    const identified = identifySplit(standingPins);
+    if (identified) return identified;
+    // Return a generic split object when we detect a split but don't have an exact named pattern
+    return {
+      name: 'Split',
+      pins: standingPins,
+      difficulty: 'unknown',
+      description: `Possible split with pins: ${standingPins.join('-')}`
+    };
+  }
+
+  return null;
 }
 
 /**
@@ -241,7 +261,20 @@ export function analyzeSplitFromPins(knockedDownPins) {
     }
   }
 
-  return identifySplit(standingPins);
+  if (standingPins.length === 0) return null;
+
+  if (isSplit(standingPins)) {
+    const identified = identifySplit(standingPins);
+    if (identified) return identified;
+    return {
+      name: 'Split',
+      pins: standingPins,
+      difficulty: 'unknown',
+      description: `Possible split with pins: ${standingPins.join('-')}`
+    };
+  }
+
+  return null;
 }
 
 /**

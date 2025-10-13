@@ -13,83 +13,32 @@ import BallSelector from '../shared/BallSelector';
 import QuickSelectButtons, { QuickSelectLegend } from '../shared/QuickSelectButtons';
 import { saveGameEntryState, loadGameEntryState, clearGameEntryState } from '../../utils/gameEntryPersistence';
 import { withErrorHandling, validateGameData, safeCalculation } from '../../utils/errorHandling';
-import PinSweepAnimation from './PinSweepAnimation';
+// PinSweepAnimation removed; restoring immediate confirm behavior
 
 /**
  * Individual Pin Component for Pin Selection (using pin.png image)
  */
-const Pin = ({ pinNumber, isKnockedDown, isDisabled = false, animationState = null, hidden = false }) => {
-  // animationState: { rotating: degrees, falling: boolean }
-  const getAnimationStyle = () => {
-    if (!animationState) return {};
-    
-    if (animationState.falling) {
-      const delay = animationState.delay || 0;
-      return {
-        animation: `pinFall-${pinNumber} 0.6s ease-out ${delay}ms forwards`,
-        transformOrigin: 'center bottom'
-      };
-    }
-    return {};
-  };
-
-  const getAnimationKeyframes = () => {
-    if (!animationState || !animationState.falling) return '';
-    
-    const rotation = animationState.rotation || 90;
-    const translateX = rotation > 0 ? 20 : -20;
-    
-    return `
-      @keyframes pinFall-${pinNumber} {
-        0% {
-          transform: rotate(0deg) translateY(0);
-          opacity: 1;
-        }
-        50% {
-          transform: rotate(${rotation * 0.5}deg) translateY(10px) translateX(${translateX * 0.3}px);
-          opacity: 0.7;
-        }
-        100% {
-          transform: rotate(${rotation}deg) translateY(40px) translateX(${translateX}px);
-          opacity: 0;
-        }
-      }
-    `;
-  };
-
+const Pin = ({ pinNumber, isKnockedDown, isDisabled = false, hidden = false }) => {
   if (hidden) {
-    // Render an invisible placeholder to maintain layout and prevent duplicate pin rendering
     return <div style={{ width: '100%', height: '100%' }} />;
   }
 
   return (
     <div className="pointer-events-none select-none flex items-center justify-center relative" style={{ width: '100%', height: '100%' }}>
-      <style>{getAnimationKeyframes()}</style>
       <img 
         src="/pin.png"
         alt={`Bowling Pin ${pinNumber}`}
         className={`w-full h-full object-contain drop-shadow-sm ${
           isKnockedDown ? 'opacity-50 grayscale scale-90' : 'opacity-100 scale-100'
-        }`}
+        } transition-all duration-200`}
         style={{
           filter: isKnockedDown ? 'grayscale(100%) brightness(0.7)' : 'none',
-          transformOrigin: '50% 50%',
-          ...getAnimationStyle()
+          transformOrigin: '50% 50%'
         }}
       />
       {/* Pin number overlay - vertically centered over the visual pin */}
-      <div 
-        className="absolute left-1/2 top-1/2 transform -translate-x-1/2 -translate-y-1/2 pointer-events-none"
-      >
-        <span 
-          className={`text-base sm:text-lg font-extrabold drop-shadow-md ${
-            isKnockedDown ? 'text-red-600' : 'text-gray-800'
-          }`}
-          style={{ 
-            fontSize: 'clamp(14px, 2.8vw, 20px)',
-            textShadow: '0 1px 0 rgba(255,255,255,0.8)'
-          }}
-        >
+      <div className="absolute left-1/2 top-1/2 transform -translate-x-1/2 -translate-y-1/2 pointer-events-none">
+        <span className={`text-base sm:text-lg font-extrabold drop-shadow-md ${isKnockedDown ? 'text-red-600' : 'text-gray-800'}`} style={{ fontSize: 'clamp(14px, 2.8vw, 20px)', textShadow: '0 1px 0 rgba(255,255,255,0.8)' }}>
           {pinNumber}
         </span>
       </div>
@@ -134,7 +83,7 @@ const PinDeck = ({
                   disabled={!isAvailable}
                   aria-pressed={isKnocked}
                   aria-label={`Pin ${pinNumber}`}
-                  className={`${animationState && animationState.falling ? '' : 'transition-transform duration-150'} p-0 focus:outline-none focus:ring-2 focus:ring-vintage-red-400 rounded ${
+                  className={`${animationState && animationState.phase ? '' : 'transition-transform duration-150'} p-0 focus:outline-none focus:ring-2 focus:ring-vintage-red-400 rounded ${
                     isKnocked ? 'opacity-60 scale-95' : 'opacity-100 hover:scale-105'
                   } ${isAvailable ? 'cursor-pointer' : 'cursor-not-allowed'}`}
                   style={{
@@ -229,10 +178,8 @@ const PinByPinEntry = ({ onGameComplete, initialData = {} }) => {
   const [houseBallWeights] = useState([8, 9, 10, 11, 12, 13, 14, 15, 16]);
   const [frameBalls, setFrameBalls] = useState({});
   
-  // Sweep animation state
-  const [isAnimating, setIsAnimating] = useState(false);
-  const [pinsToSweep, setPinsToSweep] = useState([]);
-  const [pinAnimations, setPinAnimations] = useState({}); // { pinNumber: { falling: true, rotation: 90 } }
+  // No sweep animation - immediate advancement
+  const [pinAnimations, setPinAnimations] = useState({}); // kept for backward compatibility but not used
 
   // Load saved state on mount
   useEffect(() => {
@@ -533,6 +480,23 @@ const PinByPinEntry = ({ onGameComplete, initialData = {} }) => {
     });
   };
 
+  // Ensure split detection runs whenever selectedPins changes (covers programmatic loads)
+  useEffect(() => {
+    if (currentThrow === 1 && selectedPins.length > 0 && selectedPins.length < 10) {
+      const splitInfo = analyzeSplitFromPins(selectedPins);
+      if (splitInfo) {
+        setCurrentSplit(splitInfo);
+        setShowSplitAdvice(true);
+      } else {
+        setCurrentSplit(null);
+        setShowSplitAdvice(false);
+      }
+    } else {
+      setCurrentSplit(null);
+      setShowSplitAdvice(false);
+    }
+  }, [selectedPins, currentThrow]);
+
   // Per-throw confirm: save the selected pins for the current throw immediately,
   // update scores, and advance to the next throw/frame per the rules.
   const handleConfirmThrow = () => {
@@ -657,9 +621,8 @@ const PinByPinEntry = ({ onGameComplete, initialData = {} }) => {
     }
 
     if (shouldAnimate && remainingPins.length > 0) {
-      // Trigger sweep animation
-      setPinsToSweep(remainingPins);
-      setIsAnimating(true);
+      // Sweep animation removed — proceed immediately
+      advanceToNextThrow(updatedFrames, frameIndex);
     } else {
       // No animation needed, proceed immediately
       advanceToNextThrow(updatedFrames, frameIndex);
@@ -711,37 +674,7 @@ const PinByPinEntry = ({ onGameComplete, initialData = {} }) => {
     setSelectedPins([]);
   };
 
-  // Animation complete handler
-  const handleAnimationComplete = () => {
-    setIsAnimating(false);
-    setPinsToSweep([]);
-    setPinAnimations({});
-    
-    // Now advance to next throw
-    const frameIndex = currentFrame - 1;
-    advanceToNextThrow(frames, frameIndex);
-  };
-
-  // Handle when sweep hits a pin
-  const handlePinHit = (pinNumber, rotation) => {
-    // Add a slight random delay to stagger falls for smoothness
-    const delay = Math.floor(Math.random() * 120); // 0-119 ms
-
-    setPinAnimations(prev => ({
-      ...prev,
-      [pinNumber]: { falling: true, rotation, delay }
-    }));
-
-    // After the pin fall animation finishes (including delay), clear the animation state for that pin
-    const pinDropDuration = 600; // matches animation duration in ms
-    setTimeout(() => {
-      setPinAnimations(prev => {
-        const copy = { ...prev };
-        delete copy[pinNumber];
-        return copy;
-      });
-    }, pinDropDuration + delay + 50);
-  };
+  // Sweep/animation removed — immediate flow is used
 
   // Handle frame click for editing
   const handleFrameClick = (frameNumber) => {
@@ -1116,13 +1049,7 @@ const PinByPinEntry = ({ onGameComplete, initialData = {} }) => {
                   pinAnimations={pinAnimations}
                 />
                 
-                {/* Sweep Animation Overlay */}
-                <PinSweepAnimation 
-                  isAnimating={isAnimating}
-                  onAnimationComplete={handleAnimationComplete}
-                  remainingPins={pinsToSweep}
-                  onPinHit={handlePinHit}
-                />
+                {/* Sweep animation removed - immediate behavior restored */}
               </div>
 
               {/* Selected Pins Display - Compact */}
@@ -1245,12 +1172,9 @@ const PinByPinEntry = ({ onGameComplete, initialData = {} }) => {
                   onClick={handleConfirmThrow}
                   className="w-full"
                   size="lg"
-                  disabled={isAnimating}
                 >
                   <Target className="w-4 h-4 mr-2" />
-                  {isAnimating ? (
-                    'Animation in progress...'
-                  ) : currentFrameThrows.length >= currentThrow ? (
+                  {currentFrameThrows.length >= currentThrow ? (
                     `Update Throw ${currentThrow} (${selectedPins.length} Pin${selectedPins.length !== 1 ? 's' : ''})`
                   ) : (
                     `Confirm ${selectedPins.length} Pin${selectedPins.length !== 1 ? 's' : ''}`

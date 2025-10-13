@@ -5,6 +5,7 @@ import Button from '../ui/Button';
 import Input from '../ui/Input';
 import BowlingScoreCalculator from '../../utils/bowlingScoring';
 import { ballAPI } from '../../lib/api';
+import { analyzeSplitFromFrame } from '../../utils/splitDetection';
 import BallSelector from '../shared/BallSelector';
 import QuickSelectButtons, { QuickSelectLegend } from '../shared/QuickSelectButtons';
 import { saveGameEntryState, loadGameEntryState, clearGameEntryState } from '../../utils/gameEntryPersistence';
@@ -451,24 +452,38 @@ const FrameByFrameEntry = ({ onGameComplete, initialData = {} }) => {
             );
           })}
 
-          {/* Split Tracking */}
-          {selectedFrame < 10 && frames[selectedFrame - 1]?.throws?.[0] > 0 && frames[selectedFrame - 1]?.throws?.[0] < 10 && (
-            <div className="bg-orange-50 border border-orange-200 rounded-lg p-3">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center space-x-2">
-                  <AlertTriangle className="w-4 h-4 text-orange-600" />
-                  <span className="font-medium text-orange-900 text-sm">Split?</span>
-                </div>
-                <Button
-                  variant={splits[selectedFrame] ? "primary" : "outline"}
-                  size="sm"
-                  onClick={() => handleSplitToggle(selectedFrame)}
-                >
-                  {splits[selectedFrame] ? "Marked" : "Mark Split"}
-                </Button>
-              </div>
-            </div>
-          )}
+          {/* Split Tracking: only show if an actual split is detected for this frame (best-effort) */}
+          {(() => {
+            const frame = frames[selectedFrame - 1];
+            const firstThrow = frame?.throws?.[0];
+            // Only consider frames 1-9 and when first throw exists and is not a strike
+            if (selectedFrame < 10 && typeof firstThrow === 'number' && firstThrow > 0 && firstThrow < 10) {
+              const splitInfo = analyzeSplitFromFrame(frame);
+              if (splitInfo) {
+                return (
+                  <div className="bg-orange-50 border border-orange-200 rounded-lg p-3">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center space-x-2">
+                        <AlertTriangle className="w-4 h-4 text-orange-600" />
+                        <div>
+                          <div className="font-medium text-orange-900 text-sm">Split detected</div>
+                          <div className="text-xs text-orange-700">{Array.isArray(splitInfo.pins) ? `Pins: ${splitInfo.pins.join('-')}` : splitInfo.name}</div>
+                        </div>
+                      </div>
+                      <Button
+                        variant={splits[selectedFrame] ? "primary" : "outline"}
+                        size="sm"
+                        onClick={() => handleSplitToggle(selectedFrame)}
+                      >
+                        {splits[selectedFrame] ? "Marked" : "Mark Split"}
+                      </Button>
+                    </div>
+                  </div>
+                );
+              }
+            }
+            return null;
+          })()}
         </CardContent>
       </Card>
 

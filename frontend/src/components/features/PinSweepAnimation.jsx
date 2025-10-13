@@ -35,7 +35,7 @@ const PinSweepAnimation = ({
     // Track which pins have been hit
     const hitPins = new Set();
 
-    // Animate sweep bar moving from bottom to top
+  // Animate sweep bar moving from bottom to top
     let progress = 0;
     const sweepDuration = 1000; // ms
     const startTime = Date.now();
@@ -56,9 +56,8 @@ const PinSweepAnimation = ({
           if (position <= pinY && position >= pinY - 5) {
             hitPins.add(pinNum);
             // Generate random rotation direction (-90 to 90 degrees, favoring sides)
-            const randomRotation = Math.random() > 0.5 
-              ? 60 + Math.random() * 30  // Right: 60-90
-              : -(60 + Math.random() * 30); // Left: -60 to -90
+            // Full random rotation between -90 and +90 degrees
+            const randomRotation = (Math.random() * 180) - 90;
             
             if (onPinHit) {
               onPinHit(pinNum, randomRotation);
@@ -70,12 +69,14 @@ const PinSweepAnimation = ({
       if (progress < 1) {
         requestAnimationFrame(animateSweep);
       } else {
-        // Sweep complete - wait for pins to finish falling
+        // Sweep complete - wait sufficiently long for per-pin sequences to finish
+        // Per-pin sequence: max delay (120ms) + fall (500ms) + hidden (1000ms) + rise (500ms)
+        const maxWait = 120 + 500 + 1000 + 500 + 50; // buffer
         setTimeout(() => {
           if (onAnimationComplete) {
             onAnimationComplete();
           }
-        }, 600); // Pin drop duration
+        }, maxWait);
       }
     };
 
